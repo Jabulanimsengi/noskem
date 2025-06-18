@@ -1,26 +1,32 @@
 // File: app/components/Header.tsx
 
-import { createClient } from '../utils/supabase/server'; // Correct path
+import { createClient } from '../utils/supabase/server';
 import AuthButton from './AuthButton';
 import Link from 'next/link';
-import { FaCoins } from 'react-icons/fa'; // We will install this icon library next
+
+// Define the shape of the profile data we need
+type Profile = {
+    username: string | null;
+    credit_balance: number;
+    role: string | null;
+};
 
 export default async function Header() {
   const supabase = await createClient();
 
-  // Fetch the current user session
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // First, get the user from the current session
+  const { data: { user } } = await supabase.auth.getUser();
 
-  let userProfile = null;
+  let userProfile: Profile | null = null;
+
+  // ONLY if a user exists, then fetch their profile data from the database
   if (user) {
-    // If a user is logged in, fetch their profile data, including the credit balance
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('username, credit_balance')
+      .select('username, credit_balance, role')
       .eq('id', user.id)
       .single();
+    
     userProfile = profileData;
   }
 
@@ -31,7 +37,7 @@ export default async function Header() {
           Marketplace
         </Link>
         
-        {/* Pass both the user and their profile to the AuthButton component */}
+        {/* Pass both the user object and the fetched profile object */}
         <AuthButton user={user} profile={userProfile} />
       </div>
     </nav>
