@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { type RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 // Define the shape of a chat message
 interface Message {
@@ -26,51 +27,52 @@ export default function ChatInterface({ orderId, currentUserId, recipientId }: C
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
-    // Unique channel name for this specific order chat
     const roomId = `chat_order_${orderId}`;
 
-    // Function to scroll to the bottom of the chat
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    // Fetch initial messages when the component loads
+    // Fetch initial messages
     useEffect(() => {
         const fetchMessages = async () => {
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('chat_messages')
                 .select('*')
                 .eq('room_id', roomId)
                 .order('created_at', { ascending: true });
 
             if (data) {
-                setMessages(data);
+                setMessages(data as Message[]);
             }
         };
-
         fetchMessages();
     }, [roomId, supabase]);
     
-    // Subscribe to real-time updates for new messages
+    // Subscribe to real-time updates for new messages from OTHERS
     useEffect(() => {
+        const handleNewMessage = (payload: RealtimePostgresChangesPayload<{ [key: string]: any }>) => {
+            const receivedMessage = payload.new as Message;
+            // Only add the message if it's from the other user to avoid duplicates
+            if (receivedMessage.sender_id !== currentUserId) {
+                setMessages((currentMessages) => [...currentMessages, receivedMessage]);
+            }
+        };
+
         const channel = supabase
             .channel(roomId)
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
-                (payload) => {
-                    setMessages((currentMessages) => [...currentMessages, payload.new as Message]);
-                }
+                handleNewMessage
             )
             .subscribe();
 
-        // Clean up the subscription when the component unmounts
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [supabase, roomId]);
+    }, [supabase, roomId, currentUserId]);
 
-    // Scroll to bottom whenever new messages are added
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
@@ -78,21 +80,32 @@ export default function ChatInterface({ orderId, currentUserId, recipientId }: C
     // Handle sending a new message
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (newMessage.trim() === '') return;
+        const messageText = newMessage.trim();
+        if (messageText === '') return;
 
-        const { error } = await supabase
+        // --- THIS IS THE FIX ---
+        // 1. Immediately clear the input field
+        setNewMessage('');
+
+        // 2. Insert the new message and use .select() to get the created row back
+        const { data: insertedMessage, error } = await supabase
             .from('chat_messages')
             .insert({
                 room_id: roomId,
                 sender_id: currentUserId,
                 recipient_id: recipientId,
-                message: newMessage.trim(),
-            });
+                message: messageText,
+            })
+            .select()
+            .single();
 
         if (error) {
             console.error('Error sending message:', error);
-        } else {
-            setNewMessage(''); // Clear the input box
+            // Optional: Re-populate the input box with the failed message
+            setNewMessage(messageText); 
+        } else if (insertedMessage) {
+            // 3. Manually add the new message to our local state for an instant update.
+            setMessages(currentMessages => [...currentMessages, insertedMessage as Message]);
         }
     };
 
