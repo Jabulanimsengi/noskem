@@ -3,9 +3,8 @@
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { type User } from '@supabase/supabase-js';
-import Link from 'next/link'; // <-- Import Link
+import Link from 'next/link';
 
-// The 'user' prop is passed from a Server Component
 export default function AuthButton({ user }: { user: User | null }) {
   const router = useRouter();
   const supabase = createClient();
@@ -21,8 +20,16 @@ export default function AuthButton({ user }: { user: User | null }) {
 
   return user ? (
     <div className="flex items-center gap-4">
-      <span className="text-sm text-gray-300">Hey, {user.email}</span>
-      {/* ADD THIS NEW LINK */}
+      <span className="text-sm text-gray-300 hidden sm:block">Hey, {user.email}</span>
+      
+      {/* ADD THIS NEW "MY ORDERS" LINK */}
+      <Link
+        href="/account/orders"
+        className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700"
+      >
+        My Orders
+      </Link>
+
       <Link
         href="/items/new"
         className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
