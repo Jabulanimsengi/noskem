@@ -8,6 +8,7 @@ import { type User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { FaCoins } from 'react-icons/fa';
 
+// This interface defines the shape of the data the component expects.
 interface AuthButtonProps {
     user: User | null;
     profile: {
@@ -30,12 +31,24 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
     router.push('/auth');
   };
 
-  // Check if both user and profile data have been successfully loaded
+  // Check if both user and profile data have been successfully loaded from the server.
   return user && profile ? (
     <div className="flex items-center gap-2 sm:gap-4">
-      {/* Display the user's email from the 'user' object */}
+      {/* Display a welcome message on larger screens */}
       <span className="text-sm text-gray-300 hidden lg:block">Hey, {user.email}</span>
 
+      {/* --- ADMIN & AGENT LINKS --- */}
+      {/* Conditionally render the "Admin" link only for admins */}
+      {profile.role === 'admin' && (
+        <Link
+          href="/admin/users"
+          className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+        >
+          Admin
+        </Link>
+      )}
+
+      {/* Conditionally render the "Agent" link for agents and admins */}
       {(profile.role === 'agent' || profile.role === 'admin') && (
         <Link
           href="/agent/dashboard"
@@ -45,17 +58,19 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
         </Link>
       )}
 
+      {/* --- STANDARD USER LINKS --- */}
       <Link href="/credits/buy" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-yellow-300 bg-gray-700 rounded-md hover:bg-gray-600">
         <FaCoins />
+        {/* Show full text on small screens and up, just the number on extra small screens */}
         <span className="hidden sm:inline">{profile.credit_balance} Credits</span>
         <span className="sm:hidden">{profile.credit_balance}</span>
       </Link>
       
       <Link
-        href="/account/orders"
+        href="/account/dashboard/orders"
         className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 hidden md:block"
       >
-        My Orders
+        My Dashboard
       </Link>
 
       <Link
@@ -73,6 +88,7 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
       </button>
     </div>
   ) : (
+    // If no user is logged in, show the "Sign In" button.
     <button
       onClick={handleSignIn}
       className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"

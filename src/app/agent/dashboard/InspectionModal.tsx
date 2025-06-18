@@ -3,7 +3,9 @@
 'use client';
 
 import { useFormState, useFormStatus } from 'react-dom';
-import { fileInspectionReport } from './actions';
+// --- THIS IS THE FIX ---
+// Import the action from the correct file in the same directory.
+import { fileInspectionReport } from './actions'; 
 import { useEffect } from 'react';
 
 // The initial state for our form
