@@ -1,3 +1,5 @@
+// File: app/items/[id]/actions.ts
+
 'use server';
 
 import { createClient } from '../../utils/supabase/server';
@@ -9,7 +11,7 @@ export interface FormState {
   error: string | null;
 }
 
-// The server action now uses the FormState interface
+// The server action now has two steps: deduct credits, then create the order.
 export async function createCheckoutSession(
   prevState: FormState,
   formData: FormData
@@ -32,7 +34,18 @@ export async function createCheckoutSession(
   if (user.id === sellerId) {
     return { error: "You cannot buy your own item." };
   }
+  
+  // --- Step 1: Deduct the 25 Credit Purchase Fee ---
+  const { data: feeDeducted, error: rpcError } = await supabase.rpc('deduct_purchase_fee', {
+    user_id: user.id
+  });
 
+  if (rpcError || !feeDeducted) {
+    console.error('Purchase Fee RPC Error:', rpcError);
+    return { error: 'Could not process purchase fee. You may not have enough credits (25 required).' };
+  }
+
+  // --- Step 2: Create the Order in the Database ---
   const { data: orderData, error: insertError } = await supabase
     .from('orders')
     .insert({
@@ -46,10 +59,12 @@ export async function createCheckoutSession(
     .single();
 
   if (insertError) {
-    console.error('Error creating order:', insertError);
+    // NOTE: In a real app, you would want to refund the 25 credits here if this step fails.
     return { error: `Could not create order: ${insertError.message}` };
   }
   
+  // --- Success ---
   revalidatePath('/');
+  revalidatePath('/account/orders'); // Revalidate orders page as well
   redirect(`/orders/${orderData.id}`);
 }

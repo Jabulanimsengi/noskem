@@ -1,10 +1,10 @@
+// File: app/items/[id]/BuyNowForm.tsx
+
 'use client';
 
 import { useFormState, useFormStatus } from 'react-dom';
-// Import the FormState interface from our actions file
 import { createCheckoutSession, type FormState } from './actions';
 
-// Define the initial state using our new interface
 const initialState: FormState = {
   error: null,
 };
@@ -19,7 +19,7 @@ function SubmitButton() {
       disabled={pending}
       className="w-full px-6 py-3 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
     >
-      {pending ? 'Processing...' : 'Buy Now'}
+      {pending ? 'Processing...' : 'Proceed to Payment'}
     </button>
   );
 }
@@ -34,7 +34,6 @@ export default function BuyNowForm({
   sellerId: string;
   finalAmount: number;
 }) {
-  // Wire up the hook to our server action and initial state
   const [state, formAction] = useFormState(createCheckoutSession, initialState);
 
   return (
@@ -50,6 +49,12 @@ export default function BuyNowForm({
           {state.error}
         </p>
       )}
+      
+      {/* --- UI UPDATE --- */}
+      {/* Inform the user about the credit fee */}
+      <div className="text-center text-sm text-gray-400">
+        A fee of <span className="font-bold text-yellow-400">25 credits</span> will be charged to proceed.
+      </div>
 
       <SubmitButton />
     </form>
