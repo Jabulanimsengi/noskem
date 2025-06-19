@@ -6,6 +6,7 @@ import Footer from "./components/Footer";
 import { ChatProvider } from "@/context/ChatContext";
 import FloatingChatManager from "./components/FloatingChatManager";
 import { ToastProvider } from "@/context/ToastContext";
+import Script from "next/script"; // Import the Next.js Script component
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,6 +35,12 @@ export default function RootLayout({
             </div>
           </ChatProvider>
         </ToastProvider>
+        
+        {/* --- FIX ---
+            Add the Paystack inline script here. 
+            It will be loaded on every page, making it available for payments.
+        */}
+        <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
       </body>
     </html>
   );

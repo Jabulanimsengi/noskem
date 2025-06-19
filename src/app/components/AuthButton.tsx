@@ -1,4 +1,3 @@
-// src/app/components/AuthButton.tsx
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -19,14 +18,21 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
     router.refresh();
   };
 
+  // If the user is logged out, show both Sign In and Sign Up buttons
   if (!user || !profile) {
     return (
-      <Link href="/auth" className="px-6 py-2 border-2 border-brand text-brand font-semibold rounded-lg hover:bg-brand hover:text-white transition-all">
-        Sign In
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link href="/auth" className="px-4 py-2 text-sm font-semibold text-brand border border-brand rounded-lg hover:bg-brand/10 transition-colors">
+          Sign In
+        </Link>
+        <Link href="/auth" className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors shadow-sm">
+          Sign Up
+        </Link>
+      </div>
     );
   }
 
+  // If the user is logged in, show their dashboard and credit info
   return (
     <div className="flex items-center gap-4">
       {profile.role === 'admin' && (

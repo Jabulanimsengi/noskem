@@ -1,9 +1,7 @@
-// src/app/chat/page.tsx
-
 import { createClient } from '../utils/supabase/server';
 import { redirect } from 'next/navigation';
-import ConversationItem from './ConversationItem'; // Import the new component
-import { type Conversation } from '@/types'; // Import the shared type
+import ConversationItem from './ConversationItem';
+import { type Conversation } from '@/types';
 
 export default async function ChatHistoryPage() {
     const supabase = await createClient();

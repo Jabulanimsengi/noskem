@@ -1,11 +1,16 @@
 'use client';
 
 import { useChat } from '@/context/ChatContext';
-import { type Conversation } from '@/types'; // We'll update this type next
+import { type Conversation } from '@/types';
 import Avatar from '../components/Avatar';
 
 export default function ConversationItem({ convo }: { convo: Conversation }) {
     const { openChat } = useChat();
+
+    // Ensure convo and its nested properties exist before trying to access them
+    if (!convo || !convo.other_user || !convo.item) {
+        return null; // Don't render if data is incomplete
+    }
 
     const handleOpenChat = () => {
         openChat({

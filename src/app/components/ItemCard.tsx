@@ -1,5 +1,3 @@
-// File: src/app/components/ItemCard.tsx
-
 'use client';
 
 import { useState } from 'react';
@@ -29,8 +27,6 @@ export default function ItemCard({ item }: { item: Item }) {
     finalImageUrl = imagesArray[0];
   }
 
-  // --- FIX ---
-  // The placeholder URL now requests a .png file to avoid SVG errors.
   const sellerAvatarUrl = item.profiles?.avatar_url || `https://placehold.co/32x32/0891B2/ffffff.png?text=${item.profiles?.username?.charAt(0) || 'S'}`;
 
   return (
@@ -51,8 +47,6 @@ export default function ItemCard({ item }: { item: Item }) {
           <div className="p-4 flex flex-col flex-grow">
               <h3 className="text-lg font-bold text-text-primary truncate">{item.title}</h3>
               
-              {/* --- FIX --- 
-                  This block is now cleaner to prevent duplication. */}
               {item.profiles && (
                   <div className="flex items-center gap-2 mt-2">
                       <Image 
@@ -71,15 +65,18 @@ export default function ItemCard({ item }: { item: Item }) {
               </p>
 
               <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex gap-2 w-full">
+                  {/* --- FIX IS HERE --- */}
+                  {/* The `flex-1` class was removed from the buttons and `justify-center` was added here */}
+                  <div className="flex gap-2 justify-center">
                       <button 
                         onClick={() => setIsOfferModalOpen(true)} 
-                        className="flex-1 px-4 py-2 text-sm font-semibold text-brand border-2 border-brand rounded-lg hover:bg-brand/10 transition-colors"
+                        className="px-4 py-2 text-sm font-semibold text-brand border-2 border-brand rounded-lg hover:bg-brand/10 transition-colors"
                       >
                           Make Offer
                       </button>
+                      
                       {item.buy_now_price && (
-                          <Link href={`/items/${item.id}`} className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark text-center">
+                          <Link href={`/items/${item.id}`} className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark text-center">
                               Buy Now
                           </Link>
                       )}
