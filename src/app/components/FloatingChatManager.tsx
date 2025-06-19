@@ -10,7 +10,6 @@ export default function FloatingChatManager() {
     const { openChats } = useChat();
     const [user, setUser] = useState<User | null>(null);
 
-    // We need to get the current user on the client side
     useEffect(() => {
         const supabase = createClient();
         const fetchUser = async () => {
@@ -31,6 +30,7 @@ export default function FloatingChatManager() {
                     key={chat.roomId}
                     chat={chat}
                     currentUserId={user.id}
+                    currentUser={user} // Pass the full user object
                 />
             ))}
         </div>
