@@ -5,7 +5,6 @@
 import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-// Define the shape of our form state for handling errors
 export interface ListItemFormState {
   error: string | null;
   success: boolean;
@@ -37,8 +36,12 @@ export async function listItemAction(
   const description = formData.get('description') as string;
   const price = formData.get('price') as string;
   const condition = formData.get('condition') as string;
+  const categoryId = formData.get('categoryId') as string; // Get the category ID
   const imageFiles = formData.getAll('images') as File[];
 
+  if (!categoryId) {
+    return { error: 'Please select a category for your item.', success: false };
+  }
   if (imageFiles.length === 0 || imageFiles[0].size === 0) {
       return { error: 'Please upload at least one image.', success: false };
   }
@@ -53,7 +56,6 @@ export async function listItemAction(
 
     if (uploadError) {
       // NOTE: In a real app, you would want to refund the credits here.
-      // For now, we'll just show an error.
       return { error: `Image upload failed: ${uploadError.message}`, success: false };
     }
     
@@ -70,6 +72,7 @@ export async function listItemAction(
     description,
     buy_now_price: parseFloat(price),
     condition,
+    category_id: parseInt(categoryId), // Save the category ID
     images: uploadedImageUrls,
     status: 'available',
   });

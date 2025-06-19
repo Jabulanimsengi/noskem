@@ -7,7 +7,8 @@ import { useFormState, useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { listItemAction, type ListItemFormState } from './actions';
 import { FaTimes } from 'react-icons/fa';
-import Image from 'next/image'; // <-- This is the missing line
+import Image from 'next/image';
+import { type Category } from '@/types'; // Import the Category type
 
 const initialState: ListItemFormState = { error: null, success: false };
 
@@ -20,41 +21,31 @@ function SubmitButton() {
   );
 }
 
-export default function NewItemForm() {
+// The component now accepts a `categories` prop
+export default function NewItemForm({ categories }: { categories: Category[] }) {
   const router = useRouter();
   const [state, formAction] = useFormState(listItemAction, initialState);
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const MAX_IMAGES = 5;
 
-  // Handle image selection
+  // (All the existing image handling logic remains the same)
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
       const remainingSlots = MAX_IMAGES - images.length;
       const filesToAdd = newFiles.slice(0, remainingSlots);
-      
       setImages(prev => [...prev, ...filesToAdd]);
     }
   };
-
-  // Handle deleting a selected image
   const handleRemoveImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index));
   };
-
-  // Generate or revoke object URLs for previews
   useEffect(() => {
     const newPreviews = images.map(file => URL.createObjectURL(file));
     setImagePreviews(newPreviews);
-    
-    // Cleanup function to revoke URLs on unmount or when images change
-    return () => {
-      newPreviews.forEach(url => URL.revokeObjectURL(url));
-    };
+    return () => { newPreviews.forEach(url => URL.revokeObjectURL(url)); };
   }, [images]);
-  
-  // Redirect on success
   useEffect(() => {
     if (state.success) {
       alert('Your item has been listed successfully!');
@@ -82,7 +73,20 @@ export default function NewItemForm() {
             <label htmlFor="price" className={labelStyles}>Price (R)</label>
             <input name="price" id="price" type="number" step="0.01" required className={inputStyles}/>
         </div>
-        {/* We would add the category dropdown here in a future step */}
+        
+        {/* Category Dropdown */}
+        <div>
+          <label htmlFor="categoryId" className={labelStyles}>Category</label>
+          <select name="categoryId" id="categoryId" required className={inputStyles}>
+            <option value="" disabled>Select a category</option>
+            {categories.map(category => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        
         <div>
           <label htmlFor="condition" className={labelStyles}>Condition</label>
           <select name="condition" id="condition" required defaultValue="used_good" className={inputStyles}>
@@ -93,32 +97,17 @@ export default function NewItemForm() {
           </select>
         </div>
 
-        {/* Image Uploader */}
         <div>
           <label htmlFor="images" className={labelStyles}>Images ({images.length}/{MAX_IMAGES})</label>
-          <input 
-            name="images" 
-            id="images" 
-            type="file" 
-            multiple 
-            accept="image/*" 
-            onChange={handleImageChange}
-            disabled={images.length >= MAX_IMAGES}
-            className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 disabled:opacity-50"
-          />
+          <input name="images" id="images" type="file" multiple accept="image/*" onChange={handleImageChange} disabled={images.length >= MAX_IMAGES} className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 disabled:opacity-50"/>
         </div>
 
-        {/* Image Previews */}
         {imagePreviews.length > 0 && (
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
             {imagePreviews.map((previewUrl, index) => (
               <div key={index} className="relative aspect-square">
                 <Image src={previewUrl} alt={`Preview ${index + 1}`} fill className="rounded-md object-cover"/>
-                <button 
-                  type="button" 
-                  onClick={() => handleRemoveImage(index)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600"
-                >
+                <button type="button" onClick={() => handleRemoveImage(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
                   <FaTimes size={12}/>
                 </button>
               </div>

@@ -5,35 +5,51 @@
 import { createClient } from '../../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-// Define the shape of our form's state
 export interface UpdateProfileState {
   message: string;
   type: 'success' | 'error' | null;
 }
 
-// --- THIS IS THE FIX ---
-// We explicitly define that the function will always return a Promise
-// that resolves to our UpdateProfileState type.
 export async function updateUserProfile(
   prevState: UpdateProfileState,
   formData: FormData
-): Promise<UpdateProfileState> { // Add the return type here
+): Promise<UpdateProfileState> {
   const supabase = await createClient();
 
-  // 1. Get the current user
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return { message: 'Authentication failed. Please log in again.', type: 'error' };
   }
 
-  // 2. Get the data from the form
+  // Handle Avatar Upload
+  let avatarUrl: string | undefined = undefined;
+  const avatarFile = formData.get('avatar') as File;
+
+  if (avatarFile && avatarFile.size > 0) {
+    const fileExt = avatarFile.name.split('.').pop();
+    const filePath = `${user.id}/${Math.random()}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, avatarFile);
+
+    if (uploadError) {
+      console.error('Avatar Upload Error:', uploadError);
+      return { message: 'Failed to upload new avatar.', type: 'error' };
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    avatarUrl = publicUrl;
+  }
+
+  // Get other form data
   const username = formData.get('username') as string;
   const firstName = formData.get('firstName') as string;
   const lastName = formData.get('lastName') as string;
   const companyName = formData.get('companyName') as string;
 
-  // 3. Construct the object with the data to be updated
-  const profileData = {
+  // Construct the object with data to be updated
+  const profileData: { [key: string]: any } = {
     username,
     first_name: firstName,
     last_name: lastName,
@@ -41,7 +57,12 @@ export async function updateUserProfile(
     updated_at: new Date().toISOString(),
   };
 
-  // 4. Update the user's record in the 'profiles' table
+  // Only add avatar_url to the update object if a new one was uploaded
+  if (avatarUrl) {
+    profileData.avatar_url = avatarUrl;
+  }
+
+  // Update the user's record in the 'profiles' table
   const { error } = await supabase
     .from('profiles')
     .update(profileData)
@@ -55,8 +76,8 @@ export async function updateUserProfile(
     return { message: 'Failed to update your profile.', type: 'error' };
   }
 
-  // 5. Revalidate paths to show the new data everywhere
-  revalidatePath('/', 'layout');
+  // Revalidate paths to show the new data everywhere
+  revalidatePath('/', 'layout'); // This refreshes the header and other layout components
 
   return { message: 'Profile updated successfully!', type: 'success' };
 }

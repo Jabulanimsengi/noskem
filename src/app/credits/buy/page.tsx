@@ -1,9 +1,9 @@
-// File: app/credits/buy/page.tsx
+// src/app/credits/buy/page.tsx
 
 import { createClient } from '../../utils/supabase/server';
 import { redirect } from 'next/navigation';
-import { FaCoins, FaCheckCircle } from 'react-icons/fa';
-import BuyCreditsButton from './BuyCreditsButton'; // Import our new component
+import { FaCheckCircle } from 'react-icons/fa';
+import BuyCreditsButton from './BuyCreditsButton';
 
 type CreditPackage = {
     id: number;
@@ -12,8 +12,11 @@ type CreditPackage = {
     credits_amount: number;
     price_zar: number;
     bonus_credits: number;
-    features: string[];
+    is_popular: boolean;
 };
+
+const LISTING_FEE = 25;
+const PURCHASE_FEE = 25;
 
 export default async function BuyCreditsPage() {
     const supabase = await createClient();
@@ -33,49 +36,62 @@ export default async function BuyCreditsPage() {
     }
 
     return (
-        <div className="container mx-auto max-w-4xl p-4 sm:p-6">
-            <div className="text-center mb-10">
-                <h1 className="text-4xl font-bold text-white">Buy Credits</h1>
-                <p className="text-lg text-gray-400 mt-2">Choose a package that suits your needs.</p>
+        <div className="container mx-auto max-w-7xl p-4 sm:p-6 lg:py-12">
+            <div className="text-center mb-12">
+                <h1 className="text-4xl font-bold text-text-primary">Buy Credits</h1>
+                <p className="text-lg text-text-secondary mt-2">Choose a package that suits your needs.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {(packages as CreditPackage[] || []).map((pkg) => (
-                    <div key={pkg.id} className="bg-gray-800 rounded-lg shadow-lg p-6 flex flex-col">
-                        <div className="text-center">
-                            <h2 className="text-2xl font-bold text-indigo-400">{pkg.name}</h2>
-                            <p className="text-gray-400 text-sm mb-4">{pkg.description}</p>
-                            <div className="flex justify-center items-baseline my-4">
-                                <span className="text-4xl font-extrabold text-white">{pkg.credits_amount}</span>
-                                <span className="text-xl text-gray-300 ml-1">Credits</span>
-                            </div>
-                            {pkg.bonus_credits > 0 && (
-                                <p className="text-yellow-400 font-semibold mb-4">+ {pkg.bonus_credits} Bonus!</p>
-                            )}
-                        </div>
-                        
-                        <ul className="space-y-2 text-sm text-gray-300 mb-6 flex-grow">
-                            {(pkg.features || []).map((feature, index) => (
-                                <li key={index} className="flex items-center gap-2">
-                                    <FaCheckCircle className="text-green-500 flex-shrink-0" />
-                                    <span>{feature}</span>
-                                </li>
-                            ))}
-                        </ul>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-end">
+                {(packages as CreditPackage[] || []).map((pkg) => {
+                    const totalCredits = pkg.credits_amount + pkg.bonus_credits;
+                    const listingsPossible = Math.floor(totalCredits / LISTING_FEE);
+                    const purchasesPossible = Math.floor(totalCredits / PURCHASE_FEE);
 
-                        <div className="text-center mt-auto">
-                            <p className="text-3xl font-bold text-white mb-4">
-                                R{pkg.price_zar}
-                            </p>
-                            {/* --- USE THE NEW FUNCTIONAL BUTTON --- */}
-                            <BuyCreditsButton
-                                packageId={pkg.id}
-                                userEmail={user.email || ''}
-                                priceZAR={pkg.price_zar}
-                            />
+                    return (
+                        <div key={pkg.id} className={`
+                            border rounded-xl p-6 text-center shadow-lg transition-all relative flex flex-col bg-surface
+                            ${pkg.is_popular ? 'border-brand-dark border-2 scale-105' : 'border-gray-200 hover:border-brand'}
+                        `}>
+                            {pkg.is_popular && (
+                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-brand-dark text-white px-4 py-1 rounded-full text-sm font-semibold">
+                                    Most Popular
+                                </div>
+                            )}
+                            
+                            <div className="flex-grow">
+                                <h3 className="text-2xl font-bold text-brand">{pkg.name}</h3>
+                                <p className="text-sm text-text-secondary mb-4">{pkg.description}</p>
+                                <div className="my-4">
+                                    <span className="text-5xl font-extrabold text-text-primary">{pkg.credits_amount}</span>
+                                    <span className="text-xl text-text-secondary ml-1">Credits</span>
+                                </div>
+                                {pkg.bonus_credits > 0 && (
+                                    <p className="font-semibold text-green-600 mb-4">+ {pkg.bonus_credits} Bonus Credits!</p>
+                                )}
+                                <ul className="space-y-2 text-sm text-text-secondary mb-6 text-left">
+                                    <li className="flex items-center gap-2">
+                                        <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                                        <span>List up to <strong>{listingsPossible} items</strong></span>
+                                    </li>
+                                    <li className="flex items-center gap-2">
+                                        <FaCheckCircle className="text-green-500 flex-shrink-0" />
+                                        <span>Purchase up to <strong>{purchasesPossible} items</strong></span>
+                                    </li>
+                                </ul>
+                            </div>
+                            
+                            <div className="mt-auto">
+                                <p className="text-3xl font-bold text-text-primary mb-6">R{pkg.price_zar}</p>
+                                <BuyCreditsButton
+                                    packageId={pkg.id}
+                                    userEmail={user.email || ''}
+                                    priceZAR={pkg.price_zar}
+                                />
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

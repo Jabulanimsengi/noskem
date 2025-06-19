@@ -1,34 +1,43 @@
 // src/app/page.tsx
-
 import { createClient } from './utils/supabase/server';
-import ItemCard from './components/ItemCard'; // Import the ItemCard component
+import ItemCard from './components/ItemCard';
+import { type Category } from '@/types';
+import CategoryFilter from './components/CategoryFilter';
+import CreditPackagesSection from './components/CreditPackagesSection';
 
-export default async function HomePage() {
+interface HomePageProps {
+  searchParams: {
+    category?: string;
+  };
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
   const supabase = await createClient();
+  const selectedCategorySlug = searchParams.category;
 
-  // --- UPDATED QUERY ---
-  // This now fetches all item data AND the related seller's profile info (username and avatar_url).
-  const { data: itemsData, error } = await supabase
+  const { data: categoriesData } = await supabase
+    .from('categories')
+    .select('*')
+    .order('name', { ascending: true });
+  const categories: Category[] = categoriesData || [];
+
+  let query = supabase
     .from('items')
-    .select(`
-      id, 
-      title, 
-      buy_now_price, 
-      images,
-      seller_id,
-      profiles (
-        username,
-        avatar_url
-      )
-    `)
-    .eq('status', 'available')
-    .order('created_at', { ascending: false });
+    .select(`id, title, buy_now_price, images, seller_id, profiles (username, avatar_url)`)
+    .eq('status', 'available');
+
+  if (selectedCategorySlug) {
+    const selectedCategory = categories.find(c => c.slug === selectedCategorySlug);
+    if (selectedCategory) {
+      query = query.eq('category_id', selectedCategory.id);
+    }
+  }
+
+  const { data: items, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
-    console.error("Error fetching items for homepage:", error);
+    console.error("Error fetching items:", error.message);
   }
-  
-  const items = itemsData || [];
 
   return (
     <>
@@ -38,19 +47,25 @@ export default async function HomePage() {
       </section>
 
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
-        <h2 className="text-3xl font-bold text-center text-brand-dark mb-12">Featured Items</h2>
-        
-        {items.length > 0 ? (
+        <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-brand-dark">Browse Our Marketplace</h2>
+            <p className="text-lg text-text-secondary mt-2">Find exactly what you're looking for.</p>
+        </div>
+
+        <CategoryFilter categories={categories} />
+
+        {items && items.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {/* The map now uses the new ItemCard component */}
             {items.map((item) => (
               <ItemCard key={item.id} item={item as any} />
             ))}
           </div>
         ) : (
-          <p className="text-center text-text-secondary">No items are currently listed.</p>
+          <p className="text-center text-text-secondary py-10">No items found for this category.</p>
         )}
       </div>
+      
+      <CreditPackagesSection />
     </>
   );
 }

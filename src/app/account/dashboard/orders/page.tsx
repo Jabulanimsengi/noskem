@@ -1,46 +1,40 @@
-// File: app/account/dashboard/orders/page.tsx
+// src/app/account/dashboard/orders/page.tsx
 
 import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import Image from 'next/image';
-import Link from 'next/link';
 import { confirmReceipt, claimSellerFunds } from './actions';
+import OpenChatButton from '@/app/components/OpenChatButton'; // Import the new button
 
-// Define the final shape of the data we will assemble
+// ... (keep the existing type definition and formatStatus function)
 type OrderWithDetails = {
     id: number; final_amount: number; status: string; buyer_id: string; seller_id: string;
     item: { id: number; title: string; images: string[] | null; } | null;
-    seller: { username: string | null; } | null;
-    buyer: { username: string | null; } | null;
+    seller: { id: string; username: string | null; avatar_url: string | null; } | null;
+    buyer: { id: string; username: string | null; avatar_url: string | null; } | null;
 };
-
 const formatStatus = (status: string) => status.replace(/_/g, ' ').toUpperCase();
+
 
 export default async function MyOrdersPage() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { redirect('/auth'); }
 
-    // Fetch orders
+    // Update the query to get the full profile object needed for the chat
     const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select(`id, final_amount, status, item_id, seller_id, buyer_id`)
+        .select(`*, item:items(*), seller:seller_id(*), buyer:buyer_id(*)`)
         .or(`seller_id.eq.${user.id},buyer_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
     if (ordersError) {
         return <p className="text-red-500 text-center p-8">Error fetching your orders.</p>;
     }
-
-    const ordersWithDetails: OrderWithDetails[] = await Promise.all(
-        (ordersData || []).map(async (order) => {
-            const { data: item } = await supabase.from('items').select('id, title, images').eq('id', order.item_id).single();
-            const { data: seller } = await supabase.from('profiles').select('username').eq('id', order.seller_id).single();
-            const { data: buyer } = await supabase.from('profiles').select('username').eq('id', order.buyer_id).single();
-            return { ...order, item, seller, buyer };
-        })
-    );
     
+    // Cast the data to our type
+    const ordersWithDetails: OrderWithDetails[] = ordersData || [];
+
     const buyingOrders = ordersWithDetails.filter(o => o.buyer_id === user.id);
     const sellingOrders = ordersWithDetails.filter(o => o.seller_id === user.id);
 
@@ -69,7 +63,14 @@ export default async function MyOrdersPage() {
                         {perspective === 'buying' && order.status === 'payment_authorized' && (<form action={confirmReceipt.bind(null, order.id)}><button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 whitespace-nowrap">Confirm Receipt</button></form>)}
                         {perspective === 'selling' && order.status === 'completed' && (<form action={claimSellerFunds.bind(null, order.id, payoutAmount)}><button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 whitespace-nowrap">Claim Credits</button></form>)}
                         {order.status === 'funds_paid_out' && (<p className="text-sm text-green-500 font-semibold">Paid Out</p>)}
-                        <Link href={`/chat/${order.id}`} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 whitespace-nowrap">Contact</Link>
+                        {/* Use the new button here */}
+                        <OpenChatButton 
+                            orderId={order.id}
+                            recipientId={otherUser?.id || ''}
+                            recipientUsername={otherUser?.username || 'User'}
+                            recipientAvatar={otherUser?.avatar_url || null}
+                            itemTitle={item?.title || 'this item'}
+                        />
                     </div>
                 </div>
             </div>

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { createClient } from '../../../utils/supabase/client';
 import { updateUserProfile, type UpdateProfileState } from './actions';
+import Avatar from '../../../components/Avatar'; // Import the new Avatar component
 
 type Profile = {
     username: string | null;
@@ -13,6 +14,7 @@ type Profile = {
     first_name: string | null;
     last_name: string | null;
     company_name: string | null;
+    avatar_url: string | null; // Add avatar_url to the profile type
 };
 
 function SubmitButton() {
@@ -42,7 +44,7 @@ export default function ProfilePage() {
       if (user) {
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('username, account_type, first_name, last_name, company_name')
+          .select('username, account_type, first_name, last_name, company_name, avatar_url') // Select avatar_url
           .eq('id', user.id)
           .single();
         setProfile(profileData);
@@ -66,6 +68,16 @@ export default function ProfilePage() {
     <div>
       <h2 className="text-2xl font-semibold text-text-primary mb-6">Edit Profile</h2>
       <form action={formAction} className="space-y-6">
+        
+        {/* Avatar Upload Section */}
+        <div className="flex items-center gap-4">
+            <Avatar src={profile.avatar_url} alt={profile.username || 'user'} size={64} />
+            <div>
+                <label htmlFor="avatar" className="block text-sm font-medium text-text-secondary mb-1">Update Profile Picture</label>
+                <input type="file" name="avatar" id="avatar" accept="image/*" className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20"/>
+            </div>
+        </div>
+
         <div>
           <label htmlFor="username" className="block text-sm font-medium text-text-secondary mb-1">Public Username</label>
           <input id="username" name="username" type="text" defaultValue={profile.username || ''} required className={inputStyles} />
