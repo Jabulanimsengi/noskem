@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { FaBell } from 'react-icons/fa';
 
-// Define the shape of a notification for TypeScript
 type Notification = {
     id: number;
     message: string;
@@ -17,18 +16,16 @@ type Notification = {
 export default async function NotificationsPage() {
     const supabase = await createClient();
 
-    // 1. Secure the page by checking for a logged-in user.
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         redirect('/auth');
     }
 
-    // 2. Fetch all notifications for the current user from the database.
     const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('profile_id', user.id)
-        .order('created_at', { ascending: false }); // Show newest first
+        .order('created_at', { ascending: false });
 
     if (error) {
         console.error("Error fetching notifications:", error.message);
@@ -38,8 +35,8 @@ export default async function NotificationsPage() {
     const notifications: Notification[] = data || [];
 
     return (
-        <div className="bg-gray-800 rounded-lg p-4 sm:p-6">
-            <h2 className="text-2xl font-semibold text-white mb-4">All Notifications</h2>
+        <div>
+            <h2 className="text-2xl font-semibold text-text-primary mb-4">All Notifications</h2>
             
             <div className="space-y-3">
                 {notifications.length > 0 ? (
@@ -50,18 +47,18 @@ export default async function NotificationsPage() {
                             className="block"
                         >
                             <div className={`
-                                p-4 rounded-md transition-colors flex items-start gap-4
+                                p-4 rounded-md transition-colors flex items-start gap-4 border
                                 ${notification.is_read 
-                                    ? 'bg-gray-700/50 hover:bg-gray-700' 
-                                    : 'bg-indigo-900/50 hover:bg-indigo-900/70 border-l-4 border-indigo-500'
+                                    ? 'bg-gray-50 border-gray-200 hover:bg-gray-100' 
+                                    : 'bg-brand/10 border-brand/50 hover:bg-brand/20 border-l-4 border-l-brand'
                                 }
                             `}>
-                                <FaBell className={`mt-1 flex-shrink-0 ${notification.is_read ? 'text-gray-500' : 'text-indigo-400'}`} />
+                                <FaBell className={`mt-1 flex-shrink-0 ${notification.is_read ? 'text-gray-400' : 'text-brand'}`} />
                                 <div>
-                                    <p className={`text-sm ${notification.is_read ? 'text-gray-300' : 'text-white font-semibold'}`}>
+                                    <p className={`text-sm ${notification.is_read ? 'text-text-secondary' : 'text-text-primary font-semibold'}`}>
                                         {notification.message}
                                     </p>
-                                    <p className="text-xs text-gray-400 mt-1">
+                                    <p className="text-xs text-gray-500 mt-1">
                                         {new Date(notification.created_at).toLocaleString('en-ZA', { 
                                             day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' 
                                         })}
@@ -71,7 +68,7 @@ export default async function NotificationsPage() {
                         </Link>
                     ))
                 ) : (
-                    <div className="text-center py-12 text-gray-400">
+                    <div className="text-center py-12 text-text-secondary">
                         <FaBell className="mx-auto text-4xl mb-4" />
                         <p>You have no notifications yet.</p>
                     </div>

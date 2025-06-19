@@ -1,14 +1,24 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+import type { NextConfig } from 'next'
+
+// Get the hostname of your Supabase instance from environment variables
+// This makes the configuration dynamic and secure.
+const supabaseHostname = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname;
+
+const config: NextConfig = {
   images: {
     remotePatterns: [
-      // Use the new URL() syntax for your Supabase hostname
-      new URL('https://llebmpqpassdoczlkawm.supabase.co/storage/v1/object/public/item-images/**'),
-      
-      // Also add the placeholder hostname using the new syntax
-      new URL('https://placehold.co/**'),
+      // Allow images from the placeholder service
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
+      // Allow images from your Supabase storage bucket
+      {
+        protocol: 'https',
+        hostname: supabaseHostname,
+      },
     ],
   },
-};
+}
 
-export default nextConfig;
+export default config

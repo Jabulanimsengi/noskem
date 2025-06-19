@@ -1,56 +1,42 @@
-// File: app/components/Header.tsx
-
+// src/app/components/Header.tsx
 import { createClient } from '../utils/supabase/server';
 import AuthButton from './AuthButton';
 import Link from 'next/link';
-import NotificationBell, { type Notification } from './NotificationBell'; // Import the new component
-
-type Profile = {
-    username: string | null;
-    credit_balance: number;
-    role: string | null;
-};
+import { FaSearch } from 'react-icons/fa';
 
 export default async function Header() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-
-  let userProfile: Profile | null = null;
-  let initialNotifications: Notification[] = [];
-
-  // If a user is logged in, fetch their profile and their notifications
+  let userProfile = null;
   if (user) {
-    // Fetch profile
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('username, credit_balance, role')
-      .eq('id', user.id)
-      .single();
+    const { data: profileData } = await supabase.from('profiles').select('credit_balance, role').eq('id', user.id).single();
     userProfile = profileData;
-
-    // Fetch notifications
-    const { data: notificationData } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('profile_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10); // Get the 10 most recent notifications
-    initialNotifications = notificationData || [];
   }
 
   return (
-    <nav className="w-full border-b border-gray-700 bg-gray-800 sticky top-0 z-50">
-      <div className="container flex items-center justify-between p-4 mx-auto">
-        <Link href="/" className="text-xl font-bold text-white">
-          Marketplace
-        </Link>
-        
-        <div className="flex items-center gap-2">
-            {/* If the user is logged in, show the Notification Bell */}
-            {user && <NotificationBell serverNotifications={initialNotifications} />}
+    <header className="bg-surface shadow-md sticky top-0 z-50">
+      <nav className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-20">
+          <div className="flex-shrink-0">
+            <Link href="/" className="text-3xl font-bold text-brand">
+              MarketHub
+            </Link>
+          </div>
+          <div className="flex-1 max-w-xl mx-8 hidden md:block">
+            <div className="relative">
+              <input
+                type="text"
+                className="w-full px-5 py-3 border-2 border-brand rounded-full outline-none focus:ring-2 focus:ring-brand-light bg-background"
+                placeholder="Search for anything..."
+              />
+              <FaSearch className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400" />
+            </div>
+          </div>
+          <div className="flex items-center">
             <AuthButton user={user} profile={userProfile} />
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }

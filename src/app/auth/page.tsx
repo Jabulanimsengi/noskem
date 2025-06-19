@@ -1,4 +1,4 @@
-// File: app/auth/page.tsx
+// File: src/app/auth/page.tsx
 
 'use client';
 
@@ -27,11 +27,12 @@ export default function AuthPage() {
 
   // UI State
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleAuthAction = async () => {
     setError(null);
+    setIsLoading(true);
 
-    // Common data for both account types
     const commonOptions = {
       data: {
         username: username,
@@ -39,12 +40,10 @@ export default function AuthPage() {
       },
     };
 
-    // Prepare the specific data based on account type
     const profileData = accountType === 'individual'
       ? { first_name: firstName, last_name: lastName }
       : { company_name: companyName };
     
-    // Merge common and specific data
     const finalOptions = {
         ...commonOptions,
         data: { ...commonOptions.data, ...profileData }
@@ -65,7 +64,6 @@ export default function AuthPage() {
         router.refresh();
       }
     } else {
-      // Sign In Logic remains the same
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -77,21 +75,21 @@ export default function AuthPage() {
         router.refresh();
       }
     }
+    setIsLoading(false);
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900 py-12">
-      <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-lg shadow-lg">
-        <h1 className="text-3xl font-bold text-center text-white">
+    <div className="flex items-center justify-center min-h-screen bg-background py-12 px-4">
+      <div className="w-full max-w-md p-8 space-y-6 bg-surface rounded-xl shadow-lg">
+        <h1 className="text-3xl font-bold text-center text-text-primary">
           {isSigningUp ? 'Create an Account' : 'Sign In'}
         </h1>
         
-        {/* Sign In / Sign Up Toggle */}
-        <p className="text-center text-gray-400">
+        <p className="text-center text-text-secondary">
           {isSigningUp ? 'Already have an account? ' : "Don't have an account? "}
           <button
             onClick={() => setIsSigningUp(!isSigningUp)}
-            className="font-medium text-indigo-400 hover:text-indigo-300"
+            className="font-medium text-brand hover:text-brand-dark"
           >
             {isSigningUp ? 'Sign In' : 'Sign Up'}
           </button>
@@ -103,63 +101,56 @@ export default function AuthPage() {
             </div>
         )}
         
-        {/* The Form */}
         <div className="space-y-4">
-          {/* Email and Password are always visible */}
           <div>
-            <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-300">Email address</label>
-            <input id="email" name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+            <label htmlFor="email" className="block mb-2 text-sm font-medium text-text-secondary">Email address</label>
+            <input id="email" name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"/>
           </div>
           <div>
-            <label htmlFor="password" className="block mb-2 text-sm font-medium text-gray-300">Password</label>
-            <input id="password" name="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+            <label htmlFor="password" className="block mb-2 text-sm font-medium text-text-secondary">Password</label>
+            <input id="password" name="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"/>
           </div>
 
-          {/* Fields only visible during Sign Up */}
           {isSigningUp && (
             <>
-              <hr className="border-gray-600" />
-              {/* Account Type Toggle */}
+              <hr className="border-gray-200" />
               <div>
-                <label className="block mb-2 text-sm font-medium text-gray-300">Account Type</label>
-                <div className="flex bg-gray-700 rounded-md p-1">
-                  <button type="button" onClick={() => setAccountType('individual')} className={`w-1/2 py-2 rounded-md transition-colors ${accountType === 'individual' ? 'bg-indigo-600 text-white' : 'text-gray-300'}`}>Individual</button>
-                  <button type="button" onClick={() => setAccountType('business')} className={`w-1/2 py-2 rounded-md transition-colors ${accountType === 'business' ? 'bg-indigo-600 text-white' : 'text-gray-300'}`}>Business</button>
+                <label className="block mb-2 text-sm font-medium text-text-secondary">Account Type</label>
+                <div className="flex bg-background rounded-md p-1">
+                  <button type="button" onClick={() => setAccountType('individual')} className={`w-1/2 py-2 rounded-md transition-colors ${accountType === 'individual' ? 'bg-brand text-white' : 'text-text-secondary'}`}>Individual</button>
+                  <button type="button" onClick={() => setAccountType('business')} className={`w-1/2 py-2 rounded-md transition-colors ${accountType === 'business' ? 'bg-brand text-white' : 'text-text-secondary'}`}>Business</button>
                 </div>
               </div>
 
-              {/* Username (for all accounts) */}
               <div>
-                <label htmlFor="username" className="block mb-2 text-sm font-medium text-gray-300">Public Username</label>
-                <input id="username" type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                <label htmlFor="username" className="block mb-2 text-sm font-medium text-text-secondary">Public Username</label>
+                <input id="username" type="text" required value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"/>
               </div>
 
-              {/* Dynamic Fields */}
               {accountType === 'individual' ? (
                 <>
                   <div>
-                    <label htmlFor="firstName" className="block mb-2 text-sm font-medium text-gray-300">First Name</label>
-                    <input id="firstName" type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                    <label htmlFor="firstName" className="block mb-2 text-sm font-medium text-text-secondary">First Name</label>
+                    <input id="firstName" type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"/>
                   </div>
                   <div>
-                    <label htmlFor="lastName" className="block mb-2 text-sm font-medium text-gray-300">Last Name</label>
-                    <input id="lastName" type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                    <label htmlFor="lastName" className="block mb-2 text-sm font-medium text-text-secondary">Last Name</label>
+                    <input id="lastName" type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"/>
                   </div>
                 </>
               ) : (
                 <div>
-                  <label htmlFor="companyName" className="block mb-2 text-sm font-medium text-gray-300">Company Name</label>
-                  <input id="companyName" type="text" required value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full px-3 py-2 text-white bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                  <label htmlFor="companyName" className="block mb-2 text-sm font-medium text-text-secondary">Company Name</label>
+                  <input id="companyName" type="text" required value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"/>
                 </div>
               )}
             </>
           )}
         </div>
         
-        {/* Main Action Button */}
         <div>
-          <button onClick={handleAuthAction} className="w-full px-4 py-3 font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none">
-            {isSigningUp ? 'Create Account' : 'Sign In'}
+          <button onClick={handleAuthAction} disabled={isLoading} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark focus:outline-none transition-all shadow-md hover:shadow-lg disabled:bg-gray-400">
+            {isLoading ? 'Processing...' : (isSigningUp ? 'Create Account' : 'Sign In')}
           </button>
         </div>
       </div>

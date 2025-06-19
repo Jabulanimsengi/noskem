@@ -2,7 +2,7 @@
 
 import { createClient } from '../../utils/supabase/server';
 import { redirect } from 'next/navigation';
-import DashboardNav from './DashboardNav'; // We will create this component next
+import DashboardNav from './DashboardNav';
 
 export default async function DashboardLayout({
   children,
@@ -17,17 +17,22 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6">
-      <h1 className="text-3xl font-bold text-white mb-6">My Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Sidebar Navigation */}
-        <aside className="md:col-span-1">
+    <div className="container mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold tracking-tight text-text-primary">My Dashboard</h1>
+        <p className="mt-1 text-lg text-text-secondary">Manage your orders, notifications, and profile.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <aside className="lg:col-span-3">
           <DashboardNav />
         </aside>
 
-        {/* Main Content Area */}
-        <main className="md:col-span-3">
-          {children}
+        <main className="lg:col-span-9">
+          {/* The content area will be a white card with a shadow */}
+          <div className="bg-surface rounded-xl shadow-md p-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>
