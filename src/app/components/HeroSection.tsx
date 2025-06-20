@@ -21,13 +21,11 @@ export const HeroSection: React.FC = () => {
           </p>
           <div className="mt-8">
             <Link href="/items/new">
-                {/* --- FIX IS HERE ---
-                    The button now uses a bright, high-contrast cyan color
-                    with a darker text color for excellent visibility.
-                */}
+                {/* --- FIX IS HERE --- */}
+                {/* Using a bright cyan background with a very dark text color from your palette for maximum visibility. */}
                 <Button 
                     size="lg" 
-                    className="bg-cyan-400 text-cyan-950 hover:bg-cyan-300 font-bold shadow-lg transform hover:scale-105 transition-transform"
+                    className="bg-cyan-400 text-[#033a47] hover:bg-cyan-300 font-bold shadow-lg transform hover:scale-105 transition-transform"
                 >
                     Start Selling Today <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>

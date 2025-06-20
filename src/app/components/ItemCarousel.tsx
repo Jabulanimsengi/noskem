@@ -24,9 +24,10 @@ export default function ItemCarousel({ title, items }: ItemCarouselProps) {
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
       const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollAmount = clientWidth * 0.8; 
       const scrollTo = direction === 'left' 
-        ? scrollLeft - clientWidth 
-        : scrollLeft + clientWidth;
+        ? scrollLeft - scrollAmount
+        : scrollLeft + scrollAmount;
       scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
     }
   };
@@ -47,17 +48,31 @@ export default function ItemCarousel({ title, items }: ItemCarouselProps) {
       <div className="relative group">
         <div 
           ref={scrollRef} 
-          className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide"
+          className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
         >
           {items.map((item) => (
-            <div key={item.id} className="w-64 flex-shrink-0">
+            <div key={item.id} className="w-64 flex-shrink-0 snap-start">
               <ItemCard item={item as any} />
             </div>
           ))}
         </div>
-        {/* Carousel Arrows */}
-        <button onClick={() => scroll('left')} className="absolute top-1/2 -translate-y-1/2 -left-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100" aria-label="Scroll left"><FaChevronLeft /></button>
-        <button onClick={() => scroll('right')} className="absolute top-1/2 -translate-y-1/2 -right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100" aria-label="Scroll right"><FaChevronRight /></button>
+        
+        {/* --- FIX IS HERE --- */}
+        {/* The arrows are now positioned more precisely for vertical centering */}
+        <button 
+            onClick={() => scroll('left')} 
+            className="absolute top-24 -translate-y-1/2 -left-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100" 
+            aria-label="Scroll left"
+        >
+            <FaChevronLeft />
+        </button>
+        <button 
+            onClick={() => scroll('right')} 
+            className="absolute top-24 -translate-y-1/2 -right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100" 
+            aria-label="Scroll right"
+        >
+            <FaChevronRight />
+        </button>
       </div>
     </div>
   );

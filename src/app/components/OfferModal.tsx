@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { createOfferAction, type OfferFormState } from '../offers/actions';
 import { useToast } from '@/context/ToastContext';
 
@@ -25,17 +25,15 @@ interface OfferModalProps {
 }
 
 export default function OfferModal({ isOpen, onClose, itemId, itemTitle, sellerId }: OfferModalProps) {
-  const [state, formAction] = useFormState(createOfferAction, initialState);
+  const [state, formAction] = useActionState(createOfferAction, initialState);
   const { showToast } = useToast();
 
   useEffect(() => {
     if (state.success) {
-      // Use the themed toast for success messages
       showToast('Your offer has been sent to the seller!', 'success');
       onClose();
     }
     if (state.error) {
-      // Use the themed toast for error messages
       showToast(state.error, 'error');
     }
   }, [state, onClose, showToast]);
@@ -64,12 +62,12 @@ export default function OfferModal({ isOpen, onClose, itemId, itemTitle, sellerI
               id="offerAmount"
               name="offerAmount"
               step="1"
+              min="1"
               required
               className="w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
               placeholder="e.g., 1200"
             />
           </div>
-          {/* We no longer need to display the error here, as the toast handles it */}
           <SubmitButton />
         </form>
       </div>
