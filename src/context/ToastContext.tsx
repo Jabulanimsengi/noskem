@@ -65,18 +65,14 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast:
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const removeToast = (id: number) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
-
   const showToast = useCallback((message: string, type: ToastType) => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => removeToast(id), 5000);
+    setTimeout(() => {
+      setToasts((currentToasts) => currentToasts.filter(t => t.id !== id));
+    }, 5000);
   }, []);
 
-  // --- FIX IS HERE ---
-  // This effect runs when the provider loads, checks for a message, shows it, and clears it.
   useEffect(() => {
     const pendingToast = sessionStorage.getItem('pendingToast');
     if (pendingToast) {
@@ -94,7 +90,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <ToastContainer toasts={toasts} removeToast={(id) => setToasts(current => current.filter(t => t.id !== id))} />
     </ToastContext.Provider>
   );
 };

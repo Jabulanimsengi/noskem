@@ -9,6 +9,7 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
 import NotificationBell, { type Notification } from './NotificationBell';
 
+// --- FIX IS HERE: The interface now accepts the 'notifications' prop ---
 interface AuthButtonProps {
     user: User | null;
     profile: { credit_balance: number; role: string | null; } | null;
@@ -56,10 +57,9 @@ export default function AuthButton({ user, profile, notifications }: AuthButtonP
     );
   }
 
-  // Logged-in view: All user actions are now in a single flex container for consistent spacing and alignment
+  // Logged-in view
   return (
     <div className="flex items-center gap-2 md:gap-4">
-      {/* Chat and Notifications */}
       <Link href="/chat" className="text-gray-500 hover:text-brand p-2" title="My Chats">
           <FaComments size={22} />
       </Link>
@@ -67,7 +67,6 @@ export default function AuthButton({ user, profile, notifications }: AuthButtonP
 
       <div className="h-6 w-px bg-gray-200 hidden md:block" />
 
-      {/* Role-specific Links */}
       {profile.role === 'admin' && (
         <Link href="/admin/users" className="font-semibold text-red-500 hover:text-red-700 hidden lg:block">Admin</Link>
       )}
@@ -75,7 +74,6 @@ export default function AuthButton({ user, profile, notifications }: AuthButtonP
         <Link href="/agent/dashboard" className="font-semibold text-text-primary hover:text-brand hidden lg:block">Agent</Link>
       )}
 
-      {/* User Links */}
       <Link href="/credits/buy" className="font-semibold text-brand hover:text-brand-dark flex items-center gap-2 p-2">
         <FaCoins />
         <span>{profile.credit_balance}</span>
@@ -85,7 +83,6 @@ export default function AuthButton({ user, profile, notifications }: AuthButtonP
 
       <div className="h-6 w-px bg-gray-200 hidden md:block" />
 
-      {/* Primary Action Button */}
       <Link href="/items/new" className="px-4 py-2 bg-brand text-white font-semibold rounded-lg hover:bg-brand-dark transition-all shadow-sm">
         Sell
       </Link>

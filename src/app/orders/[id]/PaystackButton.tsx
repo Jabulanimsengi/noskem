@@ -1,12 +1,9 @@
-// File: app/orders/[id]/PaystackButton.tsx
-
 'use client';
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { updateOrderStatus } from './actions';
 
-// This interface helps TypeScript recognize the PaystackPop object from the window
 declare global {
   interface Window {
     PaystackPop?: {
@@ -52,24 +49,21 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
       onClose: () => {
         console.log('Payment window closed by user.');
       },
-      // --- THIS IS THE FIX ---
-      // The callback itself is a regular function.
       callback: function (response: any) {
-        // We create a self-invoking async function inside it to handle our logic.
         (async () => {
           setIsProcessing(true);
-          console.log('Payment successful, reference:', response.reference);
-
           const result = await updateOrderStatus(orderId, response.reference);
 
           if (result.success) {
-            alert('Payment Authorized! Waiting for seller to ship.');
+            sessionStorage.setItem('pendingToast', JSON.stringify({
+                message: 'Payment Authorized! Waiting for seller to ship.',
+                type: 'success'
+            }));
             router.refresh();
           } else {
             setError(result.error || 'An unknown error occurred while updating the order.');
-            setIsProcessing(false); // Make sure to stop processing on error
+            setIsProcessing(false);
           }
-          // Note: setIsProcessing(false) is not needed on success because the page refreshes.
         })();
       },
     });
@@ -87,7 +81,7 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
       <button
         onClick={handlePayment}
         disabled={isProcessing}
-        className="w-full px-6 py-3 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-600"
+        className="w-full px-6 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors disabled:bg-gray-400"
       >
         {isProcessing ? 'Updating Order...' : 'Proceed to Payment'}
       </button>

@@ -47,8 +47,10 @@ export default function BuyCreditsButton({ packageId, userEmail, priceZAR }: Buy
           const result = await purchaseCredits(packageId, response.reference);
           
           if (result.success) {
-            // Show a success notification on purchase
-            showToast('Purchase successful! Your credits have been added.', 'success');
+            sessionStorage.setItem('pendingToast', JSON.stringify({ 
+              message: 'Purchase successful! Your credits have been added.', 
+              type: 'success' 
+            }));
             router.refresh(); 
           } else {
             showToast(`An error occurred: ${result.error}`, 'error');

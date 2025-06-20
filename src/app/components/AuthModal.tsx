@@ -6,16 +6,15 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/app/components/Button';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useToast } from '@/context/ToastContext';
+
+// NOTE: We no longer need useToast here because we write to sessionStorage instead.
 
 type AccountType = 'individual' | 'business';
 
-// A single component for both Sign In and Sign Up forms
 const AuthForm = () => {
     const router = useRouter();
     const supabase = createClient();
     const { view, switchTo, closeModal } = useAuthModal();
-    const { showToast } = useToast();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -24,7 +23,6 @@ const AuthForm = () => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [companyName, setCompanyName] = useState('');
-    
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -39,17 +37,19 @@ const AuthForm = () => {
                 options: { data: { username, account_type: accountType, ...profileData } },
             });
             if (error) {
-                setError(error.message);
+              setError(error.message);
             } else {
-                sessionStorage.setItem('pendingToast', JSON.stringify({ message: 'Sign up successful! Please check your email.', type: 'success' }));
-                closeModal();
-                router.refresh();
+              sessionStorage.setItem('pendingToast', JSON.stringify({ message: 'Sign up successful! Please check your email.', type: 'success' }));
+              closeModal();
+              router.refresh();
             }
         } else { // Handle Sign In
             const { error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) {
-                setError(error.message);
+              setError(error.message);
             } else {
+                // --- FIX IS HERE ---
+                // Save the toast to session storage before refreshing the page.
                 sessionStorage.setItem('pendingToast', JSON.stringify({ message: "Welcome back! You've successfully signed in.", type: 'success' }));
                 closeModal();
                 router.refresh();
@@ -59,7 +59,7 @@ const AuthForm = () => {
     };
 
     const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
-
+    
     return (
         <div className="w-full max-w-md p-8 space-y-6 bg-surface rounded-xl shadow-lg">
             {view === 'signUp' ? (
@@ -134,7 +134,6 @@ const AuthForm = () => {
         </div>
     );
 };
-
 
 // The wrapper modal component
 export default function AuthModal() {
