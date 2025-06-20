@@ -1,15 +1,13 @@
-// File: app/items/[id]/BuyNowForm.tsx
-
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { createCheckoutSession, type FormState } from './actions';
 
 const initialState: FormState = {
   error: null,
 };
 
-// A small component to show a disabled state while submitting
 function SubmitButton() {
   const { pending } = useFormStatus();
 
@@ -17,14 +15,14 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full px-6 py-3 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+      // --- FIX: The button now uses the site's brand color ---
+      className="w-full px-6 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors disabled:bg-gray-400"
     >
       {pending ? 'Processing...' : 'Proceed to Payment'}
     </button>
   );
 }
 
-// Main form component
 export default function BuyNowForm({
   itemId,
   sellerId,
@@ -34,26 +32,23 @@ export default function BuyNowForm({
   sellerId: string;
   finalAmount: number;
 }) {
-  const [state, formAction] = useFormState(createCheckoutSession, initialState);
+  const [state, formAction] = useActionState(createCheckoutSession, initialState);
 
   return (
     <form action={formAction} className="space-y-4">
-      {/* Hidden inputs to pass data */}
       <input type="hidden" name="itemId" value={itemId} />
       <input type="hidden" name="sellerId" value={sellerId} />
       <input type="hidden" name="finalAmount" value={finalAmount} />
 
-      {/* Display any error message returned from the action */}
       {state?.error && (
         <p className="p-3 text-center text-white bg-red-500 rounded-md">
           {state.error}
         </p>
       )}
       
-      {/* --- UI UPDATE --- */}
-      {/* Inform the user about the credit fee */}
-      <div className="text-center text-sm text-gray-400">
-        A fee of <span className="font-bold text-yellow-400">25 credits</span> will be charged to proceed.
+      {/* --- FIX: Text color is now aligned with the theme --- */}
+      <div className="text-center text-sm text-text-secondary">
+        A fee of <span className="font-bold text-brand">25 credits</span> will be charged to proceed.
       </div>
 
       <SubmitButton />

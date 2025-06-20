@@ -1,6 +1,6 @@
 // src/app/about/page.tsx
 import Link from 'next/link';
-import { Button } from '../components/Button';
+import { Button } from '@/app/components/Button'; // Corrected import path
 
 export default function AboutPage() {
   return (

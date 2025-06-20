@@ -6,7 +6,9 @@ import Footer from "./components/Footer";
 import { ChatProvider } from "@/context/ChatContext";
 import FloatingChatManager from "./components/FloatingChatManager";
 import { ToastProvider } from "@/context/ToastContext";
-import Script from "next/script"; // Import the Next.js Script component
+import Script from "next/script";
+import { AuthModalProvider } from "@/context/AuthModalContext";
+import AuthModal from "./components/AuthModal";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,24 +24,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossOrigin=""/>
+      </head>
       <body className={inter.className}>
         <ToastProvider>
-          <ChatProvider>
-            <div className="flex flex-col min-h-screen">
-              <Header />
-              <main className="flex-grow">
-                {children}
-              </main>
-              <Footer />
-              <FloatingChatManager />
-            </div>
-          </ChatProvider>
+          <AuthModalProvider>
+            <ChatProvider>
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <main className="flex-grow">{children}</main>
+                <Footer />
+                <FloatingChatManager />
+              </div>
+              <AuthModal />
+            </ChatProvider>
+          </AuthModalProvider>
         </ToastProvider>
         
-        {/* --- FIX ---
-            Add the Paystack inline script here. 
-            It will be loaded on every page, making it available for payments.
-        */}
         <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
       </body>
     </html>

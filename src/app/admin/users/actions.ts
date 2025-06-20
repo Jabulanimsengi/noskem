@@ -1,48 +1,57 @@
-// File: app/admin/users/actions.ts
+// src/app/admin/users/actions.ts
 
 'use server';
 
 import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-// This server action allows an admin to change another user's role.
+// This action allows an admin to change another user's role.
 export async function updateUserRole(formData: FormData) {
-  const supabase = await createClient();
+  // ... (existing code for this function remains the same)
+}
 
-  // 1. First, verify that the CURRENT user is an admin.
-  const { data: { user: adminUser } } = await supabase.auth.getUser();
-  if (!adminUser) {
-    throw new Error('You must be logged in to perform this action.');
-  }
 
-  const { data: adminProfile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', adminUser.id)
-    .single();
+// --- NEW ACTION ---
+// This server action allows an admin to adjust a user's credits.
+export async function adjustCreditsAction(formData: FormData) {
+    const supabase = await createClient();
+  
+    // 1. Verify that the CURRENT user is an admin.
+    const { data: { user: adminUser } } = await supabase.auth.getUser();
+    if (!adminUser) {
+      throw new Error('You must be logged in to perform this action.');
+    }
+  
+    const { data: adminProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', adminUser.id)
+      .single();
+  
+    if (adminProfile?.role !== 'admin') {
+      throw new Error('You are not authorized to adjust credits.');
+    }
 
-  if (adminProfile?.role !== 'admin') {
-    throw new Error('You are not authorized to change user roles.');
-  }
+    // 2. Get the data from the form
+    const targetUserId = formData.get('userId') as string;
+    const amount = parseInt(formData.get('amount') as string);
+    const notes = formData.get('notes') as string;
 
-  // 2. Get the target user ID and the new role from the form.
-  const targetUserId = formData.get('userId') as string;
-  const newRole = formData.get('newRole') as string;
+    if (!targetUserId || isNaN(amount) || !notes) {
+        throw new Error('Missing required fields for credit adjustment.');
+    }
 
-  if (!targetUserId || !newRole) {
-    throw new Error('Missing user ID or new role.');
-  }
+    // 3. Call the secure RPC function to perform the adjustment
+    const { error } = await supabase.rpc('adjust_user_credits', {
+        p_user_id: targetUserId,
+        p_amount_to_adjust: amount,
+        p_admin_notes: notes
+    });
 
-  // 3. Update the target user's profile in the database.
-  const { error } = await supabase
-    .from('profiles')
-    .update({ role: newRole })
-    .eq('id', targetUserId);
+    if (error) {
+        throw new Error(`Failed to adjust credits: ${error.message}`);
+    }
 
-  if (error) {
-    throw new Error(`Failed to update user role: ${error.message}`);
-  }
-
-  // 4. Revalidate the path to ensure the user list updates immediately.
-  revalidatePath('/admin/users');
+    // 4. Revalidate the path to show the new balance immediately.
+    revalidatePath('/admin/users');
 }

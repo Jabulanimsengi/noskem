@@ -1,5 +1,3 @@
-// File: app/items/new/actions.ts
-
 'use server';
 
 import { createClient } from '../../utils/supabase/server';
@@ -36,8 +34,10 @@ export async function listItemAction(
   const description = formData.get('description') as string;
   const price = formData.get('price') as string;
   const condition = formData.get('condition') as string;
-  const categoryId = formData.get('categoryId') as string; // Get the category ID
+  const categoryId = formData.get('categoryId') as string;
   const imageFiles = formData.getAll('images') as File[];
+  const latitude = formData.get('latitude') as string;   // Get latitude
+  const longitude = formData.get('longitude') as string; // Get longitude
 
   if (!categoryId) {
     return { error: 'Please select a category for your item.', success: false };
@@ -65,16 +65,18 @@ export async function listItemAction(
     uploadedImageUrls.push(publicUrl);
   }
 
-  // --- Step 4: Insert Item into Database ---
+  // --- Step 4: Insert Item into Database with Location ---
   const { error: insertError } = await supabase.from('items').insert({
     seller_id: user.id,
     title,
     description,
     buy_now_price: parseFloat(price),
     condition,
-    category_id: parseInt(categoryId), // Save the category ID
+    category_id: parseInt(categoryId),
     images: uploadedImageUrls,
     status: 'available',
+    latitude: parseFloat(latitude) || null,   // Save latitude
+    longitude: parseFloat(longitude) || null, // Save longitude
   });
 
   if (insertError) {
@@ -82,6 +84,6 @@ export async function listItemAction(
   }
   
   // --- Success! ---
-  revalidatePath('/'); // Refresh the homepage to show the new item
+  revalidatePath('/');
   return { success: true, error: null };
 }

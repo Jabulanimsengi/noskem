@@ -1,12 +1,10 @@
-// File: app/account/dashboard/profile/page.tsx
-
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useEffect, useState, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { createClient } from '../../../utils/supabase/client';
 import { updateUserProfile, type UpdateProfileState } from './actions';
-import Avatar from '../../../components/Avatar'; // Import the new Avatar component
+import Avatar from '../../../components/Avatar';
 
 type Profile = {
     username: string | null;
@@ -14,7 +12,7 @@ type Profile = {
     first_name: string | null;
     last_name: string | null;
     company_name: string | null;
-    avatar_url: string | null; // Add avatar_url to the profile type
+    avatar_url: string | null;
 };
 
 function SubmitButton() {
@@ -36,7 +34,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const initialState: UpdateProfileState = { message: '', type: null };
-  const [state, formAction] = useFormState(updateUserProfile, initialState);
+  const [state, formAction] = useActionState(updateUserProfile, initialState);
 
   useEffect(() => {
     const getProfile = async () => {
@@ -44,7 +42,7 @@ export default function ProfilePage() {
       if (user) {
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('username, account_type, first_name, last_name, company_name, avatar_url') // Select avatar_url
+          .select('username, account_type, first_name, last_name, company_name, avatar_url')
           .eq('id', user.id)
           .single();
         setProfile(profileData);
@@ -68,8 +66,6 @@ export default function ProfilePage() {
     <div>
       <h2 className="text-2xl font-semibold text-text-primary mb-6">Edit Profile</h2>
       <form action={formAction} className="space-y-6">
-        
-        {/* Avatar Upload Section */}
         <div className="flex items-center gap-4">
             <Avatar src={profile.avatar_url} alt={profile.username || 'user'} size={64} />
             <div>
