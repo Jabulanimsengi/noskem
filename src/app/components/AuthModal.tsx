@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/app/components/Button';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useToast } from '@/context/ToastContext';
 
 type AccountType = 'individual' | 'business';
 
@@ -14,6 +15,7 @@ const AuthForm = () => {
     const router = useRouter();
     const supabase = createClient();
     const { view, switchTo, closeModal } = useAuthModal();
+    const { showToast } = useToast();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -36,16 +38,19 @@ const AuthForm = () => {
                 email, password,
                 options: { data: { username, account_type: accountType, ...profileData } },
             });
-            if (error) setError(error.message);
-            else {
-                alert("Sign up successful! Please check your email for a confirmation link.");
+            if (error) {
+                setError(error.message);
+            } else {
+                sessionStorage.setItem('pendingToast', JSON.stringify({ message: 'Sign up successful! Please check your email.', type: 'success' }));
                 closeModal();
                 router.refresh();
             }
-        } else {
+        } else { // Handle Sign In
             const { error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) setError(error.message);
-            else {
+            if (error) {
+                setError(error.message);
+            } else {
+                sessionStorage.setItem('pendingToast', JSON.stringify({ message: "Welcome back! You've successfully signed in.", type: 'success' }));
                 closeModal();
                 router.refresh();
             }
@@ -75,9 +80,9 @@ const AuthForm = () => {
                 </div>
             )}
             
-            {error && <div className="p-3 text-center text-white bg-red-500 rounded-md">{error}</div>}
+            {error && <div className="p-3 my-2 text-center text-white bg-red-500 rounded-md">{error}</div>}
             
-            <div className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleAuthAction(); }} className="space-y-4">
               <div>
                 <label className="block mb-2 text-sm font-medium text-text-secondary">Email address</label>
                 <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputStyles}/>
@@ -89,12 +94,12 @@ const AuthForm = () => {
 
               {view === 'signUp' && (
                 <>
-                  <hr className="border-gray-200" />
+                  <hr className="border-gray-200 pt-4" />
                   <div>
                     <label className="block mb-2 text-sm font-medium text-text-secondary">Account Type</label>
                     <div className="flex bg-gray-200 rounded-md p-1">
-                      <button onClick={() => setAccountType('individual')} className={`w-1/2 py-2 rounded-md transition-colors ${accountType === 'individual' ? 'bg-brand text-white shadow' : 'text-text-secondary'}`}>Individual</button>
-                      <button onClick={() => setAccountType('business')} className={`w-1/2 py-2 rounded-md transition-colors ${accountType === 'business' ? 'bg-brand text-white shadow' : 'text-text-secondary'}`}>Business</button>
+                      <button type="button" onClick={() => setAccountType('individual')} className={`w-1/2 py-2 rounded-md transition-colors ${accountType === 'individual' ? 'bg-brand text-white shadow' : 'text-text-secondary'}`}>Individual</button>
+                      <button type="button" onClick={() => setAccountType('business')} className={`w-1/2 py-2 rounded-md transition-colors ${accountType === 'business' ? 'bg-brand text-white shadow' : 'text-text-secondary'}`}>Business</button>
                     </div>
                   </div>
                   <div>
@@ -120,21 +125,20 @@ const AuthForm = () => {
                   )}
                 </>
               )}
-            </div>
-            <div>
-              <Button onClick={handleAuthAction} disabled={isLoading} className="w-full shadow-md hover:shadow-lg">
-                {isLoading ? 'Processing...' : (view === 'signUp' ? 'Create Account' : 'Sign In')}
-              </Button>
-            </div>
+              <div className="pt-2">
+                <Button type="submit" disabled={isLoading} className="w-full shadow-md hover:shadow-lg">
+                  {isLoading ? 'Processing...' : (view === 'signUp' ? 'Create Account' : 'Sign In')}
+                </Button>
+              </div>
+            </form>
         </div>
     );
 };
 
 
-// The main modal component with animations
+// The wrapper modal component
 export default function AuthModal() {
     const { isOpen, closeModal } = useAuthModal();
-
     return (
         <AnimatePresence>
             {isOpen && (
@@ -150,7 +154,7 @@ export default function AuthModal() {
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.9, opacity: 0 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the modal
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <AuthForm />
                     </motion.div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle } from 'react-icons/fa';
 
 type ToastType = 'success' | 'error' | 'info';
@@ -25,7 +25,6 @@ export const useToast = () => {
   return context;
 };
 
-// This component will be rendered by the ToastProvider
 const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast: (id: number) => void }) => {
   const icons = {
     success: <FaCheckCircle className="text-green-500" size={20} />,
@@ -63,7 +62,6 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast:
   );
 };
 
-// The main provider component
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -74,8 +72,24 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const showToast = useCallback((message: string, type: ToastType) => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => removeToast(id), 5000); // Auto-dismiss after 5 seconds
+    setTimeout(() => removeToast(id), 5000);
   }, []);
+
+  // --- FIX IS HERE ---
+  // This effect runs when the provider loads, checks for a message, shows it, and clears it.
+  useEffect(() => {
+    const pendingToast = sessionStorage.getItem('pendingToast');
+    if (pendingToast) {
+      try {
+        const { message, type } = JSON.parse(pendingToast);
+        showToast(message, type);
+        sessionStorage.removeItem('pendingToast');
+      } catch (e) {
+        console.error("Failed to parse pending toast:", e);
+        sessionStorage.removeItem('pendingToast');
+      }
+    }
+  }, [showToast]);
 
   return (
     <ToastContext.Provider value={{ showToast }}>

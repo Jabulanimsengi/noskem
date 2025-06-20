@@ -8,6 +8,10 @@ import { HeroSection } from './components/HeroSection';
 import ItemList from './components/ItemList';
 import GridSkeletonLoader from './components/skeletons/GridSkeletonLoader';
 
+// --- FIX IS HERE ---
+// This line tells Next.js to always render this page dynamically.
+export const dynamic = 'force-dynamic';
+
 interface HomePageProps {
   searchParams: {
     category?: string;
@@ -18,6 +22,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const supabase = await createClient();
   const selectedCategorySlug = searchParams.category;
 
+  // Data fetching remains the same
   const categoriesRes = await supabase.from('categories').select('*').order('name', { ascending: true });
   const popularItemsRes = await supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('status', 'available').order('view_count', { ascending: false }).limit(10);
   const recentlySoldRes = await supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10);

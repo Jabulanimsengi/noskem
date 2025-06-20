@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { purchaseCredits } from './actions';
-import { useToast } from '@/context/ToastContext'; // Import useToast
+import { useToast } from '@/context/ToastContext';
 
 declare global {
   interface Window {
@@ -20,7 +20,7 @@ interface BuyCreditsButtonProps {
 export default function BuyCreditsButton({ packageId, userEmail, priceZAR }: BuyCreditsButtonProps) {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
-  const { showToast } = useToast(); // Get the toast function
+  const { showToast } = useToast();
 
   const handlePayment = () => {
     if (!window.PaystackPop) {
@@ -45,7 +45,9 @@ export default function BuyCreditsButton({ packageId, userEmail, priceZAR }: Buy
         (async () => {
           setIsProcessing(true);
           const result = await purchaseCredits(packageId, response.reference);
+          
           if (result.success) {
+            // Show a success notification on purchase
             showToast('Purchase successful! Your credits have been added.', 'success');
             router.refresh(); 
           } else {
@@ -63,8 +65,6 @@ export default function BuyCreditsButton({ packageId, userEmail, priceZAR }: Buy
     <button
       onClick={handlePayment}
       disabled={isProcessing}
-      // --- FIX --- 
-      // Updated Tailwind classes to use the 'brand' color.
       className="w-full block px-6 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors disabled:bg-gray-400"
     >
       {isProcessing ? 'Processing...' : 'Purchase Now'}
