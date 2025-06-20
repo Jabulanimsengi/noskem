@@ -1,5 +1,6 @@
 import { createClient } from './utils/supabase/server';
 import { Suspense } from 'react';
+import { type User } from '@supabase/supabase-js';
 import { type Category } from '@/types';
 import CategoryFilter from './components/CategoryFilter';
 import CreditPackagesSection from './components/CreditPackagesSection';
@@ -8,24 +9,28 @@ import { HeroSection } from './components/HeroSection';
 import ItemList from './components/ItemList';
 import GridSkeletonLoader from './components/skeletons/GridSkeletonLoader';
 
-// --- FIX IS HERE ---
-// This line tells Next.js to always render this page dynamically.
 export const dynamic = 'force-dynamic';
 
 interface HomePageProps {
-  searchParams: {
-    category?: string;
-  };
+  searchParams: { [key: string]: string | string[] | undefined };
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const supabase = await createClient();
-  const selectedCategorySlug = searchParams.category;
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // FIX: Accessing the search param in a way that is compatible with Next.js dynamic rendering
+  const selectedCategorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined;
 
-  // Data fetching remains the same
-  const categoriesRes = await supabase.from('categories').select('*').order('name', { ascending: true });
-  const popularItemsRes = await supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('status', 'available').order('view_count', { ascending: false }).limit(10);
-  const recentlySoldRes = await supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10);
+  const [
+    categoriesRes,
+    popularItemsRes,
+    recentlySoldRes,
+  ] = await Promise.all([
+    supabase.from('categories').select('*').order('name', { ascending: true }),
+    supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('status', 'available').order('view_count', { ascending: false }).limit(10),
+    supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10)
+  ]);
 
   const categories: Category[] = categoriesRes.data || [];
   const popularItems = popularItemsRes.data || [];
@@ -39,13 +44,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         
         {popularItems.length > 0 && (
           <div className='border-t pt-8 mt-8'>
-            <ItemCarousel title="Popular Items" items={popularItems as any} />
+            <ItemCarousel title="Popular Items" items={popularItems as any} user={user} />
           </div>
         )}
 
         {recentlySoldItems.length > 0 && (
            <div className='border-t pt-8 mt-8'>
-             <ItemCarousel title="Recently Sold" items={recentlySoldItems as any} />
+             <ItemCarousel title="Recently Sold" items={recentlySoldItems as any} user={user} />
            </div>
         )}
         
@@ -56,12 +61,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </div>
           <CategoryFilter categories={categories} />
           <Suspense fallback={<GridSkeletonLoader count={8} />}>
-            <ItemList categorySlug={selectedCategorySlug} />
+            <ItemList categorySlug={selectedCategorySlug} user={user} />
           </Suspense>
         </div>
       </div>
       
-      <CreditPackagesSection />
+      <CreditPackagesSection user={user} />
     </>
   );
 }

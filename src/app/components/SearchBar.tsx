@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { FaSearch } from 'react-icons/fa';
 import Link from 'next/link';
-import Image from 'next/image';
 
-// The type for a single search result item
 type SearchResultItem = {
     id: number;
     title: string;
@@ -16,12 +14,12 @@ type SearchResultItem = {
 
 export default function SearchBar() {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState('');
+  const searchParams = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -32,7 +30,6 @@ export default function SearchBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Debounced search effect
   useEffect(() => {
     if (searchTerm.length < 2) {
       setResults([]);
@@ -42,19 +39,12 @@ export default function SearchBar() {
 
     const delayDebounceFn = setTimeout(async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.rpc('search_items', {
-        search_term: searchTerm,
-      });
-
+      const { data } = await supabase.rpc('search_items', { search_term: searchTerm });
       if (data) {
         setResults(data);
         setIsOpen(true);
       }
-      if (error) {
-        console.error("Search error:", error);
-        setIsOpen(false);
-      }
-    }, 300); // 300ms delay
+    }, 300);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
@@ -67,7 +57,8 @@ export default function SearchBar() {
   };
 
   return (
-    <div ref={searchRef} className="flex-1 max-w-xl hidden md:block relative">
+    // --- FIX: The classes hiding this on mobile have been removed ---
+    <div ref={searchRef} className="flex-1 max-w-xl relative">
       <form onSubmit={handleFullSearch}>
         <div className="relative">
           <input

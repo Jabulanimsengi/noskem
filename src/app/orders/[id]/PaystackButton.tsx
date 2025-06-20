@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { updateOrderStatus } from './actions';
+import { useToast } from '@/context/ToastContext';
 
 declare global {
   interface Window {
@@ -22,19 +23,25 @@ interface PaystackButtonProps {
 
 export default function PaystackButton({ orderId, userEmail, amount }: PaystackButtonProps) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handlePayment = () => {
-    setError(null);
+  const handlePayment = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
     if (!window.PaystackPop) {
-      setError("Paystack script not loaded.");
+      showToast("Paystack script not loaded. Please refresh the page.", 'error');
       return;
     }
     const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
     if (!publicKey) {
-      setError("Paystack public key not configured.");
+      showToast("Paystack payment service is not configured.", 'error');
       return;
+    }
+    // --- FIX: Add validation for the amount ---
+    if (amount <= 0) {
+        showToast("Invalid amount for payment.", 'error');
+        return;
     }
 
     const handler = window.PaystackPop.setup({
@@ -43,25 +50,18 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
       amount: Math.round(amount * 100),
       currency: 'ZAR',
       ref: `order_${orderId}_${new Date().getTime()}`,
-      metadata: {
-        orderId: orderId,
-      },
-      onClose: () => {
-        console.log('Payment window closed by user.');
-      },
+      metadata: { orderId: orderId },
+      onClose: () => {},
       callback: function (response: any) {
         (async () => {
           setIsProcessing(true);
           const result = await updateOrderStatus(orderId, response.reference);
 
           if (result.success) {
-            sessionStorage.setItem('pendingToast', JSON.stringify({
-                message: 'Payment Authorized! Waiting for seller to ship.',
-                type: 'success'
-            }));
+            showToast('Payment Authorized! The seller will be notified.', 'success');
             router.refresh();
           } else {
-            setError(result.error || 'An unknown error occurred while updating the order.');
+            showToast(result.error || 'An unknown error occurred while updating the order.', 'error');
             setIsProcessing(false);
           }
         })();
@@ -71,20 +71,16 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
     handler.openIframe();
   };
 
+  // --- FIX: Logic moved to form's onSubmit handler ---
   return (
-    <div className="space-y-4">
-      {error && (
-        <div className="p-3 text-center text-white bg-red-500 rounded-md">
-          {error}
-        </div>
-      )}
+    <form onSubmit={handlePayment}>
       <button
-        onClick={handlePayment}
-        disabled={isProcessing}
-        className="w-full px-6 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors disabled:bg-gray-400"
+          type="submit"
+          disabled={isProcessing}
+          className="w-full px-6 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors disabled:bg-gray-400"
       >
-        {isProcessing ? 'Updating Order...' : 'Proceed to Payment'}
+          {isProcessing ? 'Verifying Payment...' : 'Proceed to Payment'}
       </button>
-    </div>
+    </form>
   );
 }

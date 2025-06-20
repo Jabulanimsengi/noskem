@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 type ModalView = 'signIn' | 'signUp';
 
@@ -22,6 +23,21 @@ export const useAuthModal = () => {
   return context;
 };
 
+// This helper component allows us to use `useSearchParams` within the context
+const AuthModalController = ({ children }: { children: ReactNode }) => {
+    const searchParams = useSearchParams();
+    const { openModal } = useAuthModal();
+  
+    useEffect(() => {
+      if (searchParams.get('authModal')) {
+        openModal('signIn');
+      }
+    }, [searchParams, openModal]);
+  
+    return <>{children}</>;
+}
+
+
 export const AuthModalProvider = ({ children }: { children: ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<ModalView>('signIn');
@@ -41,7 +57,9 @@ export const AuthModalProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthModalContext.Provider value={{ isOpen, view, openModal, closeModal, switchTo }}>
-      {children}
+        <AuthModalController>
+            {children}
+        </AuthModalController>
     </AuthModalContext.Provider>
   );
 };

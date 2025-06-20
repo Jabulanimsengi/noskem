@@ -1,11 +1,13 @@
 import { createClient } from '../utils/supabase/server';
 import ItemCard from './ItemCard';
+import { type User } from '@supabase/supabase-js';
 
 interface ItemListProps {
   categorySlug?: string;
+  user: User | null;
 }
 
-export default async function ItemList({ categorySlug }: ItemListProps) {
+export default async function ItemList({ categorySlug, user }: ItemListProps) {
   const supabase = await createClient();
   
   let mainItemsQuery = supabase
@@ -27,7 +29,7 @@ export default async function ItemList({ categorySlug }: ItemListProps) {
       {mainItems && mainItems.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {mainItems.map((item) => (
-            <ItemCard key={item.id} item={item as any} />
+            <ItemCard key={item.id} item={item as any} user={user} />
           ))}
         </div>
       ) : (

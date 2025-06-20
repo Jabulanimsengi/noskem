@@ -9,7 +9,7 @@ import { type RealtimePostgresChangesPayload, type User } from '@supabase/supaba
 
 export type Notification = {
   id: number;
-  profile_id: string; // The owner of the notification
+  profile_id: string;
   message: string;
   link_url: string | null;
   is_read: boolean;
@@ -22,7 +22,6 @@ export default function NotificationBell({ serverNotifications }: { serverNotifi
   const [isOpen, setIsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Get the current user on the client side
   useEffect(() => {
     const fetchUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -36,8 +35,6 @@ export default function NotificationBell({ serverNotifications }: { serverNotifi
   useEffect(() => {
     const handleNewNotification = (payload: RealtimePostgresChangesPayload<{ [key: string]: any }>) => {
       const newNotification = payload.new as Notification;
-      // --- FIX ---
-      // Only add the notification if it belongs to the currently logged-in user
       if (currentUser && newNotification.profile_id === currentUser.id) {
         setNotifications(current => [newNotification, ...current]);
       }
@@ -49,7 +46,7 @@ export default function NotificationBell({ serverNotifications }: { serverNotifi
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [supabase, currentUser]); // Rerun effect if user changes
+  }, [supabase, currentUser]);
 
   const handleToggle = () => {
     setIsOpen(!isOpen);
@@ -83,8 +80,8 @@ export default function NotificationBell({ serverNotifications }: { serverNotifi
           <div className="max-h-96 overflow-y-auto">
             {notifications.length > 0 ? (
               notifications.map(n => (
-                <Link key={n.id} href={n.link_url || '#'} className="block hover:bg-gray-100" onClick={() => setIsOpen(false)}>
-                  <div className={`p-3 border-b border-gray-200 flex items-start gap-3 ${!n.is_read ? 'bg-brand/5' : ''}`}>
+                // --- FIX: Removed the redundant 'block' class to resolve the warning ---
+                <Link key={n.id} href={n.link_url || '#'} className={`flex items-start gap-3 p-3 border-b border-gray-200 hover:bg-gray-100 ${!n.is_read ? 'bg-brand/5' : ''}`} onClick={() => setIsOpen(false)}>
                     <div className="flex-shrink-0 mt-1">
                         <FaBell className={`h-5 w-5 ${!n.is_read ? 'text-brand' : 'text-gray-400'}`} />
                     </div>
@@ -94,7 +91,6 @@ export default function NotificationBell({ serverNotifications }: { serverNotifi
                           {new Date(n.created_at).toLocaleString()}
                         </p>
                     </div>
-                  </div>
                 </Link>
               ))
             ) : (

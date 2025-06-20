@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import ItemCard from './ItemCard';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { type User } from '@supabase/supabase-js';
 
 type CarouselItem = {
   id: number;
@@ -16,9 +17,10 @@ type CarouselItem = {
 interface ItemCarouselProps {
   title: string;
   items: CarouselItem[];
+  user: User | null;
 }
 
-export default function ItemCarousel({ title, items }: ItemCarouselProps) {
+export default function ItemCarousel({ title, items, user }: ItemCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: 'left' | 'right') => {
@@ -45,6 +47,8 @@ export default function ItemCarousel({ title, items }: ItemCarouselProps) {
     <div className="py-8">
       <style>{scrollbarHide}</style>
       <h2 className="text-2xl font-bold text-text-primary mb-4">{title}</h2>
+      {/* --- FIX IS HERE --- */}
+      {/* The `group` class enables the hover effect for the buttons inside */}
       <div className="relative group">
         <div 
           ref={scrollRef} 
@@ -52,23 +56,22 @@ export default function ItemCarousel({ title, items }: ItemCarouselProps) {
         >
           {items.map((item) => (
             <div key={item.id} className="w-64 flex-shrink-0 snap-start">
-              <ItemCard item={item as any} />
+              <ItemCard item={item as any} user={user} />
             </div>
           ))}
         </div>
         
-        {/* --- FIX IS HERE --- */}
-        {/* The arrows are now positioned more precisely for vertical centering */}
+        {/* The arrows are now centered and only appear on hover */}
         <button 
             onClick={() => scroll('left')} 
-            className="absolute top-24 -translate-y-1/2 -left-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100" 
+            className="absolute top-1/2 -translate-y-1/2 -left-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100" 
             aria-label="Scroll left"
         >
             <FaChevronLeft />
         </button>
         <button 
             onClick={() => scroll('right')} 
-            className="absolute top-24 -translate-y-1/2 -right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100" 
+            className="absolute top-1/2 -translate-y-1/2 -right-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100" 
             aria-label="Scroll right"
         >
             <FaChevronRight />

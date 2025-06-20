@@ -6,8 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/app/components/Button';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { AnimatePresence, motion } from 'framer-motion';
-
-// NOTE: We no longer need useToast here because we write to sessionStorage instead.
+import { useToast } from '@/context/ToastContext'; // Import useToast
 
 type AccountType = 'individual' | 'business';
 
@@ -15,6 +14,7 @@ const AuthForm = () => {
     const router = useRouter();
     const supabase = createClient();
     const { view, switchTo, closeModal } = useAuthModal();
+    const { showToast } = useToast(); // Get the showToast function
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -27,35 +27,33 @@ const AuthForm = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleAuthAction = async () => {
-        setError(null);
         setIsLoading(true);
+        setError(null);
 
-        if (view === 'signUp') {
-            const profileData = accountType === 'individual' ? { first_name: firstName, last_name: lastName } : { company_name: companyName };
-            const { error } = await supabase.auth.signUp({
-                email, password,
-                options: { data: { username, account_type: accountType, ...profileData } },
-            });
-            if (error) {
-              setError(error.message);
-            } else {
-              sessionStorage.setItem('pendingToast', JSON.stringify({ message: 'Sign up successful! Please check your email.', type: 'success' }));
-              closeModal();
-              router.refresh();
+        try {
+            if (view === 'signUp') {
+                const profileData = accountType === 'individual' ? { first_name: firstName, last_name: lastName } : { company_name: companyName };
+                const { error: signUpError } = await supabase.auth.signUp({
+                    email, password,
+                    options: { data: { username, account_type: accountType, ...profileData } },
+                });
+                if (signUpError) throw signUpError;
+                
+                showToast('Sign up successful! Please check your email.', 'success');
+            } else { // Handle Sign In
+                const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+                if (signInError) throw signInError;
+
+                showToast("Welcome back! You've successfully signed in.", 'success');
             }
-        } else { // Handle Sign In
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) {
-              setError(error.message);
-            } else {
-                // --- FIX IS HERE ---
-                // Save the toast to session storage before refreshing the page.
-                sessionStorage.setItem('pendingToast', JSON.stringify({ message: "Welcome back! You've successfully signed in.", type: 'success' }));
-                closeModal();
-                router.refresh();
-            }
+            
+            closeModal();
+            router.refresh(); // Refresh the page silently in the background
+
+        } catch (err: any) {
+            setError(err.message || 'An unexpected error occurred.');
+            setIsLoading(false); 
         }
-        setIsLoading(false);
     };
 
     const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
@@ -135,7 +133,6 @@ const AuthForm = () => {
     );
 };
 
-// The wrapper modal component
 export default function AuthModal() {
     const { isOpen, closeModal } = useAuthModal();
     return (

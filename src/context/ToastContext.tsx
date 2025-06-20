@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle } from 'react-icons/fa';
 
 type ToastType = 'success' | 'error' | 'info';
@@ -65,32 +65,20 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast:
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  const removeToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
   const showToast = useCallback((message: string, type: ToastType) => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((currentToasts) => currentToasts.filter(t => t.id !== id));
-    }, 5000);
-  }, []);
-
-  useEffect(() => {
-    const pendingToast = sessionStorage.getItem('pendingToast');
-    if (pendingToast) {
-      try {
-        const { message, type } = JSON.parse(pendingToast);
-        showToast(message, type);
-        sessionStorage.removeItem('pendingToast');
-      } catch (e) {
-        console.error("Failed to parse pending toast:", e);
-        sessionStorage.removeItem('pendingToast');
-      }
-    }
-  }, [showToast]);
+    setTimeout(() => removeToast(id), 5000);
+  }, [removeToast]);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <ToastContainer toasts={toasts} removeToast={(id) => setToasts(current => current.filter(t => t.id !== id))} />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </ToastContext.Provider>
   );
 };

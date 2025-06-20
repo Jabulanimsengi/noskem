@@ -1,7 +1,11 @@
-// src/app/components/CreditPackagesSection.tsx
-import { createClient } from '../utils/supabase/server';
-import Link from 'next/link';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthModal } from '@/context/AuthModalContext';
+import { type User } from '@supabase/supabase-js';
 import { FaCheckCircle } from 'react-icons/fa';
+import { createClient } from '../utils/supabase/client';
 
 type CreditPackage = {
     id: number;
@@ -9,20 +13,38 @@ type CreditPackage = {
     credits_amount: number;
     price_zar: number;
     bonus_credits: number;
-    is_popular: boolean; // Add the new field
+    is_popular: boolean;
 };
 
-// Constants for our credit costs
 const LISTING_FEE = 25;
 const PURCHASE_FEE = 25;
 
-export default async function CreditPackagesSection() {
-    const supabase = await createClient();
-    // Fetch ALL packages now, not just a limited number
-    const { data: packages } = await supabase
-        .from('credit_packages')
-        .select('*')
-        .order('price_zar', { ascending: true });
+export default function CreditPackagesSection({ user }: { user: User | null }) {
+    const router = useRouter();
+    const { openModal } = useAuthModal();
+    const [packages, setPackages] = useState<CreditPackage[]>([]);
+
+    useEffect(() => {
+        const fetchPackages = async () => {
+            const supabase = createClient();
+            const { data } = await supabase
+                .from('credit_packages')
+                .select('*')
+                .order('price_zar', { ascending: true });
+            if (data) {
+                setPackages(data);
+            }
+        };
+        fetchPackages();
+    }, []);
+
+    const handlePurchaseClick = () => {
+        if (!user) {
+            openModal('signIn');
+        } else {
+            router.push('/credits/buy');
+        }
+    };
 
     return (
         <div className="bg-surface py-16">
@@ -32,8 +54,7 @@ export default async function CreditPackagesSection() {
                     <p className="text-lg text-text-secondary mt-2">Get the best value to list and purchase items.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-end">
-                    {(packages as CreditPackage[] || []).map((pkg) => {
-                        // Calculate what the user can do with the credits
+                    {packages.map((pkg) => {
                         const totalCredits = pkg.credits_amount + pkg.bonus_credits;
                         const listingsPossible = Math.floor(totalCredits / LISTING_FEE);
                         const purchasesPossible = Math.floor(totalCredits / PURCHASE_FEE);
@@ -43,10 +64,7 @@ export default async function CreditPackagesSection() {
                                 key={pkg.id} 
                                 className={`
                                     border rounded-xl p-6 text-center shadow-lg transition-all relative flex flex-col
-                                    ${pkg.is_popular 
-                                        ? 'border-brand-dark border-2 scale-105 bg-white' // Highlight style
-                                        : 'border-gray-200 bg-white hover:border-brand'
-                                    }
+                                    ${pkg.is_popular ? 'border-brand-dark border-2 scale-105 bg-white' : 'border-gray-200 bg-white hover:border-brand'}
                                 `}
                             >
                                 {pkg.is_popular && (
@@ -64,8 +82,6 @@ export default async function CreditPackagesSection() {
                                     {pkg.bonus_credits > 0 && (
                                         <p className="font-semibold text-green-600 mb-4">+ {pkg.bonus_credits} Bonus Credits!</p>
                                     )}
-
-                                    {/* Descriptive capabilities */}
                                     <ul className="space-y-2 text-sm text-text-secondary mb-6 text-left">
                                         <li className="flex items-center gap-2">
                                             <FaCheckCircle className="text-green-500 flex-shrink-0" />
@@ -82,9 +98,9 @@ export default async function CreditPackagesSection() {
                                     <p className="text-3xl font-bold text-text-primary mb-6">
                                         R{pkg.price_zar}
                                     </p>
-                                    <Link href="/credits/buy" className="w-full block px-6 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors">
+                                    <button onClick={handlePurchaseClick} className="w-full block px-6 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors">
                                         Purchase Now
-                                    </Link>
+                                    </button>
                                 </div>
                             </div>
                         )

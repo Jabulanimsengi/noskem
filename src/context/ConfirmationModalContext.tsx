@@ -7,10 +7,9 @@ import { Button } from '@/app/components/Button';
 interface ConfirmationOptions {
   title: string;
   message: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>; // Allow onConfirm to be async
   confirmText?: string;
   cancelText?: string;
-  intent?: 'default' | 'danger';
 }
 
 interface ConfirmationContextType {
@@ -29,8 +28,10 @@ export const useConfirmationModal = () => {
 
 export const ConfirmationModalProvider = ({ children }: { children: ReactNode }) => {
   const [options, setOptions] = useState<ConfirmationOptions | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const showConfirmation = useCallback((opts: ConfirmationOptions) => {
+    setIsConfirming(false);
     setOptions(opts);
   }, []);
 
@@ -38,14 +39,24 @@ export const ConfirmationModalProvider = ({ children }: { children: ReactNode })
     setOptions(null);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (options) {
-      options.onConfirm();
-      handleClose();
+      setIsConfirming(true);
+      try {
+        // Await the sign-out process (which includes starting the refresh)
+        await options.onConfirm();
+        
+        // --- FIX IS HERE ---
+        // After the sign-out action is complete, we manually close the modal
+        // instead of waiting for the page refresh. This prevents it from getting stuck.
+        handleClose();
+
+      } catch (error) {
+        console.error("Confirmation action failed", error);
+        setIsConfirming(false); // On error, stop loading so the user can try again
+      }
     }
   };
-  
-  const isDanger = options?.intent === 'danger';
 
   return (
     <ConfirmationModalContext.Provider value={{ showConfirmation }}>
@@ -65,7 +76,6 @@ export const ConfirmationModalProvider = ({ children }: { children: ReactNode })
                     exit={{ scale: 0.9, opacity: 0 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
                     onClick={(e) => e.stopPropagation()}
-                    // --- FIX IS HERE: Added `overflow-hidden` to clip the child corners ---
                     className="bg-surface rounded-xl shadow-xl w-full max-w-md overflow-hidden"
                 >
                     <div className="p-6">
@@ -73,11 +83,11 @@ export const ConfirmationModalProvider = ({ children }: { children: ReactNode })
                       <p className="text-text-secondary mt-2 mb-6 whitespace-nowrap">{options.message}</p>
                     </div>
                     <div className="flex justify-end gap-3 bg-gray-50 p-4 border-t">
-                      <Button variant="secondary" onClick={handleClose}>
+                      <Button variant="secondary" onClick={handleClose} disabled={isConfirming}>
                         {options.cancelText || 'Cancel'}
                       </Button>
-                      <Button onClick={handleConfirm} className={isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-brand hover:bg-brand-dark'}>
-                        {options.confirmText || 'Confirm'}
+                      <Button onClick={handleConfirm} disabled={isConfirming} className="bg-brand hover:bg-brand-dark">
+                        {isConfirming ? 'Signing Out...' : (options.confirmText || 'Confirm')}
                       </Button>
                     </div>
                 </motion.div>

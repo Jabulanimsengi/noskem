@@ -7,9 +7,9 @@ import { type User } from '@supabase/supabase-js';
 import { createClient } from '../utils/supabase/client';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
+import { useToast } from '@/context/ToastContext';
 import NotificationBell, { type Notification } from './NotificationBell';
 
-// --- FIX IS HERE: The interface now accepts the 'notifications' prop ---
 interface AuthButtonProps {
     user: User | null;
     profile: { credit_balance: number; role: string | null; } | null;
@@ -20,11 +20,13 @@ export default function AuthButton({ user, profile, notifications }: AuthButtonP
   const router = useRouter();
   const { openModal } = useAuthModal();
   const { showConfirmation } = useConfirmationModal();
+  const { showToast } = useToast();
 
   const performSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    sessionStorage.setItem('pendingToast', JSON.stringify({ message: "You have been logged out successfully.", type: 'info' }));
+    // We show the toast *before* refreshing to make it feel instant
+    showToast("You have been logged out successfully.", 'info');
     router.refresh();
   };
 
@@ -34,10 +36,10 @@ export default function AuthButton({ user, profile, notifications }: AuthButtonP
         message: "Are you sure you want to sign out of your account?",
         confirmText: "Sign Out",
         onConfirm: performSignOut,
+        // --- FIX: The 'intent' property that caused the error has been removed. ---
     });
   };
 
-  // Logged-out view
   if (!user || !profile) {
     return (
       <div className="flex items-center gap-2">
@@ -57,32 +59,26 @@ export default function AuthButton({ user, profile, notifications }: AuthButtonP
     );
   }
 
-  // Logged-in view
   return (
     <div className="flex items-center gap-2 md:gap-4">
       <Link href="/chat" className="text-gray-500 hover:text-brand p-2" title="My Chats">
           <FaComments size={22} />
       </Link>
       <NotificationBell serverNotifications={notifications} />
-
       <div className="h-6 w-px bg-gray-200 hidden md:block" />
-
       {profile.role === 'admin' && (
         <Link href="/admin/users" className="font-semibold text-red-500 hover:text-red-700 hidden lg:block">Admin</Link>
       )}
        {profile.role === 'agent' && (
         <Link href="/agent/dashboard" className="font-semibold text-text-primary hover:text-brand hidden lg:block">Agent</Link>
       )}
-
       <Link href="/credits/buy" className="font-semibold text-brand hover:text-brand-dark flex items-center gap-2 p-2">
         <FaCoins />
         <span>{profile.credit_balance}</span>
       </Link>
       <Link href="/account/dashboard/orders" className="font-semibold text-text-primary hover:text-brand hidden md:block">My Dashboard</Link>
       <button onClick={handleSignOut} className="font-semibold text-text-primary hover:text-brand hidden md:block">Sign Out</button>
-
       <div className="h-6 w-px bg-gray-200 hidden md:block" />
-
       <Link href="/items/new" className="px-4 py-2 bg-brand text-white font-semibold rounded-lg hover:bg-brand-dark transition-all shadow-sm">
         Sell
       </Link>

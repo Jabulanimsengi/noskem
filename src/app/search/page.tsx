@@ -1,6 +1,6 @@
 import { createClient } from '../utils/supabase/server';
 import ItemCard from '../components/ItemCard';
-import { type Item } from '../components/ItemCard'; // Import the type for a single item
+import { type Item } from '../components/ItemCard';
 
 interface SearchPageProps {
   searchParams: {
@@ -8,26 +8,31 @@ interface SearchPageProps {
   };
 }
 
-// This tells Next.js to always render this page dynamically
 export const dynamic = 'force-dynamic';
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const searchQuery = searchParams.q || '';
   const supabase = await createClient();
 
-  // Define the type for our results array
+  // --- FIX #1: Fetch the current user's data ---
+  const { data: { user } } = await supabase.auth.getUser();
+
   let items: Item[] = [];
 
   if (searchQuery) {
-    // Call the new, simpler database function
-    const { data: searchData, error } = await supabase.rpc('search_items', {
-      search_term: searchQuery,
-    });
+    const { data: searchData, error } = await supabase
+      .from('items')
+      .select('*, profiles(username, avatar_url)') // Fetch profiles with items
+      .textSearch('fts', searchQuery, {
+        type: 'plain',
+        config: 'english',
+      })
+      .eq('status', 'available')
+      .limit(20);
 
     if (error) {
-      console.error('Search RPC error:', error.message);
+      console.error('Search error:', error.message);
     } else {
-      // The data from the RPC will be our items
       items = searchData || [];
     }
   }
@@ -44,7 +49,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </p>
         ) : (
           <p className="text-lg text-text-secondary mt-1">
-            Please enter a term to search.
+            Please enter a search term to find items.
           </p>
         )}
       </div>
@@ -52,8 +57,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       {items.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {items.map((item) => (
-            // The ItemCard is designed to handle items that may not have profile data
-            <ItemCard key={item.id} item={item} />
+            // --- FIX #2: Pass the user prop to each ItemCard ---
+            <ItemCard key={item.id} item={item} user={user} />
           ))}
         </div>
       ) : (
