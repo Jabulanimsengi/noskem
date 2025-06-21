@@ -1,5 +1,3 @@
-// File: app/account/dashboard/layout.tsx
-
 import { createClient } from '../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import DashboardNav from './DashboardNav';
@@ -13,7 +11,7 @@ export default async function DashboardLayout({
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    redirect('/auth');
+    redirect('/?authModal=true');
   }
 
   return (
@@ -29,8 +27,8 @@ export default async function DashboardLayout({
         </aside>
 
         <main className="lg:col-span-9">
-          {/* The content area will be a white card with a shadow */}
           <div className="bg-surface rounded-xl shadow-md p-6">
+            {/* FIX: No longer uses cloneElement. Children will be server components that fetch their own data. */}
             {children}
           </div>
         </main>

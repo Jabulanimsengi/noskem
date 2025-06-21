@@ -38,7 +38,7 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
       showToast("Paystack payment service is not configured.", 'error');
       return;
     }
-    // --- FIX: Add validation for the amount ---
+    
     if (amount <= 0) {
         showToast("Invalid amount for payment.", 'error');
         return;
@@ -59,7 +59,8 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
 
           if (result.success) {
             showToast('Payment Authorized! The seller will be notified.', 'success');
-            router.refresh();
+            // FIX: Navigate to the order page to ensure a clean UI update
+            router.push(`/orders/${orderId}`); 
           } else {
             showToast(result.error || 'An unknown error occurred while updating the order.', 'error');
             setIsProcessing(false);
@@ -71,7 +72,6 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
     handler.openIframe();
   };
 
-  // --- FIX: Logic moved to form's onSubmit handler ---
   return (
     <form onSubmit={handlePayment}>
       <button

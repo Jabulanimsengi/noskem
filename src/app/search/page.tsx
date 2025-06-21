@@ -3,6 +3,7 @@ import ItemCard from '../components/ItemCard';
 import SortFilter from './SortFilter';
 import SidebarFilters from './SidebarFilters';
 import { Suspense } from 'react';
+import { type ItemWithProfile } from '@/types'; // FIX: Import strong type
 
 interface SearchPageProps {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -74,7 +75,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           {items && items.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {items.map((item) => (
-                <ItemCard key={item.id} item={item as any} user={user} />
+                // FIX: Use strong type instead of 'as any'
+                <ItemCard key={item.id} item={item as ItemWithProfile} user={user} />
               ))}
             </div>
           ) : (

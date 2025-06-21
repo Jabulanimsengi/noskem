@@ -4,19 +4,13 @@ import { useRef } from 'react';
 import ItemCard from './ItemCard';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { type User } from '@supabase/supabase-js';
+import { type ItemWithProfile } from '@/types'; // FIX: Import the global, consistent type
 
-type CarouselItem = {
-  id: number;
-  title: string;
-  buy_now_price: number | null;
-  images: string[] | string | null;
-  seller_id: string;
-  profiles: { username: string; avatar_url: string | null; } | null;
-};
+// FIX: Removed the local, conflicting 'CarouselItem' type definition
 
 interface ItemCarouselProps {
   title: string;
-  items: CarouselItem[];
+  items: ItemWithProfile[]; // FIX: Use the consistent type for the items prop
   user: User | null;
 }
 
@@ -47,8 +41,6 @@ export default function ItemCarousel({ title, items, user }: ItemCarouselProps) 
     <div className="py-8">
       <style>{scrollbarHide}</style>
       <h2 className="text-2xl font-bold text-text-primary mb-4">{title}</h2>
-      {/* --- FIX IS HERE --- */}
-      {/* The `group` class enables the hover effect for the buttons inside */}
       <div className="relative group">
         <div 
           ref={scrollRef} 
@@ -56,12 +48,12 @@ export default function ItemCarousel({ title, items, user }: ItemCarouselProps) 
         >
           {items.map((item) => (
             <div key={item.id} className="w-64 flex-shrink-0 snap-start">
-              <ItemCard item={item as any} user={user} />
+              {/* This now works without type errors */}
+              <ItemCard item={item} user={user} />
             </div>
           ))}
         </div>
         
-        {/* The arrows are now centered and only appear on hover */}
         <button 
             onClick={() => scroll('left')} 
             className="absolute top-1/2 -translate-y-1/2 -left-4 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-all opacity-0 group-hover:opacity-100" 

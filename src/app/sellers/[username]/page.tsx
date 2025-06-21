@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import ItemCard from '@/app/components/ItemCard';
 import Avatar from '@/app/components/Avatar';
 import { FaStar } from 'react-icons/fa';
+import { type ItemWithProfile } from '@/types'; // FIX: Import strong type
 
 interface SellerPageProps {
   params: {
@@ -59,7 +60,7 @@ export default async function SellerPage({ params }: SellerPageProps) {
             </span>
           </div>
           <p className="text-text-secondary mt-1">
-            Joined on {new Date(sellerProfile.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
+            Joined on {new Date(sellerProfile.created_at).toLocaleDateString('en-ZA')}
           </p>
         </div>
       </div>
@@ -68,7 +69,8 @@ export default async function SellerPage({ params }: SellerPageProps) {
         {items && items.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {items.map((item) => (
-                    <ItemCard key={item.id} item={item as any} user={currentUser} />
+                    // FIX: Use strong type instead of 'as any'
+                    <ItemCard key={item.id} item={item as ItemWithProfile} user={currentUser} />
                 ))}
             </div>
         ) : (

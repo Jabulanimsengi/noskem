@@ -1,10 +1,9 @@
-// File: app/admin/users/page.tsx
-
 import { createClient } from '../../utils/supabase/server';
 import { createAdminClient } from '../../utils/supabase/admin';
 import { redirect } from 'next/navigation';
-import { updateUserRole, adjustCreditsAction } from './actions';
 import { FaCoins } from 'react-icons/fa';
+import CreditAdjuster from './CreditAdjuster';
+import RoleManager from './RoleManager'; // FIX: Import the new component
 
 type FullProfile = {
     id: string;
@@ -15,52 +14,25 @@ type FullProfile = {
     created_at: string;
 };
 
-// A client component for the credit adjustment form for better UX
-const CreditAdjuster = ({ userId }: { userId: string }) => {
-    return (
-        <form action={adjustCreditsAction} className="flex items-center gap-2">
-            <input type="hidden" name="userId" value={userId} />
-            <input 
-                type="number" 
-                name="amount" 
-                placeholder="Amount"
-                className="w-20 px-2 py-1 text-sm border-gray-300 rounded-md"
-                required
-            />
-            <input 
-                type="text" 
-                name="notes" 
-                placeholder="Reason"
-                className="flex-grow px-2 py-1 text-sm border-gray-300 rounded-md"
-                required
-            />
-            <button type="submit" className="px-3 py-1 text-sm font-semibold text-white bg-brand rounded-md hover:bg-brand-dark">
-                Adjust
-            </button>
-        </form>
-    )
-}
-
 export default async function UserManagementPage() {
     const supabase = await createClient();
-    const adminSupabase = createAdminClient(); 
+    const adminSupabase = await createAdminClient();
 
-    // 1. Protect the route
     const { data: { user: adminUser } } = await supabase.auth.getUser();
-    if (!adminUser) redirect('/auth');
+    if (!adminUser) redirect('/?authModal=true');
 
     const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', adminUser.id).single();
     if (adminProfile?.role !== 'admin') {
         return <div className="text-center p-8 text-red-500">Access Denied. You are not an admin.</div>;
     }
 
-    // 2. Fetch all users and profiles
-    const { data: usersData, error: usersError } = await adminSupabase.auth.admin.listUsers();
+    const { data: usersData, error: usersError } = await adminSupabase.auth.admin.listUsers({ page: 1, perPage: 100 });
     if (usersError) {
         return <p className="text-red-500 text-center p-8">Error fetching users: {usersError.message}</p>;
     }
     
-    const { data: profilesData } = await adminSupabase.from('profiles').select('*');
+    const userIds = usersData.users.map(u => u.id);
+    const { data: profilesData } = await adminSupabase.from('profiles').select('*').in('id', userIds);
     const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
 
     const allUsers: FullProfile[] = usersData.users.map(user => {
@@ -80,13 +52,13 @@ export default async function UserManagementPage() {
                     <thead className="bg-gray-100 border-b">
                         <tr>
                             <th className="p-4 font-semibold">User</th>
-                            <th className="p-4 font-semibold">Role</th>
+                            <th className="p-4 font-semibold">Role & Credits</th>
                             <th className="p-4 font-semibold">Credit Adjustment</th>
                         </tr>
                     </thead>
                     <tbody>
                         {allUsers.map(user => (
-                            <tr key={user.id} className="border-b">
+                            <tr key={user.id} className="border-b last:border-b-0">
                                 <td className="p-4 align-top">
                                     <p className="font-semibold">{user.username}</p>
                                     <p className="text-text-secondary">{user.email}</p>
@@ -97,15 +69,8 @@ export default async function UserManagementPage() {
                                         <FaCoins className="text-yellow-500" />
                                         <span className="font-bold">{user.credit_balance}</span>
                                     </div>
-                                    <form action={updateUserRole} className="flex items-center gap-2">
-                                        <input type="hidden" name="userId" value={user.id} />
-                                        <select name="newRole" defaultValue={user.role || 'user'} className="bg-white border border-gray-300 rounded-md px-2 py-1 text-xs">
-                                            <option value="user">User</option>
-                                            <option value="agent">Agent</option>
-                                            <option value="admin">Admin</option>
-                                        </select>
-                                        <button type="submit" className="px-3 py-1 text-xs font-semibold text-white bg-gray-600 hover:bg-gray-700 rounded-md">Save Role</button>
-                                    </form>
+                                    {/* FIX: Use the new RoleManager client component */}
+                                    <RoleManager userId={user.id} currentRole={user.role || 'user'} />
                                 </td>
                                 <td className="p-4 align-top">
                                     <CreditAdjuster userId={user.id} />

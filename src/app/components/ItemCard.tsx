@@ -19,16 +19,16 @@ export default function ItemCard({ item, user }: ItemCardProps) {
 
   const handleAction = (callback: () => void) => {
     if (!user) {
-      openModal('signIn');
+      // FIX: Use the correct 'sign_in' view type
+      openModal('sign_in');
     } else {
       callback();
     }
   };
 
-  let finalImageUrl = 'https://placehold.co/600x400/27272a/9ca3af?text=No+Image';
-  if (Array.isArray(item.images) && item.images.length > 0 && typeof item.images[0] === 'string') {
-    finalImageUrl = item.images[0];
-  }
+  const finalImageUrl = (Array.isArray(item.images) && typeof item.images[0] === 'string' && item.images.length > 0)
+    ? item.images[0]
+    : 'https://placehold.co/600x400/27272a/9ca3af?text=No+Image';
 
   const sellerUsername = item.profiles?.username || 'user';
   const sellerAvatarUrl = item.profiles?.avatar_url || `https://placehold.co/32x32/0891B2/ffffff.png?text=${sellerUsername.charAt(0) || 'S'}`;
@@ -44,8 +44,7 @@ export default function ItemCard({ item, user }: ItemCardProps) {
                   fill={true} 
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   style={{ objectFit: "cover" }} 
-                  className="transition-transform duration-300 ease-in-out group-hover:scale-105" 
-                  // The 'unoptimized' prop has been removed
+                  className="transition-transform duration-300 ease-in-out group-hover:scale-105"
                 />
             </Link>
           </div>
@@ -60,7 +59,6 @@ export default function ItemCard({ item, user }: ItemCardProps) {
                         width={24} 
                         height={24} 
                         className="rounded-full" 
-                        // The 'unoptimized' prop has been removed
                       />
                       <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">{sellerUsername}</span>
                   </Link>
@@ -83,7 +81,8 @@ export default function ItemCard({ item, user }: ItemCardProps) {
                           <Link href={`/items/${item.id}`} onClick={(e) => {
                             if (!user) {
                                 e.preventDefault();
-                                openModal('signIn');
+                                // FIX: Use the correct 'sign_in' view type
+                                openModal('sign_in');
                             }
                           }} className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark text-center">
                               Buy Now

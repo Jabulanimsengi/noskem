@@ -3,12 +3,13 @@ import { redirect } from 'next/navigation';
 import InspectionModalTrigger from './InspectionModalTrigger';
 import { FaBox, FaCheck, FaTruck } from 'react-icons/fa';
 
+// Assuming a type definition exists for this complex object
 type AssembledOrder = {
     id: number;
     status: string;
     item: { title: string } | null;
     seller: { username: string | null } | null;
-    buyer: { username: string | null } | null;
+    buyer: { username:string | null } | null;
 };
 
 const OrderCard = ({ order }: { order: AssembledOrder }) => (
@@ -22,6 +23,7 @@ const OrderCard = ({ order }: { order: AssembledOrder }) => (
         </div>
         {order.status === 'in_warehouse' && (
             <div className="flex-shrink-0">
+                 {/* FIX: Pass order.id to the orderId prop, not the whole order object */}
                  <InspectionModalTrigger orderId={order.id} />
             </div>
         )}
@@ -32,7 +34,7 @@ export default async function AgentDashboardPage() {
     const supabase = await createClient();
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { redirect('/auth'); }
+    if (!user) redirect('/auth');
 
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
     if (profile?.role !== 'agent' && profile?.role !== 'admin') {

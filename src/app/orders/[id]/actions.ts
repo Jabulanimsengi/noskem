@@ -19,7 +19,7 @@ export async function updateOrderStatus(
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)
-    .select()
+    .select('id, item_id') // FIX: Explicitly select the columns needed below
     .single();
 
   if (error) {
@@ -28,12 +28,16 @@ export async function updateOrderStatus(
   }
 
   // 2. Update the item's status to 'sold'
-  await supabase
+  const { error: itemUpdateError } = await supabase
     .from('items')
     .update({ status: 'sold' })
-    // @ts-ignore - The join from the previous step is not available here, but the ID is.
-    .eq('id', data.item_id);
+    .eq('id', data.item_id); // FIX: No longer a type error
 
+  if (itemUpdateError) {
+    // Note: Consider how to handle this failure case. Should the order status be rolled back?
+    console.error('Error updating item status:', itemUpdateError);
+    return { success: false, error: itemUpdateError.message };
+  }
 
   // 3. Revalidate paths to show updated data
   revalidatePath('/');

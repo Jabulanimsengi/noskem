@@ -28,14 +28,14 @@ export const useConfirmationModal = () => {
   return context;
 };
 
-// FIX: The Provider component now contains all the state and renders the modal UI itself.
+// The Provider component now contains all the state and renders the modal UI itself.
 export const ConfirmationModalProvider = ({ children }: { children: ReactNode }) => {
   const [options, setOptions] = useState<ConfirmationOptions | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
 
   const showConfirmation = useCallback((opts: ConfirmationOptions) => {
     setOptions(opts);
-    setIsConfirming(false); // Reset confirming state each time modal is shown
+    setIsConfirming(false);
   }, []);
 
   const handleClose = () => {
@@ -50,9 +50,7 @@ export const ConfirmationModalProvider = ({ children }: { children: ReactNode })
         await options.onConfirm();
       } catch (error) {
         console.error("Confirmation action failed", error);
-        // Optionally show a toast message on failure
       } finally {
-        // Close the modal whether it succeeds or fails
         setIsConfirming(false);
         setOptions(null);
       }
@@ -84,11 +82,11 @@ export const ConfirmationModalProvider = ({ children }: { children: ReactNode })
                 <h2 className="text-xl font-bold text-text-primary">{options.title}</h2>
                 <p className="text-text-secondary mt-2 mb-6 whitespace-pre-wrap">{options.message}</p>
               </div>
-              <div className="flex justify-end gap-3 bg-gray-50 dark:bg-gray-800 p-4 border-t dark:border-gray-700">
+              <div className="flex justify-end gap-3 bg-gray-50 p-4 border-t">
                 <Button variant="secondary" onClick={handleClose} disabled={isConfirming}>
                   {options.cancelText || 'Cancel'}
                 </Button>
-                <Button onClick={handleConfirm} disabled={isConfirming} className="bg-red-600 hover:bg-red-700 focus:ring-red-500">
+                <Button onClick={handleConfirm} disabled={isConfirming} className="bg-red-600 hover:bg-red-700">
                   {isConfirming ? 'Processing...' : (options.confirmText || 'Confirm')}
                 </Button>
               </div>

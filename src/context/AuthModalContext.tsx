@@ -1,49 +1,27 @@
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 
-type ModalView = 'signIn' | 'signUp';
+// FIX: Use the correct view types required by Supabase Auth UI
+export type AuthView = 'sign_in' | 'sign_up';
 
 interface AuthModalContextType {
   isOpen: boolean;
-  view: ModalView;
-  openModal: (view: ModalView) => void;
+  view: AuthView;
+  openModal: (view?: AuthView) => void;
   closeModal: () => void;
-  switchTo: (view: ModalView) => void;
+  switchTo: (newView: AuthView) => void;
 }
 
 const AuthModalContext = createContext<AuthModalContextType | undefined>(undefined);
 
-export const useAuthModal = () => {
-  const context = useContext(AuthModalContext);
-  if (!context) {
-    throw new Error('useAuthModal must be used within an AuthModalProvider');
-  }
-  return context;
-};
-
-// This helper component allows us to use `useSearchParams` within the context
-const AuthModalController = ({ children }: { children: ReactNode }) => {
-    const searchParams = useSearchParams();
-    const { openModal } = useAuthModal();
-  
-    useEffect(() => {
-      if (searchParams.get('authModal')) {
-        openModal('signIn');
-      }
-    }, [searchParams, openModal]);
-  
-    return <>{children}</>;
-}
-
-
 export const AuthModalProvider = ({ children }: { children: ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [view, setView] = useState<ModalView>('signIn');
+  // FIX: Update the default state to use the correct type
+  const [view, setView] = useState<AuthView>('sign_in');
 
-  const openModal = (view: ModalView) => {
-    setView(view);
+  const openModal = (initialView: AuthView = 'sign_in') => {
+    setView(initialView);
     setIsOpen(true);
   };
 
@@ -51,15 +29,21 @@ export const AuthModalProvider = ({ children }: { children: ReactNode }) => {
     setIsOpen(false);
   };
 
-  const switchTo = (newView: ModalView) => {
+  const switchTo = (newView: AuthView) => {
     setView(newView);
   };
 
   return (
     <AuthModalContext.Provider value={{ isOpen, view, openModal, closeModal, switchTo }}>
-        <AuthModalController>
-            {children}
-        </AuthModalController>
+      {children}
     </AuthModalContext.Provider>
   );
+};
+
+export const useAuthModal = () => {
+  const context = useContext(AuthModalContext);
+  if (context === undefined) {
+    throw new Error('useAuthModal must be used within an AuthModalProvider');
+  }
+  return context;
 };

@@ -1,6 +1,6 @@
 import { createClient } from './utils/supabase/server';
 import { Suspense } from 'react';
-import { type Category } from '@/types';
+import { Category, ItemWithProfile } from '@/types';
 import CategoryFilter from './components/CategoryFilter';
 import CreditPackagesSection from './components/CreditPackagesSection';
 import ItemCarousel from './components/ItemCarousel';
@@ -14,8 +14,7 @@ export default async function HomePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
-  // This page now only fetches data for the carousels.
-  // The main item list fetching is handled by the client.
+  // Fetch all initial data concurrently
   const [
     categoriesRes,
     featuredItemsRes,
@@ -28,10 +27,11 @@ export default async function HomePage() {
     supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10)
   ]);
 
+  // Use the strong types, providing empty arrays as a fallback
   const categories: Category[] = categoriesRes.data || [];
-  const featuredItems = featuredItemsRes.data || [];
-  const popularItems = popularItemsRes.data || [];
-  const recentlySoldItems = recentlySoldRes.data || [];
+  const featuredItems: ItemWithProfile[] = featuredItemsRes.data || [];
+  const popularItems: ItemWithProfile[] = popularItemsRes.data || [];
+  const recentlySoldItems: ItemWithProfile[] = recentlySoldRes.data || [];
 
   return (
     <>
@@ -40,17 +40,17 @@ export default async function HomePage() {
         
         {featuredItems.length > 0 && (
           <div className='pt-8 mt-8'>
-            <ItemCarousel title="Featured Items" items={featuredItems as any} user={user} />
+            <ItemCarousel title="Featured Items" items={featuredItems} user={user} />
           </div>
         )}
         {popularItems.length > 0 && (
           <div className='border-t pt-8 mt-8'>
-            <ItemCarousel title="Popular Items" items={popularItems as any} user={user} />
+            <ItemCarousel title="Popular Items" items={popularItems} user={user} />
           </div>
         )}
         {recentlySoldItems.length > 0 && (
            <div className='border-t pt-8 mt-8'>
-             <ItemCarousel title="Recently Sold" items={recentlySoldItems as any} user={user} />
+             <ItemCarousel title="Recently Sold" items={recentlySoldItems} user={user} />
            </div>
         )}
         <div className="py-16 border-t mt-8">
@@ -59,8 +59,10 @@ export default async function HomePage() {
               <p className="text-lg text-text-secondary mt-2">Find exactly what you're looking for.</p>
           </div>
           <CategoryFilter categories={categories} />
-          {/* ItemList is now a client component and will fetch its own data */}
-          <ItemList user={user} />
+          {/* ItemList is a client component and will fetch its own data based on search params */}
+          <Suspense fallback={<GridSkeletonLoader count={8} />}>
+            <ItemList user={user} />
+          </Suspense>
         </div>
       </div>
       <CreditPackagesSection user={user} />
