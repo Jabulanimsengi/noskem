@@ -7,7 +7,7 @@ export async function purchaseCredits(
     packageId: number, 
     paystackRef: string
 ) {
-  const supabase = await createClient(); // Corrected: Added await
+  const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {

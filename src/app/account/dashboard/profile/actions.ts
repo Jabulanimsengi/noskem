@@ -25,22 +25,15 @@ export async function updateUserProfile(
   const companyName = formData.get('companyName') as string | null;
   const avatarFile = formData.get('avatar') as File;
 
-  // This type definition is for the data we intend to update.
   const profileUpdateData: {
     username?: string;
     first_name?: string | null;
     last_name?: string | null;
     company_name?: string | null;
     avatar_url?: string;
-  } = {
-    username,
-    first_name: firstName,
-    last_name: lastName,
-    company_name: companyName,
-  };
+  } = { username, first_name: firstName, last_name: lastName, company_name: companyName };
 
   if (avatarFile && avatarFile.size > 0) {
-    // Correctly fetch the old avatar URL
     const { data: profileData } = await supabase
       .from('profiles')
       .select('avatar_url')
@@ -57,9 +50,7 @@ export async function updateUserProfile(
     
     const fileExt = avatarFile.name.split('.').pop();
     const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(fileName, avatarFile);
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, avatarFile);
 
     if (uploadError) {
       return { message: `Avatar upload failed: ${uploadError.message}`, type: 'error' };
@@ -69,13 +60,10 @@ export async function updateUserProfile(
     profileUpdateData.avatar_url = publicUrl;
   }
 
-  const { error } = await supabase
-    .from('profiles')
-    .update(profileUpdateData)
-    .eq('id', user.id);
+  const { error } = await supabase.from('profiles').update(profileUpdateData).eq('id', user.id);
 
   if (error) {
-    if (error.code === '23505') { // Unique constraint violation for username
+    if (error.code === '23505') {
         return { message: 'This username is already taken.', type: 'error' };
     }
     return { message: `Failed to update profile: ${error.message}`, type: 'error' };

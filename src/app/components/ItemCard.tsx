@@ -13,7 +13,11 @@ export type Item = {
   buy_now_price: number | null;
   images: string[] | string | null;
   seller_id: string;
-  profiles: { username: string; avatar_url: string | null; } | null;
+  profiles: {
+    // --- FIX: Username is allowed to be null ---
+    username: string | null;
+    avatar_url: string | null;
+  } | null;
 };
 
 interface ItemCardProps {
@@ -38,6 +42,7 @@ export default function ItemCard({ item, user }: ItemCardProps) {
     finalImageUrl = item.images[0];
   }
 
+  // This fallback logic now correctly handles a null username
   const sellerUsername = item.profiles?.username || 'user';
   const sellerAvatarUrl = item.profiles?.avatar_url || `https://placehold.co/32x32/0891B2/ffffff.png?text=${sellerUsername.charAt(0) || 'S'}`;
 
@@ -52,9 +57,9 @@ export default function ItemCard({ item, user }: ItemCardProps) {
           <div className="p-4 flex flex-col flex-grow">
               <h3 className="text-lg font-bold text-text-primary truncate">{item.title}</h3>
               
-              {/* --- FIX: Seller info is now a link to their storefront --- */}
+              {/* This link will now work even if the username is null */}
               {item.profiles && (
-                  <Link href={`/sellers/${item.profiles.username}`} className="flex items-center gap-2 mt-2 group/seller">
+                  <Link href={`/sellers/${sellerUsername}`} className="flex items-center gap-2 mt-2 group/seller">
                       <Image src={sellerAvatarUrl} alt={sellerUsername} width={24} height={24} className="rounded-full" />
                       <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">{sellerUsername}</span>
                   </Link>

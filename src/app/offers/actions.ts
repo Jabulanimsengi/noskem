@@ -10,7 +10,6 @@ export interface OfferFormState {
   success: boolean;
 }
 
-// This function is already correct
 export async function createOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -68,14 +67,12 @@ export async function acceptOfferAction(offerId: number) {
     .eq('id', offerId)
     .single();
 
-  // Corrected: Check if items is an array and access the first element
   const item = offer?.items?.[0];
 
   if (!offer || !item || (offer.seller_id !== user.id && offer.buyer_id !== user.id) || item.status !== 'available') {
     throw new Error('This offer cannot be accepted.');
   }
 
-  // Corrected: Handle array returned by RPC
   const { data: orderData, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
     p_offer_id: offer.id,
   });
@@ -85,7 +82,6 @@ export async function acceptOfferAction(offerId: number) {
   }
   
   const newOrder = orderData[0];
-
   const message = `Your offer for "${item.title}" was accepted! Proceed to payment.`;
   await createNotification(offer.buyer_id, message, `/orders/${newOrder.id}`);
 
@@ -102,7 +98,6 @@ export async function rejectOfferAction(offerId: number) {
 
     const { data: offer } = await supabase.from('offers').select('seller_id, buyer_id, items(title)').eq('id', offerId).single();
     
-    // Corrected: Check if items is an array and access the first element
     const item = offer?.items?.[0];
     if (!offer || !item) return;
 
@@ -146,9 +141,7 @@ export async function counterOfferAction(prevState: OfferFormState, formData: Fo
         .eq('id', offerId)
         .single();
     
-    // Corrected: Check if items is an array and access the first element
     const item = offer?.items?.[0];
-
     if (fetchError || !offer || !item || offer.seller_id !== user.id) {
         return { error: 'You are not authorized to modify this offer.', success: false };
     }

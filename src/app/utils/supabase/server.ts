@@ -1,7 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-// The function is now async and takes NO arguments.
 export const createClient = async () => {
   const cookieStore = await cookies();
 
@@ -17,14 +16,14 @@ export const createClient = async () => {
           try {
             cookieStore.set({ name, value, ...options });
           } catch (error) {
-            // This can be ignored on Server Components
+            // This can be ignored on Server Components.
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options });
           } catch (error) {
-            // This can be ignored on Server Components
+            // This can be ignored on Server Components.
           }
         },
       },

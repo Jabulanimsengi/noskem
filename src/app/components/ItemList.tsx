@@ -1,49 +1,70 @@
-import { createClient } from '../utils/supabase/server';
-import ItemCard from './ItemCard';
-import { type User } from '@supabase/supabase-js';
+'use client'; // This marks the component as a Client Component
 
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import ItemCard from './ItemCard';
+import GridSkeletonLoader from './skeletons/GridSkeletonLoader';
+import { type User } from '@supabase/supabase-js';
+import { type ItemWithProfile } from '@/types';
+
+// This component no longer accepts categorySlug or searchParams
 interface ItemListProps {
-  // --- FIX: Accept the searchParams object instead of a slug string ---
-  searchParams: { [key: string]: string | string[] | undefined };
   user: User | null;
 }
 
-export default async function ItemList({ searchParams, user }: ItemListProps) {
-  const supabase = await createClient();
+function ItemListComponent({ user }: ItemListProps) {
+  const searchParams = useSearchParams();
+  const category = searchParams.get('category');
   
-  // --- FIX: Extract the category slug inside this component ---
-  const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined;
+  const [items, setItems] = useState<ItemWithProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  let mainItemsQuery = supabase
-    .from('items')
-    .select(`*, profiles (username, avatar_url)`)
-    .eq('status', 'available');
+  useEffect(() => {
+    const fetchItems = async () => {
+      setIsLoading(true);
+      try {
+        const url = category ? `/api/items?category=${category}` : '/api/items';
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('Failed to fetch items');
+        }
+        const data = await response.json();
+        setItems(data);
+      } catch (error) {
+        console.error(error);
+        setItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  if (categorySlug) {
-    const { data: category } = await supabase.from('categories').select('id').eq('slug', categorySlug).single();
-    if (category) {
-      mainItemsQuery = mainItemsQuery.eq('category_id', category.id);
-    }
-  }
-  
-  const { data: mainItems, error } = await mainItemsQuery.order('created_at', { ascending: false });
+    fetchItems();
+  }, [category]); 
 
-  if (error) {
-    console.error("Error fetching items:", error);
-    return <p className="text-center text-red-500 py-10">Could not load items.</p>;
+  if (isLoading) {
+    return <GridSkeletonLoader count={8} />;
   }
 
   return (
     <>
-      {mainItems && mainItems.length > 0 ? (
+      {items.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {mainItems.map((item) => (
-            <ItemCard key={item.id} item={item as any} user={user} />
+          {items.map((item) => (
+            <ItemCard key={item.id} item={item} user={user} />
           ))}
         </div>
       ) : (
-        <p className="text-center text-text-secondary py-10">No items found for this category.</p>
+        <p className="text-center text-text-secondary py-10">No items found.</p>
       )}
     </>
   );
+}
+
+// Wrap the component in Suspense to handle the useSearchParams hook correctly
+export default function ItemList(props: ItemListProps) {
+  return (
+    <Suspense fallback={<GridSkeletonLoader count={8} />}>
+      <ItemListComponent {...props} />
+    </Suspense>
+  )
 }

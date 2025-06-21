@@ -3,7 +3,7 @@
 import { createClient } from '../../utils/supabase/server';
 
 export async function markMessagesAsRead(roomId: string) {
-    const supabase = await createClient(); // Corrected: Added await
+    const supabase = await createClient();
     
     const { data: { user } } = await supabase.auth.getUser();
 

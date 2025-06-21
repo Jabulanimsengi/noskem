@@ -1,6 +1,6 @@
 import { createClient } from './utils/supabase/server';
 import { Suspense } from 'react';
-import { type Category, type ItemWithProfile } from '@/types';
+import { type Category } from '@/types';
 import CategoryFilter from './components/CategoryFilter';
 import CreditPackagesSection from './components/CreditPackagesSection';
 import ItemCarousel from './components/ItemCarousel';
@@ -10,12 +10,10 @@ import GridSkeletonLoader from './components/skeletons/GridSkeletonLoader';
 
 export const dynamic = 'force-dynamic';
 
-interface HomePageProps {
-  searchParams: { [key: string]: string | string[] | undefined };
-}
-
-export default async function HomePage({ searchParams }: HomePageProps) {
+export default async function HomePage() {
+  // Correct async usage
   const supabase = await createClient();
+
   const { data: { user } } = await supabase.auth.getUser();
   
   const [
@@ -61,10 +59,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <p className="text-lg text-text-secondary mt-2">Find exactly what you're looking for.</p>
           </div>
           <CategoryFilter categories={categories} />
-          <Suspense fallback={<GridSkeletonLoader count={8} />}>
-            {/* --- FIX: Pass the entire searchParams object down --- */}
-            <ItemList searchParams={searchParams} user={user} />
-          </Suspense>
+          {/* ItemList now fetches its own data on the client side */}
+          <ItemList user={user} />
         </div>
       </div>
       <CreditPackagesSection user={user} />

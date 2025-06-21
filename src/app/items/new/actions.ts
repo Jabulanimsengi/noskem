@@ -12,7 +12,7 @@ export async function listItemAction(
   prevState: ListItemFormState,
   formData: FormData
 ) {
-  const supabase = await createClient(); // Corrected: Added await
+  const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -20,7 +20,7 @@ export async function listItemAction(
   }
 
   const { data: feeDeducted, error: rpcError } = await supabase.rpc('deduct_listing_fee', { user_id: user.id });
-  if (rpcError || !feeDeducted) return { error: 'Could not process listing fee. You may not have enough credits (25 required).', success: false };
+  if (rpcError || !feeDeducted) return { error: 'Could not process listing fee. You may not have enough credits.', success: false };
 
   const title = formData.get('title') as string;
   const description = formData.get('description') as string;
@@ -31,8 +31,8 @@ export async function listItemAction(
   const latitude = formData.get('latitude') as string;
   const longitude = formData.get('longitude') as string;
 
-  if (!title || !price || !condition || !categoryId || imageFiles.length === 0 || imageFiles[0].size === 0) {
-    return { error: 'Please fill all required fields and upload at least one image.', success: false };
+  if (!categoryId || imageFiles.length === 0 || imageFiles[0].size === 0) {
+    return { error: 'Please select a category and upload at least one image.', success: false };
   }
 
   const uploadedImageUrls: string[] = [];

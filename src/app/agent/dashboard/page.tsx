@@ -1,11 +1,8 @@
-// File: app/agent/dashboard/page.tsx
-
 import { createClient } from '../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import InspectionModalTrigger from './InspectionModalTrigger';
 import { FaBox, FaCheck, FaTruck } from 'react-icons/fa';
 
-// This is the shape of the data we will assemble
 type AssembledOrder = {
     id: number;
     status: string;
@@ -14,7 +11,6 @@ type AssembledOrder = {
     buyer: { username: string | null } | null;
 };
 
-// A reusable card component for displaying order info
 const OrderCard = ({ order }: { order: AssembledOrder }) => (
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex justify-between items-center gap-4">
         <div className="flex-grow">
@@ -35,15 +31,14 @@ const OrderCard = ({ order }: { order: AssembledOrder }) => (
 export default async function AgentDashboardPage() {
     const supabase = await createClient();
     
-    // 1. Authorization check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { redirect('/auth'); }
+
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
     if (profile?.role !== 'agent' && profile?.role !== 'admin') {
         return <div className="text-center p-8 text-red-500">Access Denied. You are not an agent.</div>;
     }
 
-    // 2. Fetch the base list of orders first
     const { data: ordersData, error } = await supabase
         .from('orders')
         .select('id, status, item_id, seller_id, buyer_id')
@@ -54,8 +49,6 @@ export default async function AgentDashboardPage() {
         return <p className="text-red-500 p-8 text-center">{error.message}</p>;
     }
 
-    // 3. Assemble the full details for each order.
-    // This method is more robust and guarantees the correct data shape.
     const assembledOrders: AssembledOrder[] = await Promise.all(
         (ordersData || []).map(async (order) => {
             const { data: item } = await supabase.from('items').select('title').eq('id', order.item_id).single();
@@ -65,7 +58,6 @@ export default async function AgentDashboardPage() {
         })
     );
     
-    // 4. Group orders by status for better organization
     const ordersInWarehouse = assembledOrders.filter(o => o.status === 'in_warehouse');
     const ordersForDelivery = assembledOrders.filter(o => o.status === 'inspection_passed');
     const ordersAwaitingCollection = assembledOrders.filter(o => ['payment_authorized', 'awaiting_collection'].includes(o.status));

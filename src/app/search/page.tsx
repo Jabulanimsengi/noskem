@@ -1,6 +1,5 @@
 import { createClient } from '../utils/supabase/server';
 import ItemCard from '../components/ItemCard';
-import { type Item } from '../components/ItemCard';
 import SortFilter from './SortFilter';
 import SidebarFilters from './SidebarFilters';
 import { Suspense } from 'react';

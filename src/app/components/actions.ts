@@ -3,7 +3,7 @@
 import { createClient } from '../utils/supabase/server';
 
 export async function markNotificationsAsRead(notificationIds: number[]) {
-  const supabase = await createClient(); // Corrected: Added await
+  const supabase = await createClient();
   
   if (!notificationIds || notificationIds.length === 0) return;
   
@@ -22,18 +22,13 @@ export async function createNotification(
   message: string,
   linkUrl: string
 ) {
-  const supabase = await createClient(); // Corrected: Added await
+  const supabase = await createClient();
 
   if (!profileId || !message || !linkUrl) return;
 
-  // Using an RPC function to create a notification is a great pattern
-  const { error } = await supabase.rpc('create_new_notification', {
+  await supabase.rpc('create_new_notification', {
     p_profile_id: profileId,
     p_message: message,
     p_link_url: linkUrl
   });
-
-  if (error) {
-    console.error('Error creating notification via RPC:', error);
-  }
 }

@@ -42,14 +42,14 @@ export default async function SellerPage({ params }: SellerPageProps) {
     
   const { data: reviews } = await supabase
     .from('reviews')
-    .select('*, reviewer:reviewer_id(username)')
+    .select('*, reviewer:reviewer_id(username, avatar_url)')
     .eq('seller_id', sellerProfile.id)
     .order('created_at', { ascending: false });
 
   return (
     <div className="container mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
       <div className="bg-surface rounded-xl shadow-lg p-8 mb-8 flex flex-col sm:flex-row items-center gap-6">
-        <Avatar src={sellerProfile.avatar_url} alt={sellerProfile.username} size={96} />
+        <Avatar src={sellerProfile.avatar_url} alt={sellerProfile.username || 'Seller'} size={96} />
         <div>
           <h1 className="text-3xl font-bold text-text-primary">{sellerProfile.username}</h1>
           <div className="flex items-center gap-2 mt-2">
@@ -84,8 +84,10 @@ export default async function SellerPage({ params }: SellerPageProps) {
                 reviews.map(review => (
                     <div key={review.id} className="bg-gray-50 p-4 rounded-lg border">
                         <div className="flex items-center justify-between mb-2">
-                            {/* @ts-ignore */}
-                            <span className="font-bold text-text-primary">{review.reviewer?.username || 'Anonymous'}</span>
+                            <div className="flex items-center gap-2">
+                                <Avatar src={review.reviewer?.avatar_url} alt={review.reviewer?.username || 'U'} size={24} />
+                                <span className="font-bold text-text-primary">{review.reviewer?.username || 'Anonymous'}</span>
+                            </div>
                             <StarDisplay rating={review.rating} />
                         </div>
                         <p className="text-text-secondary">{review.comment}</p>

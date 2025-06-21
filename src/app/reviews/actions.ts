@@ -2,7 +2,6 @@
 
 import { createClient } from '../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { type Database } from '@/types/supabase';
 
 export interface ReviewFormState {
   error: string | null;
@@ -10,7 +9,7 @@ export interface ReviewFormState {
 }
 
 export async function submitReviewAction(prevState: ReviewFormState, formData: FormData): Promise<ReviewFormState> {
-  const supabase = await createClient(); // Corrected: Added await
+  const supabase = await createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -22,8 +21,8 @@ export async function submitReviewAction(prevState: ReviewFormState, formData: F
   const rating = parseInt(formData.get('rating') as string);
   const comment = formData.get('comment') as string;
 
-  if (isNaN(orderId) || isNaN(rating) || !comment) {
-    return { error: 'Invalid data provided. Please fill out all fields.', success: false };
+  if (isNaN(orderId) || isNaN(rating)) {
+    return { error: 'Invalid data provided.', success: false };
   }
 
   const { data: order, error: orderError } = await supabase
@@ -48,16 +47,14 @@ export async function submitReviewAction(prevState: ReviewFormState, formData: F
     if (insertError.code === '23505') {
         return { error: 'You have already submitted a review for this order.', success: false };
     }
-    console.error('Review Insert Error:', insertError.message);
-    return { error: 'Failed to submit your review. An unexpected error occurred.', success: false };
+    return { error: 'Failed to submit your review.', success: false };
   }
 
   revalidatePath('/account/dashboard/orders');
-  if (order.seller_id) {
-      const { data: sellerProfile } = await supabase.from('profiles').select('username').eq('id', order.seller_id).single();
-      if (sellerProfile?.username) {
-        revalidatePath(`/sellers/${sellerProfile.username}`);
-      }
+  // Revalidate the seller's public profile page to show the new review
+  const { data: sellerProfile } = await supabase.from('profiles').select('username').eq('id', order.seller_id).single();
+  if (sellerProfile?.username) {
+    revalidatePath(`/sellers/${sellerProfile.username}`);
   }
   
   return { success: true, error: null };
