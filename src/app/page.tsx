@@ -11,11 +11,11 @@ import GridSkeletonLoader from './components/skeletons/GridSkeletonLoader';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  // Correct async usage
   const supabase = await createClient();
-
   const { data: { user } } = await supabase.auth.getUser();
   
+  // This page now only fetches data for the carousels.
+  // The main item list fetching is handled by the client.
   const [
     categoriesRes,
     featuredItemsRes,
@@ -59,7 +59,7 @@ export default async function HomePage() {
               <p className="text-lg text-text-secondary mt-2">Find exactly what you're looking for.</p>
           </div>
           <CategoryFilter categories={categories} />
-          {/* ItemList now fetches its own data on the client side */}
+          {/* ItemList is now a client component and will fetch its own data */}
           <ItemList user={user} />
         </div>
       </div>

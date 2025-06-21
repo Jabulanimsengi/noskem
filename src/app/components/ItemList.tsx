@@ -1,4 +1,4 @@
-'use client'; // This marks the component as a Client Component
+'use client'; 
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -7,7 +7,6 @@ import GridSkeletonLoader from './skeletons/GridSkeletonLoader';
 import { type User } from '@supabase/supabase-js';
 import { type ItemWithProfile } from '@/types';
 
-// This component no longer accepts categorySlug or searchParams
 interface ItemListProps {
   user: User | null;
 }
@@ -39,7 +38,7 @@ function ItemListComponent({ user }: ItemListProps) {
     };
 
     fetchItems();
-  }, [category]); 
+  }, [category]); // This dependency array ensures data re-fetches when the category changes
 
   if (isLoading) {
     return <GridSkeletonLoader count={8} />;
@@ -60,7 +59,7 @@ function ItemListComponent({ user }: ItemListProps) {
   );
 }
 
-// Wrap the component in Suspense to handle the useSearchParams hook correctly
+// It's best practice to wrap components that use `useSearchParams` in a Suspense boundary.
 export default function ItemList(props: ItemListProps) {
   return (
     <Suspense fallback={<GridSkeletonLoader count={8} />}>

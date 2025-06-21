@@ -6,22 +6,10 @@ import Image from 'next/image';
 import OfferModal from './OfferModal';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
-
-export type Item = {
-  id: number;
-  title: string;
-  buy_now_price: number | null;
-  images: string[] | string | null;
-  seller_id: string;
-  profiles: {
-    // --- FIX: Username is allowed to be null ---
-    username: string | null;
-    avatar_url: string | null;
-  } | null;
-};
+import { type ItemWithProfile } from '@/types';
 
 interface ItemCardProps {
-    item: Item;
+    item: ItemWithProfile;
     user: User | null;
 }
 
@@ -42,7 +30,6 @@ export default function ItemCard({ item, user }: ItemCardProps) {
     finalImageUrl = item.images[0];
   }
 
-  // This fallback logic now correctly handles a null username
   const sellerUsername = item.profiles?.username || 'user';
   const sellerAvatarUrl = item.profiles?.avatar_url || `https://placehold.co/32x32/0891B2/ffffff.png?text=${sellerUsername.charAt(0) || 'S'}`;
 
@@ -51,16 +38,30 @@ export default function ItemCard({ item, user }: ItemCardProps) {
       <div className="bg-surface rounded-xl shadow-lg overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
           <div className="relative w-full h-48">
             <Link href={`/items/${item.id}`} className="block h-full">
-                <Image src={finalImageUrl} alt={item.title} fill={true} style={{ objectFit: "cover" }} className="transition-transform duration-300 ease-in-out group-hover:scale-105" unoptimized />
+                <Image 
+                  src={finalImageUrl} 
+                  alt={item.title} 
+                  fill={true} 
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  style={{ objectFit: "cover" }} 
+                  className="transition-transform duration-300 ease-in-out group-hover:scale-105" 
+                  // The 'unoptimized' prop has been removed
+                />
             </Link>
           </div>
           <div className="p-4 flex flex-col flex-grow">
               <h3 className="text-lg font-bold text-text-primary truncate">{item.title}</h3>
               
-              {/* This link will now work even if the username is null */}
               {item.profiles && (
                   <Link href={`/sellers/${sellerUsername}`} className="flex items-center gap-2 mt-2 group/seller">
-                      <Image src={sellerAvatarUrl} alt={sellerUsername} width={24} height={24} className="rounded-full" />
+                      <Image 
+                        src={sellerAvatarUrl} 
+                        alt={sellerUsername} 
+                        width={24} 
+                        height={24} 
+                        className="rounded-full" 
+                        // The 'unoptimized' prop has been removed
+                      />
                       <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">{sellerUsername}</span>
                   </Link>
               )}

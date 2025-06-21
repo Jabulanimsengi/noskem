@@ -1,4 +1,5 @@
-// src/app/components/Avatar.tsx
+'use client';
+
 import Image from 'next/image';
 
 interface AvatarProps {
@@ -7,21 +8,18 @@ interface AvatarProps {
   size?: number;
 }
 
-export default function Avatar({ src, alt, size = 48 }: AvatarProps) {
-  const placeholderText = alt?.charAt(0).toUpperCase() || 'U';
-  const placeholderUrl = `https://placehold.co/${size}x${size}/0891B2/ffffff.png?text=${placeholderText}`;
-  
-  const finalSrc = src || placeholderUrl;
+export default function Avatar({ src, alt, size = 40 }: AvatarProps) {
+  const placeholder = `https://placehold.co/${size}x${size}/0891B2/ffffff.png?text=${alt.charAt(0).toUpperCase()}`;
+  const imageUrl = src || placeholder;
 
   return (
-    <div className="relative rounded-full overflow-hidden" style={{ width: size, height: size }}>
-      <Image
-        src={finalSrc}
-        alt={alt}
-        fill
-        className="object-cover"
-        unoptimized
-      />
-    </div>
+    <Image
+      src={imageUrl}
+      alt={alt}
+      width={size}
+      height={size}
+      className="rounded-full object-cover"
+      // The 'unoptimized' prop is now removed
+    />
   );
 }
