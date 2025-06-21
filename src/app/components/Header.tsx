@@ -2,9 +2,10 @@ import { createClient } from '../utils/supabase/server';
 import { type Notification } from './NotificationBell';
 import HeaderLayout from './HeaderLayout';
 
-// This is now a clean Server Component that only fetches data
 export default async function Header() {
+  // Corrected: Await the createClient function and remove the cookieStore argument
   const supabase = await createClient();
+  
   const { data: { user } } = await supabase.auth.getUser();
   
   let userProfile = null;
@@ -21,6 +22,5 @@ export default async function Header() {
     notifications = (notificationsRes.data as Notification[]) || [];
   }
 
-  // It passes the freshly fetched data to the client component for rendering
   return <HeaderLayout user={user} profile={userProfile} notifications={notifications} />;
 }

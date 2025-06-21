@@ -5,24 +5,27 @@ import { ToastProvider } from '@/context/ToastContext';
 import { ConfirmationModalProvider } from '@/context/ConfirmationModalContext';
 import { AuthModalProvider } from '@/context/AuthModalContext';
 import { ChatProvider } from '@/context/ChatContext';
+import { LoadingProvider } from '@/context/LoadingContext'; // Import the new provider
 import AuthModal from './components/AuthModal';
 import FloatingChatManager from './components/FloatingChatManager';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ToastProvider>
-      <ConfirmationModalProvider>
-        {/* Suspense is needed for useSearchParams in AuthModalProvider */}
-        <Suspense>
-          <AuthModalProvider>
-            <ChatProvider>
-              {children}
-              <FloatingChatManager />
-              <AuthModal />
-            </ChatProvider>
-          </AuthModalProvider>
-        </Suspense>
-      </ConfirmationModalProvider>
-    </ToastProvider>
+    // Wrap everything with the LoadingProvider
+    <LoadingProvider>
+      <ToastProvider>
+        <ConfirmationModalProvider>
+          <Suspense>
+            <AuthModalProvider>
+              <ChatProvider>
+                {children}
+                <FloatingChatManager />
+                <AuthModal />
+              </ChatProvider>
+            </AuthModalProvider>
+          </Suspense>
+        </ConfirmationModalProvider>
+      </ToastProvider>
+    </LoadingProvider>
   );
 }

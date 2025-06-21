@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '../../../utils/supabase/client';
 import { type User } from '@supabase/supabase-js';
-import { useRouter } from 'next/navigation'; // --- FIX: Import the client-side router ---
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { FaCheck, FaTimes, FaGavel } from 'react-icons/fa';
 import { acceptOfferAction, rejectOfferAction } from '../../../offers/actions';
@@ -89,14 +89,13 @@ export default function MyOffersPage() {
     const [user, setUser] = useState<User | null>(null);
     const [offers, setOffers] = useState<OfferWithDetails[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const router = useRouter(); // --- FIX: Get the router instance ---
+    const router = useRouter();
 
     useEffect(() => {
         const supabase = createClient();
         const getOffers = async () => {
             const { data: { user: currentUser } } = await supabase.auth.getUser();
             if (!currentUser) {
-                // --- FIX: Use router.push for client-side navigation ---
                 return router.push('/?authModal=true'); 
             }
             setUser(currentUser);
@@ -115,7 +114,8 @@ export default function MyOffersPage() {
             setIsLoading(false);
         };
         getOffers();
-    }, [router]);
+    // --- FIX: The dependency array is now empty to prevent an infinite loop ---
+    }, []);
 
     if (isLoading) {
         return <div className="text-center text-text-secondary py-10">Loading offers...</div>

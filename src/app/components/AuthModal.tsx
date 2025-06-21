@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/app/components/Button';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useToast } from '@/context/ToastContext'; // Import useToast
+import { useToast } from '@/context/ToastContext';
+import { useLoading } from '@/context/LoadingContext'; // Import the new loading hook
 
 type AccountType = 'individual' | 'business';
 
@@ -14,8 +15,10 @@ const AuthForm = () => {
     const router = useRouter();
     const supabase = createClient();
     const { view, switchTo, closeModal } = useAuthModal();
-    const { showToast } = useToast(); // Get the showToast function
+    const { showToast } = useToast();
+    const { showLoader } = useLoading(); // Get the showLoader function
 
+    // ... (keep the existing useState declarations)
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [accountType, setAccountType] = useState<AccountType>('individual');
@@ -25,6 +28,7 @@ const AuthForm = () => {
     const [companyName, setCompanyName] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
 
     const handleAuthAction = async () => {
         setIsLoading(true);
@@ -38,24 +42,24 @@ const AuthForm = () => {
                     options: { data: { username, account_type: accountType, ...profileData } },
                 });
                 if (signUpError) throw signUpError;
-                
                 showToast('Sign up successful! Please check your email.', 'success');
-            } else { // Handle Sign In
+            } else {
                 const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
                 if (signInError) throw signInError;
-
                 showToast("Welcome back! You've successfully signed in.", 'success');
             }
             
             closeModal();
-            router.refresh(); // Refresh the page silently in the background
+            showLoader(); // --- FIX: Show the loader ---
+            router.refresh(); 
 
         } catch (err: any) {
             setError(err.message || 'An unexpected error occurred.');
             setIsLoading(false); 
         }
     };
-
+    
+    // ... (The rest of the component's JSX remains the same)
     const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
     
     return (

@@ -1,5 +1,3 @@
-// File: app/account/dashboard/profile/actions.ts
-
 'use server';
 
 import { createClient } from '../../../utils/supabase/server';
@@ -15,69 +13,77 @@ export async function updateUserProfile(
   formData: FormData
 ): Promise<UpdateProfileState> {
   const supabase = await createClient();
-
   const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) {
-    return { message: 'Authentication failed. Please log in again.', type: 'error' };
+    return { message: 'Authentication required.', type: 'error' };
   }
 
-  // Handle Avatar Upload
-  let avatarUrl: string | undefined = undefined;
+  const username = formData.get('username') as string;
+  const firstName = formData.get('firstName') as string | null;
+  const lastName = formData.get('lastName') as string | null;
+  const companyName = formData.get('companyName') as string | null;
   const avatarFile = formData.get('avatar') as File;
 
-  if (avatarFile && avatarFile.size > 0) {
-    const fileExt = avatarFile.name.split('.').pop();
-    const filePath = `${user.id}/${Math.random()}.${fileExt}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, avatarFile);
-
-    if (uploadError) {
-      console.error('Avatar Upload Error:', uploadError);
-      return { message: 'Failed to upload new avatar.', type: 'error' };
-    }
-
-    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-    avatarUrl = publicUrl;
-  }
-
-  // Get other form data
-  const username = formData.get('username') as string;
-  const firstName = formData.get('firstName') as string;
-  const lastName = formData.get('lastName') as string;
-  const companyName = formData.get('companyName') as string;
-
-  // Construct the object with data to be updated
-  const profileData: { [key: string]: any } = {
+  // This type definition is for the data we intend to update.
+  const profileUpdateData: {
+    username?: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    company_name?: string | null;
+    avatar_url?: string;
+  } = {
     username,
     first_name: firstName,
     last_name: lastName,
     company_name: companyName,
-    updated_at: new Date().toISOString(),
   };
 
-  // Only add avatar_url to the update object if a new one was uploaded
-  if (avatarUrl) {
-    profileData.avatar_url = avatarUrl;
+  if (avatarFile && avatarFile.size > 0) {
+    // Correctly fetch the old avatar URL
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('avatar_url')
+      .eq('id', user.id)
+      .single();
+      
+    const oldAvatarUrl = profileData?.avatar_url;
+    if (oldAvatarUrl) {
+        const oldAvatarFileName = oldAvatarUrl.split('/').pop();
+        if(oldAvatarFileName){
+             await supabase.storage.from('avatars').remove([oldAvatarFileName]);
+        }
+    }
+    
+    const fileExt = avatarFile.name.split('.').pop();
+    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, avatarFile);
+
+    if (uploadError) {
+      return { message: `Avatar upload failed: ${uploadError.message}`, type: 'error' };
+    }
+    
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+    profileUpdateData.avatar_url = publicUrl;
   }
 
-  // Update the user's record in the 'profiles' table
   const { error } = await supabase
     .from('profiles')
-    .update(profileData)
+    .update(profileUpdateData)
     .eq('id', user.id);
 
   if (error) {
-    if (error.code === '23505') { // 'unique_violation'
-        return { message: 'This username is already taken. Please choose another.', type: 'error' };
+    if (error.code === '23505') { // Unique constraint violation for username
+        return { message: 'This username is already taken.', type: 'error' };
     }
-    console.error('Error updating profile:', error);
-    return { message: 'Failed to update your profile.', type: 'error' };
+    return { message: `Failed to update profile: ${error.message}`, type: 'error' };
   }
 
-  // Revalidate paths to show the new data everywhere
-  revalidatePath('/', 'layout'); // This refreshes the header and other layout components
-
+  revalidatePath('/account/dashboard/profile');
+  if (username) {
+    revalidatePath(`/sellers/${username}`);
+  }
   return { message: 'Profile updated successfully!', type: 'success' };
 }

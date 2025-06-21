@@ -5,7 +5,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import OfferModal from './OfferModal';
 import { useAuthModal } from '@/context/AuthModalContext';
-import { createClient } from '../utils/supabase/client';
 import { type User } from '@supabase/supabase-js';
 
 export type Item = {
@@ -17,7 +16,6 @@ export type Item = {
   profiles: { username: string; avatar_url: string | null; } | null;
 };
 
-// We add the user prop, which can be null if no one is logged in
 interface ItemCardProps {
     item: Item;
     user: User | null;
@@ -36,15 +34,12 @@ export default function ItemCard({ item, user }: ItemCardProps) {
   };
 
   let finalImageUrl = 'https://placehold.co/600x400/27272a/9ca3af?text=No+Image';
-  let imagesArray = item.images;
-  if (typeof imagesArray === 'string') {
-    try { imagesArray = JSON.parse(imagesArray); } catch (e) { imagesArray = []; }
-  }
-  if (Array.isArray(imagesArray) && imagesArray.length > 0 && typeof imagesArray[0] === 'string') {
-    finalImageUrl = imagesArray[0];
+  if (Array.isArray(item.images) && item.images.length > 0 && typeof item.images[0] === 'string') {
+    finalImageUrl = item.images[0];
   }
 
-  const sellerAvatarUrl = item.profiles?.avatar_url || `https://placehold.co/32x32/0891B2/ffffff.png?text=${item.profiles?.username?.charAt(0) || 'S'}`;
+  const sellerUsername = item.profiles?.username || 'user';
+  const sellerAvatarUrl = item.profiles?.avatar_url || `https://placehold.co/32x32/0891B2/ffffff.png?text=${sellerUsername.charAt(0) || 'S'}`;
 
   return (
     <>
@@ -57,11 +52,12 @@ export default function ItemCard({ item, user }: ItemCardProps) {
           <div className="p-4 flex flex-col flex-grow">
               <h3 className="text-lg font-bold text-text-primary truncate">{item.title}</h3>
               
+              {/* --- FIX: Seller info is now a link to their storefront --- */}
               {item.profiles && (
-                  <div className="flex items-center gap-2 mt-2">
-                      <Image src={sellerAvatarUrl} alt={item.profiles.username || 'seller'} width={24} height={24} className="rounded-full" />
-                      <span className="text-sm text-text-secondary">{item.profiles.username}</span>
-                  </div>
+                  <Link href={`/sellers/${item.profiles.username}`} className="flex items-center gap-2 mt-2 group/seller">
+                      <Image src={sellerAvatarUrl} alt={sellerUsername} width={24} height={24} className="rounded-full" />
+                      <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">{sellerUsername}</span>
+                  </Link>
               )}
 
               <p className="mt-3 text-2xl font-extrabold text-brand flex-grow">
@@ -92,7 +88,7 @@ export default function ItemCard({ item, user }: ItemCardProps) {
           </div>
       </div>
 
-      {isOfferModalOpen && (
+      {user && isOfferModalOpen && (
         <OfferModal
           isOpen={isOfferModalOpen}
           onClose={() => setIsOfferModalOpen(false)}

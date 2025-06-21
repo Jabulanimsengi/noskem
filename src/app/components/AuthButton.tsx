@@ -8,6 +8,7 @@ import { createClient } from '../utils/supabase/client';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
 import { useToast } from '@/context/ToastContext';
+import { useLoading } from '@/context/LoadingContext'; // Import the loading hook
 import NotificationBell, { type Notification } from './NotificationBell';
 
 interface AuthButtonProps {
@@ -21,11 +22,12 @@ export default function AuthButton({ user, profile, notifications }: AuthButtonP
   const { openModal } = useAuthModal();
   const { showConfirmation } = useConfirmationModal();
   const { showToast } = useToast();
+  const { showLoader } = useLoading(); // Get the showLoader function
 
   const performSignOut = async () => {
     const supabase = createClient();
+    showLoader(); // --- FIX: Show the loader ---
     await supabase.auth.signOut();
-    // We show the toast *before* refreshing to make it feel instant
     showToast("You have been logged out successfully.", 'info');
     router.refresh();
   };
@@ -36,10 +38,10 @@ export default function AuthButton({ user, profile, notifications }: AuthButtonP
         message: "Are you sure you want to sign out of your account?",
         confirmText: "Sign Out",
         onConfirm: performSignOut,
-        // --- FIX: The 'intent' property that caused the error has been removed. ---
     });
   };
 
+  // ... (The rest of the component's JSX remains the same)
   if (!user || !profile) {
     return (
       <div className="flex items-center gap-2">

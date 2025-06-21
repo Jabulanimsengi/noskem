@@ -3,13 +3,14 @@
 import { createClient } from '../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { createNotification } from '../components/actions';
 
 export interface OfferFormState {
   error: string | null;
   success: boolean;
 }
 
-// Action for the buyer to create the initial offer
+// This function is already correct
 export async function createOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -30,6 +31,11 @@ export async function createOfferAction(prevState: OfferFormState, formData: For
     return { error: "You cannot make an offer on your own item.", success: false };
   }
 
+  const { data: itemData } = await supabase.from('items').select('title').eq('id', itemId).single();
+  if (!itemData) {
+      return { error: 'Could not find the item.', success: false };
+  }
+
   const { error } = await supabase.from('offers').insert({
     item_id: itemId,
     buyer_id: user.id,
@@ -40,18 +46,17 @@ export async function createOfferAction(prevState: OfferFormState, formData: For
   });
 
   if (error) {
-    console.error('Error creating offer:', error);
     return { error: 'Could not submit your offer. Please try again.', success: false };
   }
   
-  // TODO: You can add a notification for the seller here
+  const message = `You received a new offer of R${offerAmount.toFixed(2)} for your item: "${itemData.title}"`;
+  await createNotification(sellerId, message, '/account/dashboard/offers');
 
   revalidatePath(`/items/${itemId}`);
   revalidatePath('/account/dashboard/offers');
   return { error: null, success: true };
 }
 
-// Action for a user (buyer or seller) to accept an offer
 export async function acceptOfferAction(offerId: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -59,59 +64,68 @@ export async function acceptOfferAction(offerId: number) {
 
   const { data: offer } = await supabase
     .from('offers')
-    .select('*, items(status)')
+    .select('*, items(id, title, status)')
     .eq('id', offerId)
     .single();
 
-  // Security checks: ensure offer exists, user is authorized, and item is available
-  if (!offer || (offer.seller_id !== user.id && offer.buyer_id !== user.id) || offer.items?.status !== 'available') {
+  // Corrected: Check if items is an array and access the first element
+  const item = offer?.items?.[0];
+
+  if (!offer || !item || (offer.seller_id !== user.id && offer.buyer_id !== user.id) || item.status !== 'available') {
     throw new Error('This offer cannot be accepted.');
   }
 
-  // Use a database function to perform the acceptance atomically
-  const { data: order, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
+  // Corrected: Handle array returned by RPC
+  const { data: orderData, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
     p_offer_id: offer.id,
   });
 
-  if (rpcError) {
-    console.error('RPC accept_offer_and_create_order error:', rpcError);
+  if (rpcError || !orderData || orderData.length === 0) {
     throw new Error('Failed to accept the offer. Please try again.');
   }
+  
+  const newOrder = orderData[0];
 
-  // Revalidate paths and redirect the user to the new order page
+  const message = `Your offer for "${item.title}" was accepted! Proceed to payment.`;
+  await createNotification(offer.buyer_id, message, `/orders/${newOrder.id}`);
+
   revalidatePath('/account/dashboard/offers');
   revalidatePath(`/items/${offer.item_id}`);
-  // @ts-ignore
-  redirect(`/orders/${order.id}`);
+  redirect(`/orders/${newOrder.id}`);
 }
 
 
-// Action for a user (buyer or seller) to reject an offer
 export async function rejectOfferAction(offerId: number) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Determine the correct new status based on who is rejecting
-    const { data: offer } = await supabase.from('offers').select('seller_id').eq('id', offerId).single();
-    if (!offer) return;
+    const { data: offer } = await supabase.from('offers').select('seller_id, buyer_id, items(title)').eq('id', offerId).single();
+    
+    // Corrected: Check if items is an array and access the first element
+    const item = offer?.items?.[0];
+    if (!offer || !item) return;
+
     const newStatus = offer.seller_id === user.id ? 'rejected_by_seller' : 'rejected_by_buyer';
 
     const { error } = await supabase
         .from('offers')
         .update({ status: newStatus })
         .eq('id', offerId)
-        .or(`seller_id.eq.${user.id},buyer_id.eq.${user.id}`); // Security check
+        .or(`seller_id.eq.${user.id},buyer_id.eq.${user.id}`);
 
     if(error){
         throw new Error('Failed to reject offer.');
     }
 
+    const recipientId = offer.seller_id === user.id ? offer.buyer_id : offer.seller_id;
+    const message = `Your offer for "${item.title}" was rejected.`;
+    await createNotification(recipientId, message, '/account/dashboard/offers');
+
     revalidatePath('/account/dashboard/offers');
 }
 
 
-// Action for the seller to make a counter-offer
 export async function counterOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -126,33 +140,34 @@ export async function counterOfferAction(prevState: OfferFormState, formData: Fo
         return { error: 'Invalid data provided.', success: false };
     }
 
-    // Get the original offer to ensure the current user is the seller
     const { data: offer, error: fetchError } = await supabase
         .from('offers')
-        .select('seller_id, buyer_id')
+        .select('seller_id, buyer_id, items(title)')
         .eq('id', offerId)
         .single();
     
-    if (fetchError || !offer || offer.seller_id !== user.id) {
+    // Corrected: Check if items is an array and access the first element
+    const item = offer?.items?.[0];
+
+    if (fetchError || !offer || !item || offer.seller_id !== user.id) {
         return { error: 'You are not authorized to modify this offer.', success: false };
     }
 
-    // Update the offer with the new amount and status
     const { error: updateError } = await supabase
         .from('offers')
         .update({
             offer_amount: newAmount,
-            status: 'pending_buyer_review', // It's now the buyer's turn
-            last_offer_by: user.id // The seller made the last offer
+            status: 'pending_buyer_review',
+            last_offer_by: user.id
         })
         .eq('id', offerId);
 
     if (updateError) {
-        console.error('Counter offer error:', updateError);
         return { error: 'Failed to submit counter-offer.', success: false };
     }
     
-    // TODO: You can add a notification for the buyer here
+    const message = `You received a counter-offer of R${newAmount.toFixed(2)} for "${item.title}".`;
+    await createNotification(offer.buyer_id, message, '/account/dashboard/offers');
 
     revalidatePath('/account/dashboard/offers');
     return { error: null, success: true };

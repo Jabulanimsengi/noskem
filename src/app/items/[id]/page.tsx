@@ -1,12 +1,10 @@
-// src/app/items/[id]/page.tsx
-
 import { createClient } from '../../utils/supabase/server';
 import { notFound } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import ImageGallery from '../../components/ImageGallery';
 import BuyNowForm from './BuyNowForm';
 import ViewTracker from './ViewTracker';
 import ItemLocationClient from './ItemLocationClient';
+import Link from 'next/link'; // Import Link
 
 interface ItemDetailPageProps {
   params: {
@@ -18,6 +16,7 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   const { id } = params; 
   const supabase = await createClient();
 
+  // FIX: The query now fetches the profile's username for the link
   const { data: item, error } = await supabase
     .from('items')
     .select(`*, category:categories(name), profiles (username)`)
@@ -31,6 +30,9 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   const formatCondition = (condition: string) => {
     return condition.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
+  
+  // @ts-ignore
+  const sellerUsername = item.profiles?.username || 'Anonymous';
 
   return (
     <>
@@ -44,15 +46,14 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
           </div>
 
           <div className="flex flex-col gap-6">
-            {/* --- FIX: All sections now use consistent card styling --- */}
             <div className="bg-surface rounded-xl shadow-md p-6">
               <h1 className="text-3xl sm:text-4xl font-bold text-text-primary">{item.title}</h1>
               <div className="text-sm text-text-secondary mt-2">
                 Sold by{' '}
-                <span className="font-semibold text-brand">
-                  {/* @ts-ignore */}
-                  {item.profiles?.username || 'Anonymous'}
-                </span>
+                {/* --- FIX: Seller name is now a link to their storefront --- */}
+                <Link href={`/sellers/${sellerUsername}`} className="font-semibold text-brand hover:underline">
+                  {sellerUsername}
+                </Link>
               </div>
               <div className="mt-6">
                 <p className="text-4xl font-bold text-brand">
@@ -85,7 +86,7 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
               <ItemLocationClient lat={item.latitude} lng={item.longitude} />
             )}
 
-            {item.buy_now_price && item.buy_now_price > 0 && (
+            {item.buy_now_price && item.buy_now_price > 0 && item.status === 'available' && (
               <div className="bg-surface rounded-xl shadow-md p-6">
                 <BuyNowForm
                   itemId={item.id}

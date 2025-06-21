@@ -1,51 +1,35 @@
-// src/app/account/dashboard/orders/page.tsx
+'use client'; // This must be a client component to manage modal state
 
-import { createClient } from '../../../utils/supabase/server';
-import { redirect } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { createClient } from '../../../utils/supabase/client';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { type User } from '@supabase/supabase-js';
 import { confirmReceipt, claimSellerFunds } from './actions';
-import OpenChatButton from '@/app/components/OpenChatButton'; // Import the new button
+import OpenChatButton from '@/app/components/OpenChatButton';
+import LeaveReviewModal from '@/app/components/LeaveReviewModal'; // Import the new modal
 
-// ... (keep the existing type definition and formatStatus function)
 type OrderWithDetails = {
     id: number; final_amount: number; status: string; buyer_id: string; seller_id: string;
     item: { id: number; title: string; images: string[] | null; } | null;
     seller: { id: string; username: string | null; avatar_url: string | null; } | null;
     buyer: { id: string; username: string | null; avatar_url: string | null; } | null;
+    reviews: { id: number }[]; // Check if a review exists for this order
 };
 const formatStatus = (status: string) => status.replace(/_/g, ' ').toUpperCase();
 
+// --- The OrderRow component now needs to be a client component for modal logic ---
+const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective: 'buying' | 'selling' }) => {
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+    const item = order.item;
+    const otherUser = perspective === 'buying' ? order.seller : order.buyer;
+    const imageUrl = (item && Array.isArray(item.images) && item.images.length > 0) ? item.images[0] : 'https://placehold.co/150x150';
+    const COMMISSION_RATE = 0.10; 
+    const payoutAmount = Math.round(order.final_amount * (1 - COMMISSION_RATE));
+    const hasBeenReviewed = order.reviews && order.reviews.length > 0;
 
-export default async function MyOrdersPage() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { redirect('/auth'); }
-
-    // Update the query to get the full profile object needed for the chat
-    const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`*, item:items(*), seller:seller_id(*), buyer:buyer_id(*)`)
-        .or(`seller_id.eq.${user.id},buyer_id.eq.${user.id}`)
-        .order('created_at', { ascending: false });
-
-    if (ordersError) {
-        return <p className="text-red-500 text-center p-8">Error fetching your orders.</p>;
-    }
-    
-    // Cast the data to our type
-    const ordersWithDetails: OrderWithDetails[] = ordersData || [];
-
-    const buyingOrders = ordersWithDetails.filter(o => o.buyer_id === user.id);
-    const sellingOrders = ordersWithDetails.filter(o => o.seller_id === user.id);
-
-    const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective: 'buying' | 'selling' }) => {
-        const item = order.item;
-        const otherUser = perspective === 'buying' ? order.seller : order.buyer;
-        const imageUrl = (item && Array.isArray(item.images) && item.images.length > 0) ? item.images[0] : 'https://placehold.co/150x150';
-        const COMMISSION_RATE = 0.10; 
-        const payoutAmount = Math.round(order.final_amount * (1 - COMMISSION_RATE));
-
-        return (
+    return (
+        <>
             <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 gap-4">
                 <div className="flex items-center gap-4 w-full">
                     <Image src={imageUrl} alt={item?.title || ''} width={64} height={64} className="rounded-md object-cover flex-shrink-0" unoptimized />
@@ -61,9 +45,15 @@ export default async function MyOrdersPage() {
                     </div>
                     <div className="flex gap-2 items-center">
                         {perspective === 'buying' && order.status === 'payment_authorized' && (<form action={confirmReceipt.bind(null, order.id)}><button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 whitespace-nowrap">Confirm Receipt</button></form>)}
+                        
+                        {/* --- FIX: Show Leave Review button --- */}
+                        {perspective === 'buying' && order.status === 'completed' && !hasBeenReviewed && (
+                            <button onClick={() => setIsReviewModalOpen(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 whitespace-nowrap">Leave a Review</button>
+                        )}
+                        {hasBeenReviewed && <p className="text-sm text-green-500 font-semibold whitespace-nowrap">Reviewed</p>}
+
                         {perspective === 'selling' && order.status === 'completed' && (<form action={claimSellerFunds.bind(null, order.id, payoutAmount)}><button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 whitespace-nowrap">Claim Credits</button></form>)}
                         {order.status === 'funds_paid_out' && (<p className="text-sm text-green-500 font-semibold">Paid Out</p>)}
-                        {/* Use the new button here */}
                         <OpenChatButton 
                             orderId={order.id}
                             recipientId={otherUser?.id || ''}
@@ -74,8 +64,62 @@ export default async function MyOrdersPage() {
                     </div>
                 </div>
             </div>
-        );
-    };
+            {isReviewModalOpen && item && (
+                <LeaveReviewModal
+                    isOpen={isReviewModalOpen}
+                    onClose={() => setIsReviewModalOpen(false)}
+                    orderId={order.id}
+                    sellerId={order.seller_id}
+                    itemTitle={item.title}
+                />
+            )}
+        </>
+    );
+};
+
+
+export default function MyOrdersPage() {
+    const [user, setUser] = useState<User | null>(null);
+    const [orders, setOrders] = useState<OrderWithDetails[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const router = useRouter();
+
+    useEffect(() => {
+        const supabase = createClient();
+        const getOrders = async () => {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            if (!currentUser) {
+                return router.push('/?authModal=true');
+            }
+            setUser(currentUser);
+
+            // Update the query to get review status
+            const { data: ordersData, error } = await supabase
+                .from('orders')
+                .select(`*, item:items!inner(id, title, images), seller:seller_id(*), buyer:buyer_id(*), reviews(id)`)
+                .or(`seller_id.eq.${currentUser.id},buyer_id.eq.${currentUser.id}`)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Error loading orders:", error);
+            } else {
+                setOrders(ordersData as OrderWithDetails[]);
+            }
+            setIsLoading(false);
+        };
+        getOrders();
+    }, [router]);
+
+    if (isLoading) {
+        return <div className="text-center text-text-secondary py-10">Loading orders...</div>;
+    }
+
+    if (!user) {
+        return null;
+    }
+
+    const buyingOrders = orders.filter(o => o.buyer_id === user.id);
+    const sellingOrders = orders.filter(o => o.seller_id === user.id);
 
     return (
         <div className="space-y-8">

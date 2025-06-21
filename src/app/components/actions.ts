@@ -1,13 +1,12 @@
 'use server';
 
 import { createClient } from '../utils/supabase/server';
-import { revalidatePath } from 'next/cache';
 
-// This action marks a list of notification IDs as read for the current user
 export async function markNotificationsAsRead(notificationIds: number[]) {
+  const supabase = await createClient(); // Corrected: Added await
+  
   if (!notificationIds || notificationIds.length === 0) return;
   
-  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
@@ -15,19 +14,19 @@ export async function markNotificationsAsRead(notificationIds: number[]) {
     .from('notifications')
     .update({ is_read: true })
     .in('id', notificationIds)
-    .eq('profile_id', user.id); // Security check
+    .eq('profile_id', user.id);
 }
 
-// This action calls our new, secure database function to create a notification
 export async function createNotification(
   profileId: string,
   message: string,
   linkUrl: string
 ) {
-  const supabase = await createClient();
+  const supabase = await createClient(); // Corrected: Added await
+
   if (!profileId || !message || !linkUrl) return;
 
-  // Call the secure RPC function instead of a direct insert
+  // Using an RPC function to create a notification is a great pattern
   const { error } = await supabase.rpc('create_new_notification', {
     p_profile_id: profileId,
     p_message: message,

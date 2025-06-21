@@ -3,13 +3,17 @@ import ItemCard from './ItemCard';
 import { type User } from '@supabase/supabase-js';
 
 interface ItemListProps {
-  categorySlug?: string;
+  // --- FIX: Accept the searchParams object instead of a slug string ---
+  searchParams: { [key: string]: string | string[] | undefined };
   user: User | null;
 }
 
-export default async function ItemList({ categorySlug, user }: ItemListProps) {
+export default async function ItemList({ searchParams, user }: ItemListProps) {
   const supabase = await createClient();
   
+  // --- FIX: Extract the category slug inside this component ---
+  const categorySlug = typeof searchParams.category === 'string' ? searchParams.category : undefined;
+
   let mainItemsQuery = supabase
     .from('items')
     .select(`*, profiles (username, avatar_url)`)
@@ -22,7 +26,12 @@ export default async function ItemList({ categorySlug, user }: ItemListProps) {
     }
   }
   
-  const { data: mainItems } = await mainItemsQuery.order('created_at', { ascending: false });
+  const { data: mainItems, error } = await mainItemsQuery.order('created_at', { ascending: false });
+
+  if (error) {
+    console.error("Error fetching items:", error);
+    return <p className="text-center text-red-500 py-10">Could not load items.</p>;
+  }
 
   return (
     <>

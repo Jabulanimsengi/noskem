@@ -1,11 +1,8 @@
-// File: app/account/dashboard/orders/actions.ts
-
 'use server';
 
 import { createClient } from '../../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-// This action is called by the buyer to confirm they have received the item.
 export async function confirmReceipt(orderId: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -18,7 +15,6 @@ export async function confirmReceipt(orderId: number) {
   revalidatePath('/account/dashboard/orders');
 }
 
-// This action is called by the seller to claim their funds.
 export async function claimSellerFunds(orderId: number, payoutAmount: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
