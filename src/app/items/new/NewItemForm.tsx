@@ -8,6 +8,7 @@ import { listItemAction, type ListItemFormState } from './actions';
 import { FaTimes } from 'react-icons/fa';
 import Image from 'next/image';
 import { type Category } from '@/types';
+import { useToast } from '@/context/ToastContext'; // Import useToast
 
 const MapSelector = dynamic(() => import('./MapSelector'), { 
   ssr: false,
@@ -28,9 +29,9 @@ function SubmitButton() {
 export default function NewItemForm({ categories }: { categories: Category[] }) {
   const router = useRouter();
   const [state, formAction] = useActionState(listItemAction, initialState);
+  const { showToast } = useToast(); // Get showToast function
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  // --- FIX #1: Initialize location with null values for safety ---
   const [location, setLocation] = useState<{ lat: number | null, lng: number | null }>({ lat: null, lng: null });
   const MAX_IMAGES = 5;
 
@@ -59,11 +60,18 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
 
   useEffect(() => {
     if (state.success) {
-      alert('Your item has been listed successfully!');
-      router.push('/');
+      // FIX: Replace alert with a toast notification
+      showToast('Your item has been listed successfully!', 'success');
+      router.push('/account/dashboard/my-listings');
     }
-  }, [state.success, router]);
+    if (state.error) {
+      showToast(state.error, 'error');
+    }
+    // Add showToast to dependency array
+  }, [state, router, showToast]);
 
+  // ... rest of the component remains the same
+  // ... (you can copy the full code from the previous response if needed)
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
   const labelStyles = "block text-sm font-medium text-text-secondary mb-1";
 
@@ -109,7 +117,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
           <label className={labelStyles}>Set Item Location</label>
           <p className="text-xs text-gray-500 mb-2">Click on the map or drag the pin to set the location.</p>
           <MapSelector onLocationSelect={handleLocationSelect} />
-          {/* --- FIX #2: Use nullish coalescing operator (??) to provide a fallback --- */}
           <input type="hidden" name="latitude" value={location.lat ?? ''} />
           <input type="hidden" name="longitude" value={location.lng ?? ''} />
         </div>

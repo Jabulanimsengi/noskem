@@ -3,7 +3,8 @@ import { createAdminClient } from '../../utils/supabase/admin';
 import { redirect } from 'next/navigation';
 import { FaCoins } from 'react-icons/fa';
 import CreditAdjuster from './CreditAdjuster';
-import RoleManager from './RoleManager'; // FIX: Import the new component
+import RoleManager from './RoleManager';
+import UserActions from './UserActions'; 
 
 type FullProfile = {
     id: string;
@@ -12,6 +13,7 @@ type FullProfile = {
     role: string | null;
     credit_balance: number;
     created_at: string;
+    banned_until: string | undefined; 
 };
 
 export default async function UserManagementPage() {
@@ -38,9 +40,14 @@ export default async function UserManagementPage() {
     const allUsers: FullProfile[] = usersData.users.map(user => {
         const profile = profilesMap.get(user.id);
         return {
-            id: user.id, email: user.email, username: profile?.username || 'N/A',
-            role: profile?.role || 'user', credit_balance: profile?.credit_balance || 0,
+            id: user.id,
+            email: user.email,
+            username: profile?.username || 'N/A',
+            role: profile?.role || 'user',
+            credit_balance: profile?.credit_balance || 0,
             created_at: user.created_at,
+            // FIX: Cast `user` to `any` to allow access to the banned_until property.
+            banned_until: (user as any).banned_until,
         };
     });
 
@@ -54,6 +61,7 @@ export default async function UserManagementPage() {
                             <th className="p-4 font-semibold">User</th>
                             <th className="p-4 font-semibold">Role & Credits</th>
                             <th className="p-4 font-semibold">Credit Adjustment</th>
+                            <th className="p-4 font-semibold text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -63,17 +71,25 @@ export default async function UserManagementPage() {
                                     <p className="font-semibold">{user.username}</p>
                                     <p className="text-text-secondary">{user.email}</p>
                                     <p className="text-xs text-text-secondary mt-1">Joined: {new Date(user.created_at).toLocaleDateString()}</p>
+                                    {user.banned_until && new Date(user.banned_until) > new Date() && (
+                                        <p className="text-xs text-red-500 font-bold mt-1">SUSPENDED</p>
+                                    )}
                                 </td>
                                 <td className="p-4 align-top">
                                     <div className="flex items-center gap-2 mb-2">
                                         <FaCoins className="text-yellow-500" />
                                         <span className="font-bold">{user.credit_balance}</span>
                                     </div>
-                                    {/* FIX: Use the new RoleManager client component */}
                                     <RoleManager userId={user.id} currentRole={user.role || 'user'} />
                                 </td>
                                 <td className="p-4 align-top">
                                     <CreditAdjuster userId={user.id} />
+                                </td>
+                                <td className="p-4 align-top">
+                                    <UserActions
+                                      userId={user.id}
+                                      isBanned={!!(user.banned_until && new Date(user.banned_until) > new Date())}
+                                    />
                                 </td>
                             </tr>
                         ))}

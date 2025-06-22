@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { FaShoppingCart, FaBars } from 'react-icons/fa';
+import { FaShoppingCart, FaBars, FaPlusCircle } from 'react-icons/fa';
+import { MessageSquare } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
 import { type Notification } from './NotificationBell';
 import SearchBar from './SearchBar';
@@ -10,11 +11,8 @@ import AuthButton from './AuthButton';
 import MobileMenu from './MobileMenu';
 import NotificationBell from './NotificationBell';
 
-// Define the props this component accepts from its server parent
 interface HeaderLayoutProps {
     user: User | null;
-    // FIX: The profile type is updated to include all properties passed from the Header.
-    // This resolves the TypeScript error.
     profile: {
         credit_balance: number;
         role: string | null;
@@ -24,7 +22,6 @@ interface HeaderLayoutProps {
     notifications: Notification[];
 }
 
-// This client component manages all the UI and state for the header
 export default function HeaderLayout({ user, profile, notifications }: HeaderLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -52,8 +49,30 @@ export default function HeaderLayout({ user, profile, notifications }: HeaderLay
                 <Link href="/how-it-works" className="hover:text-brand transition-colors">How It Works</Link>
             </div>
             
-            {user && <NotificationBell serverNotifications={notifications} />}
-            <AuthButton user={user} profile={profile} />
+            {user ? (
+              <div className="flex items-center gap-5 ml-6">
+                {/* FIX: Changed this link to a prominent button style */}
+                <Link 
+                  href="/items/new" 
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors shadow" 
+                  title="Sell an Item"
+                >
+                  <FaPlusCircle size={18} />
+                  <span>Sell Item</span>
+                </Link>
+
+                <Link href="/chat" title="Messages" className="text-gray-500 hover:text-brand">
+                  <MessageSquare size={22} />
+                </Link>
+                <NotificationBell serverNotifications={notifications} />
+                <div className="h-8 border-l border-gray-300"></div>
+                <AuthButton user={user} profile={profile} />
+              </div>
+            ) : (
+              <div className="ml-4">
+                 <AuthButton user={user} profile={profile} />
+              </div>
+            )}
           </div>
 
           <div className="lg:hidden">

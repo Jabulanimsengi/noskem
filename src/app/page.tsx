@@ -1,13 +1,3 @@
-/**
- * CODE REVIEW UPDATE
- * ------------------
- * This file has been updated based on the AI code review.
- *
- * Changes Made:
- * - Suggestion #9 (Performance): Replaced `force-dynamic` with `revalidate` to allow for caching while keeping data fresh.
- * - Suggestion #25 (Performance): Fetched `credit_packages` on the server and passed them as props to `CreditPackagesSection`.
- * - Suggestion #31 (Performance): Fetched the initial list of all items (`allItems`) on the server to pass to `ItemList`.
- */
 import { createClient } from './utils/supabase/server';
 import { Suspense } from 'react';
 import { Category, ItemWithProfile } from '@/types';
@@ -17,9 +7,6 @@ import ItemCarousel from './components/ItemCarousel';
 import { HeroSection } from './components/HeroSection';
 import ItemList from './components/ItemList';
 import GridSkeletonLoader from './components/skeletons/GridSkeletonLoader';
-
-// FIX: This line has been removed to prevent caching and ensure the user's auth state is always fresh.
-// export const revalidate = 3600; 
 
 type CreditPackage = {
     id: number;
@@ -34,21 +21,19 @@ export default async function HomePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Fetch all initial data concurrently
+  // FIX: Removed the slow `allItemsRes` fetch from this Promise.all()
   const [
     categoriesRes,
     featuredItemsRes,
     popularItemsRes,
     recentlySoldRes,
-    creditPackagesRes, // Suggestion #25: Fetch packages on the server
-    allItemsRes,       // Suggestion #31: Fetch initial items on the server
+    creditPackagesRes,
   ] = await Promise.all([
     supabase.from('categories').select('*').order('name', { ascending: true }),
     supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('is_featured', true).limit(10),
     supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('status', 'available').order('view_count', { ascending: false }).limit(10),
     supabase.from('items').select(`*, profiles (username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10),
     supabase.from('credit_packages').select('*').order('price_zar', { ascending: true }),
-    supabase.from('items').select('*, profiles(username, avatar_url)').eq('status', 'available').order('created_at', { ascending: false }).limit(12),
   ]);
 
   const categories: Category[] = categoriesRes.data || [];
@@ -56,7 +41,6 @@ export default async function HomePage() {
   const popularItems: ItemWithProfile[] = popularItemsRes.data || [];
   const recentlySoldItems: ItemWithProfile[] = recentlySoldRes.data || [];
   const creditPackages: CreditPackage[] = creditPackagesRes.data || [];
-  const allItems: ItemWithProfile[] = allItemsRes.data || [];
 
   return (
     <>
@@ -85,16 +69,12 @@ export default async function HomePage() {
           </div>
           <CategoryFilter categories={categories} />
           
-          {/* Suggestion #31: Pass server-fetched items to a presentational ItemList.
-              ItemList will now render immediately without a skeleton loader for the initial view.
-              The Suspense is kept for when category filters are applied, which trigger a client-side fetch.
-          */}
+          {/* FIX: The ItemList component no longer needs the `initialItems` prop. */}
           <Suspense fallback={<GridSkeletonLoader count={8} />}>
-            <ItemList user={user} initialItems={allItems} />
+            <ItemList user={user} />
           </Suspense>
         </div>
       </div>
-      {/* Suggestion #25: Pass server-fetched packages as props */}
       <CreditPackagesSection user={user} packages={creditPackages} />
     </>
   );

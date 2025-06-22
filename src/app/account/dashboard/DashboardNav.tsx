@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FaBoxOpen, FaBell, FaUserCircle, FaGavel } from 'react-icons/fa'; // Import FaGavel
+import { FaBoxOpen, FaBell, FaUserCircle, FaGavel, FaThList } from 'react-icons/fa'; // Import FaThList
 
-// --- FIX: Add the new link to the navigation array ---
+// --- FIX: Add the new "My Listings" link ---
 const navLinks = [
   { name: 'My Orders', href: '/account/dashboard/orders', icon: FaBoxOpen },
+  { name: 'My Listings', href: '/account/dashboard/my-listings', icon: FaThList }, // Added this line
   { name: 'My Offers', href: '/account/dashboard/offers', icon: FaGavel },
   { name: 'Notifications', href: '/account/dashboard/notifications', icon: FaBell },
   { name: 'Profile', href: '/account/dashboard/profile', icon: FaUserCircle },

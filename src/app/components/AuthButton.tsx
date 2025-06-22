@@ -8,6 +8,8 @@ import { type User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
 import Avatar from './Avatar';
+import { FaChevronDown } from 'react-icons/fa';
+import { useToast } from '@/context/ToastContext'; // Import useToast
 
 interface AuthButtonProps {
   user: User | null;
@@ -24,6 +26,7 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
   const { openModal } = useAuthModal();
   const { showConfirmation } = useConfirmationModal();
   const supabase = createClient();
+  const { showToast } = useToast(); // Get the showToast function
   
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -34,12 +37,15 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
         message: 'Are you sure you want to sign out?',
         onConfirm: async () => {
             await supabase.auth.signOut();
-            router.refresh();
+            router.push('/');
+            // FIX: Show toast on successful sign-out
+            showToast("You have been signed out.", 'info');
         }
     });
   };
 
-  // Effect to close dropdown when clicking outside of it
+  // ... rest of the component remains the same
+  // ... (you can copy the full code from the previous response if needed)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -52,15 +58,15 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
 
   return user ? (
     <div className="relative" ref={dropdownRef}>
-      {/* User Avatar Button to toggle the dropdown */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="transition-opacity hover:opacity-80"
+        className="flex items-center gap-2 transition-opacity hover:opacity-80"
       >
-        <Avatar src={profile?.avatar_url} alt={profile?.username || 'User'} size={40} />
+        <Avatar src={profile?.avatar_url} alt={profile?.username || 'User'} size={32} />
+        <span className="text-sm font-semibold text-text-primary">{profile?.username || "Setup Profile"}</span>
+        <FaChevronDown size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Dropdown Menu */}
       {isOpen && (
         <div className="absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-surface ring-1 ring-black ring-opacity-5 z-50">
           <div className="py-1">
@@ -70,10 +76,25 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
             </div>
             <div className="py-1">
               <Link href="/account/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
-                Dashboard
+                My Dashboard
               </Link>
               <Link href="/account/dashboard/profile" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
-                Account Settings
+                Edit Profile
+              </Link>
+              {profile?.role === 'admin' && (
+                <Link href="/admin/users" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
+                  Admin Panel
+                </Link>
+              )}
+              {profile?.role === 'agent' && (
+                <Link href="/agent/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
+                  Agent Dashboard
+                </Link>
+              )}
+            </div>
+            <div className="py-1 border-t border-gray-200">
+              <Link href="/credits/buy" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
+                Credits: <span className="font-bold text-brand">{profile?.credit_balance ?? 0}</span>
               </Link>
             </div>
             <div className="py-1 border-t border-gray-200">
@@ -90,9 +111,9 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
       <button onClick={() => openModal('sign_in')} className="px-4 py-2 text-sm font-semibold text-text-primary hover:bg-gray-100 rounded-md">
         Sign In
       </button>
-      <button onClick={() => openModal('sign_up')} className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark">
+      <Link href="/signup" className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark">
         Sign Up
-      </button>
+      </Link>
     </div>
   );
 }

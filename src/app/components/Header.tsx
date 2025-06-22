@@ -1,24 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { type User } from '@supabase/supabase-js';
 import { type Notification } from './NotificationBell';
 import HeaderLayout from './HeaderLayout';
 import HeaderSkeleton from './skeletons/HeaderSkeleton';
-
-type Profile = {
-    credit_balance: number;
-    role: string | null;
-    username: string | null;
-    avatar_url: string | null;
-};
+import { useToast } from '@/context/ToastContext';
+import { useRouter, usePathname } from 'next/navigation';
+import { type Profile } from '@/types';
 
 export default function Header() {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const { showToast } = useToast();
+    const hasShownLoginToast = useRef(false);
+    const router = useRouter();
+    const pathname = usePathname();
 
     useEffect(() => {
         const supabase = createClient();
@@ -28,37 +28,49 @@ export default function Header() {
             setUser(currentUser);
 
             if (currentUser) {
-                const [profileRes, notificationsRes] = await Promise.all([
-                    supabase.from('profiles').select('credit_balance, role, avatar_url, username').eq('id', currentUser.id).single(),
-                    supabase.from('notifications').select('*').eq('profile_id', currentUser.id).order('created_at', { ascending: false }).limit(20)
-                ]);
-                setProfile(profileRes.data as Profile | null);
-                setNotifications((notificationsRes.data as Notification[]) || []);
+                const { data: fetchedProfile } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+                setProfile(fetchedProfile as Profile | null);
+
+                // This is the redirection logic.
+                if (fetchedProfile && !fetchedProfile.username) {
+                    if (pathname !== '/account/complete-profile') {
+                        router.push('/account/complete-profile');
+                    }
+                }
+                
+                const { data: fetchedNotifications } = await supabase.from('notifications').select('*').eq('profile_id', currentUser.id).order('created_at', { ascending: false }).limit(20);
+                setNotifications((fetchedNotifications as Notification[]) || []);
             }
             setIsLoading(false);
         };
 
-        fetchData();
-
-        // This listener ensures the header updates instantly when a user signs in or out.
-        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        const onAuthStateChange = (event: string, session: any) => {
             const currentUser = session?.user ?? null;
             setUser(currentUser);
-            if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-                fetchData(); // Refetch data on sign-in
+
+            if (event === 'SIGNED_IN') {
+                if (!hasShownLoginToast.current) {
+                    showToast(`Welcome back!`, 'success');
+                    hasShownLoginToast.current = true;
+                }
+                fetchData(); 
             } else if (event === 'SIGNED_OUT') {
                 setProfile(null);
                 setNotifications([]);
                 setIsLoading(false);
+                hasShownLoginToast.current = false;
             }
-        });
+        };
+        
+        fetchData();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(onAuthStateChange);
 
         return () => {
             authListener?.subscription.unsubscribe();
         };
-    }, []);
+    }, [showToast, router, pathname]);
 
-    // Display a skeleton while the user data is being fetched
     if (isLoading) {
         return <HeaderSkeleton />;
     }

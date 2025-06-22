@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { FaTimes, FaCoins, FaShoppingCart } from 'react-icons/fa';
+import { FaTimes, FaShoppingCart } from 'react-icons/fa';
 import { type User } from '@supabase/supabase-js';
 import SearchBar from './SearchBar';
-import { type Notification } from './NotificationBell';
 import { useAuthModal } from '@/context/AuthModalContext';
 
 interface MobileMenuProps {
@@ -23,15 +22,10 @@ export default function MobileMenu({ isOpen, onClose, user, profile }: MobileMen
 
   const handleSignIn = () => {
     onClose();
-    // FIX: Changed 'signIn' to 'sign_in' to match the expected value.
     openModal('sign_in');
   };
 
-  const handleSignUp = () => {
-    onClose();
-    // FIX: Changed 'signUp' to 'sign_up' to match the expected value.
-    openModal('sign_up');
-  };
+  // The handleSignUp function is no longer needed and has been removed.
 
   return (
     <div className="fixed inset-0 bg-surface z-50 p-4 flex flex-col lg:hidden">
@@ -70,7 +64,10 @@ export default function MobileMenu({ isOpen, onClose, user, profile }: MobileMen
         {!user ? (
             <div className="flex gap-4">
                 <button onClick={handleSignIn} className="flex-1 px-4 py-3 text-sm font-semibold text-brand border border-brand rounded-lg">Sign In</button>
-                <button onClick={handleSignUp} className="flex-1 px-4 py-3 text-sm font-semibold text-white bg-brand rounded-lg">Sign Up</button>
+                {/* FIX: Replaced button with a Link to the new /signup page */}
+                <Link href="/signup" onClick={onClose} className="flex-1 text-center px-4 py-3 text-sm font-semibold text-white bg-brand rounded-lg">
+                    Sign Up
+                </Link>
             </div>
         ) : (
              <Link href="/items/new" onClick={onClose} className="w-full block text-center px-6 py-3 bg-brand text-white font-semibold rounded-lg">

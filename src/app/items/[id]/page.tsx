@@ -4,7 +4,7 @@ import ImageGallery from '../../components/ImageGallery';
 import BuyNowForm from './BuyNowForm';
 import ViewTracker from './ViewTracker';
 import ItemLocationClient from './ItemLocationClient';
-import Link from 'next/link'; // Import Link
+import Link from 'next/link';
 
 interface ItemDetailPageProps {
   params: {
@@ -13,14 +13,14 @@ interface ItemDetailPageProps {
 }
 
 export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
-  const { id } = params; 
   const supabase = await createClient();
 
-  // FIX: The query now fetches the profile's username for the link
+  // FIX: To resolve the build error, we use `params.id` directly in the query below
+  // instead of destructuring it into a separate `id` variable.
   const { data: item, error } = await supabase
     .from('items')
     .select(`*, category:categories(name), profiles (username)`)
-    .eq('id', id)
+    .eq('id', params.id)
     .single();
 
   if (error || !item) {
@@ -50,7 +50,6 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
               <h1 className="text-3xl sm:text-4xl font-bold text-text-primary">{item.title}</h1>
               <div className="text-sm text-text-secondary mt-2">
                 Sold by{' '}
-                {/* --- FIX: Seller name is now a link to their storefront --- */}
                 <Link href={`/sellers/${sellerUsername}`} className="font-semibold text-brand hover:underline">
                   {sellerUsername}
                 </Link>
