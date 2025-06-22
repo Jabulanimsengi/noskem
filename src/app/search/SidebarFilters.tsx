@@ -1,13 +1,3 @@
-/**
- * CODE REVIEW UPDATE
- * ------------------
- * This file has been updated based on the AI code review.
- *
- * Change Made:
- * - Suggestion #15 (Performance): Changed `router.push` to `router.replace`.
- * This updates the URL without adding a new entry to the browser's history,
- * which is better UX for filter controls.
- */
 'use client';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
@@ -31,7 +21,6 @@ export default function SidebarFilters() {
       params.delete('condition');
       conditions.forEach(c => params.append('condition', c));
 
-      // Use router.replace() for filter changes
       router.replace(`${pathname}?${params.toString()}`);
     }, 500);
 
@@ -48,40 +37,44 @@ export default function SidebarFilters() {
   const conditionOptions = ['new', 'like_new', 'used_good', 'used_fair'];
 
   return (
-    <aside className="w-full lg:w-64 space-y-6">
+    // The main container for the filters
+    <aside className="w-full lg:w-72 space-y-8 p-6 bg-surface rounded-xl shadow-md">
+      {/* Price Range Section */}
       <div>
-        <h3 className="font-semibold mb-2">Price Range</h3>
-        <div className="flex items-center gap-2">
+        <h3 className="text-lg font-semibold mb-3 text-text-primary">Price Range</h3>
+        <div className="flex items-center gap-3">
           <input 
             type="number" 
             placeholder="Min" 
             value={minPrice}
             onChange={e => setMinPrice(e.target.value)}
-            className="w-full text-sm rounded-md border-gray-300" 
+            className="w-full text-base p-2.5 rounded-md border-gray-300 shadow-sm focus:border-brand focus:ring-brand" 
           />
-          <span>-</span>
+          <span className="text-gray-400">-</span>
           <input 
             type="number" 
             placeholder="Max" 
             value={maxPrice}
             onChange={e => setMaxPrice(e.target.value)}
-            className="w-full text-sm rounded-md border-gray-300" 
+            className="w-full text-base p-2.5 rounded-md border-gray-300 shadow-sm focus:border-brand focus:ring-brand" 
           />
         </div>
       </div>
+      
+      {/* Condition Section */}
       <div>
-        <h3 className="font-semibold mb-2">Condition</h3>
-        <div className="space-y-2">
+        <h3 className="text-lg font-semibold mb-3 text-text-primary">Condition</h3>
+        <div className="space-y-3">
             {conditionOptions.map(condition => (
-                <label key={condition} className="flex items-center gap-2">
+                <label key={condition} className="flex items-center gap-3 cursor-pointer">
                     <input 
                         type="checkbox" 
                         value={condition}
                         checked={conditions.includes(condition)}
                         onChange={handleConditionChange}
-                        className="rounded border-gray-300 text-brand focus:ring-brand"
+                        className="h-5 w-5 rounded border-gray-300 text-brand focus:ring-brand"
                     />
-                    <span className="text-sm capitalize">{condition.replace('_', ' ')}</span>
+                    <span className="text-base text-text-primary capitalize">{condition.replace(/_/g, ' ')}</span>
                 </label>
             ))}
         </div>

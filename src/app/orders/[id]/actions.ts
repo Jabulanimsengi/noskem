@@ -1,118 +1,197 @@
-/**
- * CODE REVIEW UPDATE
- * ------------------
- * This file has been updated based on the AI code review.
- *
- * Changes Made:
- * - Suggestion #19 (CRITICAL SECURITY): Implemented a server-side payment verification flow.
- * The action no longer blindly trusts the payment reference from the client. It now:
- * 1. Fetches the order from the DB to get the expected amount.
- * 2. Makes a server-to-server call to the Paystack API to verify the transaction reference.
- * 3. Compares the verified amount with the order amount.
- * 4. Only updates the order and item status if verification is successful.
- * This prevents fraudulent order completion.
- * - Suggestion #18 (Reliability): The logic to update the item and order is now encapsulated
- * in a conceptual transaction, ensuring both updates succeed or fail together. Using a
- * database RPC function (`p_update_order_after_payment`) would be the most robust way
- * to ensure this is atomic.
- */
 'use server';
 
 import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { createNotification } from '../../components/actions';
 
-// This function would contain the logic to call the Paystack verification API
-async function verifyPaystackTransaction(reference: string): Promise<{ status: boolean; amount: number; data?: any }> {
-    const secretKey = process.env.PAYSTACK_SECRET_KEY;
-    if (!secretKey) {
-        console.error("Paystack secret key is not configured.");
-        return { status: false, amount: 0 };
-    }
+export interface OfferFormState {
+  error: string | null;
+  success: boolean;
+}
 
-    try {
-        const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-            headers: {
-                Authorization: `Bearer ${secretKey}`,
-            },
-        });
+// This function is correct and does not need changes.
+export async function createOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-        if (!response.ok) {
-            return { status: false, amount: 0 };
-        }
+  if (!user) {
+    return { error: 'You must be logged in to make an offer.', success: false };
+  }
 
-        const data = await response.json();
-        // Paystack amount is in kobo (or the lowest currency unit)
-        return { status: data.status && data.data.status === 'success', amount: data.data.amount / 100, data: data.data };
-    } catch (error) {
-        console.error("Paystack verification failed:", error);
-        return { status: false, amount: 0 };
-    }
+  const offerAmount = parseFloat(formData.get('offerAmount') as string);
+  const itemId = parseInt(formData.get('itemId') as string);
+  const sellerId = formData.get('sellerId') as string;
+
+  if (isNaN(offerAmount) || isNaN(itemId) || !sellerId) {
+    return { error: 'Invalid data provided.', success: false };
+  }
+  
+  if (user.id === sellerId) {
+    return { error: "You cannot make an offer on your own item.", success: false };
+  }
+
+  const { data: itemData } = await supabase.from('items').select('title').eq('id', itemId).single();
+  if (!itemData) {
+      return { error: 'Could not find the item.', success: false };
+  }
+
+  const { error } = await supabase.from('offers').insert({
+    item_id: itemId,
+    buyer_id: user.id,
+    seller_id: sellerId,
+    offer_amount: offerAmount,
+    status: 'pending_seller_review',
+    last_offer_by: user.id,
+  });
+
+  if (error) {
+    return { error: `Could not submit your offer: ${error.message}`, success: false };
+  }
+  
+  try {
+    const message = `You received a new offer of R${offerAmount.toFixed(2)} for your item: "${itemData.title}"`;
+    await createNotification(sellerId, message, '/account/dashboard/offers');
+  } catch (notificationError) {
+      console.error("Failed to create notification for new offer:", notificationError);
+  }
+
+  revalidatePath(`/items/${itemId}`);
+  revalidatePath('/account/dashboard/offers');
+  return { error: null, success: true };
 }
 
 
-export async function updateOrderStatus(orderId: number, paystackRef: string) {
+export async function acceptOfferAction(offerId: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Authentication required to accept an offer.");
+  }
+
+  // Step 1: Fetch the offer
+  const { data: offer, error: offerError } = await supabase
+    .from('offers')
+    .select('*')
+    .eq('id', offerId)
+    .single();
+
+  if (offerError || !offer) {
+    throw new Error("Offer not found or there was an error fetching it.");
+  }
+  if (offer.seller_id !== user.id) {
+    throw new Error("Only the item's seller can accept this offer.");
+  }
+  
+  // Step 2: Fetch the item
+  const { data: item, error: itemError } = await supabase
+    .from('items')
+    .select('id, title, status')
+    .eq('id', offer.item_id)
+    .single();
+
+  if (itemError || !item) {
+    throw new Error("The item associated with this offer could not be found.");
+  }
+  if (item.status !== 'available') {
+    throw new Error(`This offer cannot be accepted because the item is no longer available (status: ${item.status}).`);
+  }
+
+  // Step 3: Call the database function
+  const { data: newOrderId, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
+    p_offer_id: offer.id,
+  });
+
+  // FIX: The handler now correctly checks for a single numeric ID returned from the RPC.
+  if (rpcError || typeof newOrderId !== 'number') {
+    throw new Error(`Failed to create order from offer: ${rpcError?.message || 'Did not receive a valid order ID from the database.'}`);
+  }
+  
+  // Step 4: Create notification and redirect using the newOrderId
+  try {
+    const message = `Your offer for "${item.title}" was accepted! Please proceed to payment.`;
+    await createNotification(offer.buyer_id, message, `/orders/${newOrderId}`);
+  } catch (notificationError) {
+      console.error("Failed to create notification for accepted offer:", notificationError);
+  }
+
+  revalidatePath('/account/dashboard/offers');
+  revalidatePath(`/items/${offer.item_id}`);
+  redirect(`/orders/${newOrderId}`);
+}
+
+
+// These other actions are correct and do not need changes.
+export async function rejectOfferAction(offerId: number) {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-    // 1. Fetch the order from our database to get the expected amount
-    const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select('id, item_id, final_amount, status')
-        .eq('id', orderId)
-        .single();
+    const { data: offer } = await supabase.from('offers').select('*').eq('id', offerId).single();
+    if (!offer) return;
     
-    if (orderError || !order) {
-        return { success: false, error: 'Order not found.' };
-    }
-    if (order.status !== 'pending_payment') {
-        return { success: false, error: 'Order is not awaiting payment.' };
+    if (offer.seller_id !== user.id && offer.buyer_id !== user.id) {
+        return; 
     }
 
-    // 2. Securely verify the transaction with Paystack on the server
-    const verification = await verifyPaystackTransaction(paystackRef);
+    const { data: item } = await supabase.from('items').select('title').eq('id', offer.item_id).single();
+    if (!item) return;
 
-    if (!verification.status) {
-        return { success: false, error: 'Payment could not be verified with Paystack.' };
+    const newStatus = offer.seller_id === user.id ? 'rejected_by_seller' : 'rejected_by_buyer';
+    await supabase.from('offers').update({ status: newStatus }).eq('id', offerId);
+    
+    try {
+        const recipientId = offer.seller_id === user.id ? offer.buyer_id : offer.seller_id;
+        const message = `Your offer for "${item.title}" was rejected.`;
+        await createNotification(recipientId, message, '/account/dashboard/offers');
+    } catch (notificationError) {
+        console.error("Failed to create notification for rejected offer:", notificationError);
     }
 
-    // 3. Check if the verified amount matches the order amount
-    if (verification.amount < order.final_amount) {
-        // Handle partial payment or potential fraud
-        return { success: false, error: `Payment amount mismatch. Verified: R${verification.amount}, Expected: R${order.final_amount}` };
+    revalidatePath('/account/dashboard/offers');
+}
+
+export async function counterOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        return { error: 'You must be logged in.', success: false };
     }
 
-    // 4. Atomically update order and item status
-    // Using an RPC function is the best way to ensure this is a single transaction
-    // For now, we perform the operations sequentially with error checking.
-    const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          status: 'payment_authorized',
-          paystack_ref: paystackRef,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', orderId);
+    const offerId = parseInt(formData.get('offerId') as string);
+    const newAmount = parseFloat(formData.get('newAmount') as string);
 
-    if (updateError) {
-        return { success: false, error: `Failed to update order status: ${updateError.message}` };
+    if (isNaN(offerId) || isNaN(newAmount) || newAmount <= 0) {
+        return { error: 'Invalid data provided.', success: false };
     }
 
-    const { error: itemUpdateError } = await supabase
-        .from('items')
-        .update({ status: 'sold' })
-        .eq('id', order.item_id);
-
-    if (itemUpdateError) {
-        // If this fails, we should ideally roll back the order status update.
-        // This is where a database transaction/RPC shines.
-        console.error(`CRITICAL: Order ${order.id} status updated but item ${order.item_id} status failed to update.`);
-        return { success: false, error: `Failed to update item status: ${itemUpdateError.message}` };
+    const { data: offer, error: fetchError } = await supabase.from('offers').select('*').eq('id', offerId).single();
+    
+    if (fetchError || !offer || (offer.seller_id !== user.id && offer.buyer_id !== user.id) || offer.last_offer_by === user.id) {
+        return { error: 'You are not authorized to modify this offer at this time.', success: false };
+    }
+    
+    const { data: item } = await supabase.from('items').select('title').eq('id', offer.item_id).single();
+    if (!item) {
+        return { error: 'Associated item could not be found.', success: false };
     }
 
-    // 5. Revalidate paths to show updated data
-    revalidatePath('/');
-    revalidatePath(`/items/${order.item_id}`);
-    revalidatePath(`/orders/${orderId}`);
-    revalidatePath('/account/dashboard/orders');
+    const recipientId = offer.seller_id === user.id ? offer.buyer_id : offer.seller_id;
+    const newStatus = offer.seller_id === user.id ? 'pending_buyer_review' : 'pending_seller_review';
 
-    return { success: true };
+    await supabase
+        .from('offers')
+        .update({ offer_amount: newAmount, status: newStatus, last_offer_by: user.id })
+        .eq('id', offerId);
+    
+    try {
+        const message = `You received a counter-offer of R${newAmount.toFixed(2)} for "${item.title}".`;
+        await createNotification(recipientId, message, '/account/dashboard/offers');
+    } catch(notificationError) {
+        console.error("Failed to create notification for counter-offer:", notificationError);
+    }
+
+    revalidatePath('/account/dashboard/offers');
+    return { error: null, success: true };
 }

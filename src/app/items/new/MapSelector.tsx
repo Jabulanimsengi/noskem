@@ -1,22 +1,38 @@
 'use client';
 
+import 'leaflet/dist/leaflet.css';
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import type { LatLngExpression, Map as LeafletMap, LatLng } from 'leaflet';
+import { type LatLngExpression, type Map as LeafletMap } from 'leaflet';
+
+// Manually import and set the default Leaflet icons
+import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 interface MapSelectorProps {
   onLocationSelect: (lat: number, lng: number) => void;
   initialPosition?: LatLngExpression;
 }
 
-const DEFAULT_POSITION: LatLngExpression = [-29.0, 24.0]; // Centered on South Africa
+const DEFAULT_POSITION: LatLngExpression = [-29.0, 24.0];
 
 export default function MapSelector({ onLocationSelect, initialPosition }: MapSelectorProps) {
   const [position, setPosition] = useState<LatLngExpression>(initialPosition || DEFAULT_POSITION);
   const mapRef = useRef<LeafletMap>(null);
 
+  // FIX: The useEffect for icon configuration has been moved inside the component.
   useEffect(() => {
-    // When an initial position is provided, fly to it
+    const L = require("leaflet");
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: iconRetinaUrl.src,
+      iconUrl: iconUrl.src,
+      shadowUrl: shadowUrl.src,
+    });
+  }, []);
+
+  useEffect(() => {
     if (initialPosition && mapRef.current) {
       mapRef.current.flyTo(initialPosition, 13);
     }
@@ -25,7 +41,6 @@ export default function MapSelector({ onLocationSelect, initialPosition }: MapSe
   const MapEvents = () => {
     useMapEvents({
       click(e) {
-        // FIX: Removed unnecessary and confusing type assertion.
         setPosition(e.latlng);
         onLocationSelect(e.latlng.lat, e.latlng.lng);
       },

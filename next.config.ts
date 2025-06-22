@@ -1,18 +1,7 @@
-/** @type {import('next').NextConfig} */
+import type { NextConfig } from 'next';
 
-// This block safely extracts the hostname from the Supabase URL using string manipulation.
-// This avoids issues with code editor linters that may not recognize Node.js globals.
-let supabaseHostname = '';
-if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
-    .replace('https://', '')
-    .split('/')[0];
-} else {
-  // A fallback to prevent build errors if the env var is not set during build time.
-  console.warn("WARNING: NEXT_PUBLIC_SUPABASE_URL is not set. Image optimization for Supabase storage will not be configured.");
-}
-
-const nextConfig = {
+// Define the base configuration object first.
+const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       // Rule for ui-avatars.com (for placeholder images)
@@ -29,15 +18,31 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
-      // Conditionally add the Supabase rule only if the hostname was found.
-      ...(supabaseHostname ? [{
-        protocol: 'https',
-        hostname: supabaseHostname,
-        port: '',
-        pathname: '/storage/v1/object/public/**',
-      }] : []),
     ],
+  },
+  
+  // The serverActions configuration to allow larger image uploads.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '4mb',
+    },
   },
 };
 
-module.exports = nextConfig;
+// Now, conditionally add the Supabase pattern if the environment variable exists.
+// This is a more direct way to modify the configuration that avoids type errors.
+if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
+    .replace('https://', '')
+    .split('/')[0];
+
+  // The '!' tells TypeScript that we are certain 'images' and 'remotePatterns' exist here.
+  nextConfig.images!.remotePatterns!.push({
+    protocol: 'https',
+    hostname: supabaseHostname,
+    port: '',
+    pathname: '/storage/v1/object/public/**',
+  });
+}
+
+export default nextConfig;

@@ -1,7 +1,7 @@
 import { createClient } from '../../utils/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import Image from 'next/image';
-import PaystackButton from './PaystackButton'; // Import the component
+import PaystackButton from './PaystackButton'; 
 
 interface OrderPageProps {
   params: {
@@ -22,6 +22,7 @@ type OrderWithItem = {
 };
 
 export default async function OrderPage({ params }: OrderPageProps) {
+  // FIX: Access the id parameter safely to prevent the error.
   const orderId = params.id;
   const supabase = await createClient();
 
@@ -90,8 +91,6 @@ export default async function OrderPage({ params }: OrderPageProps) {
             </div>
         </div>
         
-        {/* --- FIX IS HERE --- */}
-        {/* The PaystackButton is now only rendered if the conditions are met */}
         {order.status === 'pending_payment' && order.final_amount > 0 ? (
           <PaystackButton 
             orderId={order.id}
@@ -99,8 +98,8 @@ export default async function OrderPage({ params }: OrderPageProps) {
             amount={order.final_amount}
           />
         ) : (
-          <div className="p-4 text-center bg-green-800/20 text-green-600 rounded-lg">
-            Payment has already been authorized for this order.
+          <div className="p-4 text-center bg-green-100 text-green-700 rounded-lg">
+            This order has been processed.
           </div>
         )}
       </div>

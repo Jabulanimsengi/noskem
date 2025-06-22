@@ -1,84 +1,95 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuthModal, type AuthView } from '@/context/AuthModalContext';
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { useAuthModal } from '@/context/AuthModalContext';
 import { createClient } from '../utils/supabase/client';
 import { FaTimes } from 'react-icons/fa';
 import Link from 'next/link';
+import { signInAction, type SignInState } from '../auth/actions';
+import { useToast } from '@/context/ToastContext';
 
-// FIX: This theme has been completely redesigned to match the site's aesthetic.
-const customTheme = {
-  theme: ThemeSupa,
-  variables: {
-    default: {
-      colors: {
-        brand: 'teal',
-        brandAccent: '#0d9488', // A darker teal for hover
-        brandButtonText: 'white',
-        defaultButtonBackground: '#ffffff',
-        defaultButtonBackgroundHover: '#f9fafb',
-        defaultButtonBorder: '#d1d5db',
-        defaultButtonText: '#374151',
-        inputBorder: '#d1d5db',
-        inputBorderHover: '#9ca3af',
-        inputBorderFocus: 'teal',
-        inputText: '#111827',
-        inputLabelText: '#374151',
-        inputPlaceholder: '#9ca3af',
-        messageText: '#4b5563',
-        messageTextDanger: '#ef4444',
-        anchorTextColor: '#4b5563',
-        anchorTextHoverColor: 'teal',
-      },
-      space: {
-        spaceSmall: '4px',
-        spaceMedium: '8px',
-        spaceLarge: '16px',
-      },
-      radii: {
-        borderRadiusButton: '0.5rem', // 8px
-        inputBorderRadius: '0.5rem',
-      },
-      fonts: {
-        bodyFontFamily: `Inter, sans-serif`,
-        buttonFontFamily: `Inter, sans-serif`,
-        inputFontFamily: `Inter, sans-serif`,
-        labelFontFamily: `Inter, sans-serif`,
-      },
-    },
-  },
-};
+// Initial state for our sign-in action
+const initialSignInState: SignInState = {};
+
+// --- Custom Submit Button for our new form ---
+function SubmitButton({ text, pendingText }: { text: string, pendingText: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400">
+      {pending ? pendingText : text}
+    </button>
+  );
+}
 
 export default function AuthModal() {
-  const { isOpen, view, closeModal, openModal } = useAuthModal();
+  const { isOpen, closeModal, openModal } = useAuthModal();
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { showToast } = useToast();
+
+  // This state now controls which view we see: 'signIn' or 'mfa'
+  const [view, setView] = useState<'signIn' | 'mfa'>('signIn');
+  const [signInState, signInFormAction] = useActionState(signInAction, initialSignInState);
+  
+  // State for the MFA verification code
+  const [mfaCode, setMfaCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
-    const authModalParam = searchParams.get('authModal');
-    if (authModalParam) {
-      const viewToOpen: AuthView = authModalParam === 'sign_up' ? 'sign_up' : 'sign_in';
-      openModal(viewToOpen);
+    // If the server action tells us MFA is required, switch the view
+    if (signInState.mfaRequired) {
+      setView('mfa');
+    }
+    // If there's an error from the server action, show a toast
+    if (signInState.error) {
+      showToast(signInState.error, 'error');
+    }
+  }, [signInState, showToast]);
+  
+  // This useEffect still handles opening the modal via URL param
+  useEffect(() => {
+    if (searchParams.get('authModal')) {
+      openModal();
     }
   }, [searchParams, openModal]);
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") {
-        closeModal();
-        router.refresh();
-      }
-    });
+  // Function to handle the final MFA verification step
+  const handleMfaVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    // Get the latest authenticator factor
+    const { data, error: factorError } = await supabase.auth.mfa.listFactors();
+    if (factorError || !data?.totp?.[0]) {
+        showToast(factorError?.message || 'Could not find an MFA factor. Please try logging in again.', 'error');
+        setView('signIn'); // Reset to the sign-in view
+        setIsVerifying(false);
+        return;
+    }
 
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, [supabase, closeModal, router]);
+    const factorId = data.totp[0].id;
+    const { error } = await supabase.auth.mfa.challengeAndVerify({
+        factorId,
+        code: mfaCode,
+    });
+    
+    setIsVerifying(false);
+    if (error) {
+        showToast(error.message, 'error');
+    } else {
+        closeModal();
+        router.refresh(); // Refresh the page to update auth state
+    }
+  };
+  
+  // When closing the modal, always reset the view to the default
+  const handleClose = () => {
+    setView('signIn');
+    closeModal();
+  };
 
   return (
     <AnimatePresence>
@@ -87,7 +98,7 @@ export default function AuthModal() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={closeModal}
+          onClick={handleClose}
           className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
         >
           <motion.div
@@ -99,7 +110,7 @@ export default function AuthModal() {
             className="w-full max-w-sm bg-surface rounded-xl shadow-xl relative"
           >
             <button
-              onClick={closeModal}
+              onClick={handleClose}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
               aria-label="Close authentication modal"
             >
@@ -107,25 +118,57 @@ export default function AuthModal() {
             </button>
             
             <div className="p-8">
-              <div className="text-center mb-6">
-                  <h2 className="text-2xl font-bold text-text-primary">Welcome Back!</h2>
-                  <p className="text-text-secondary mt-1">Sign in to continue to Noskem.</p>
-              </div>
+                {/* --- CONDITIONAL UI RENDERING --- */}
 
-              <Auth
-                  supabaseClient={supabase}
-                  appearance={customTheme}
-                  view="sign_in" // Modal is now for sign-in only
-                  showLinks={true}
-                  providers={[]}
-                  redirectTo={`${process.env.NEXT_PUBLIC_BASE_URL}`}
-              />
-              <p className="text-center text-sm text-text-secondary mt-6">
-                Don't have an account?{' '}
-                <Link href="/signup" onClick={closeModal} className="font-semibold text-brand hover:underline">
-                    Sign Up
-                </Link>
-              </p>
+                {view === 'signIn' && (
+                  <div>
+                    <div className="text-center mb-6">
+                      <h2 className="text-2xl font-bold text-text-primary">Welcome Back!</h2>
+                      <p className="text-text-secondary mt-1">Sign in to continue to Noskem.</p>
+                    </div>
+                    <form action={signInFormAction} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-1" htmlFor="email">Email Address</label>
+                        <input name="email" id="email" type="email" required className="w-full px-3 py-2 border rounded-md" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-1" htmlFor="password">Password</label>
+                        <input name="password" id="password" type="password" required className="w-full px-3 py-2 border rounded-md" />
+                      </div>
+                      <SubmitButton text="Sign In" pendingText="Signing In..." />
+                    </form>
+                    <p className="text-center text-sm text-text-secondary mt-6">
+                      Don't have an account?{' '}
+                      <Link href="/signup" onClick={closeModal} className="font-semibold text-brand hover:underline">
+                          Sign Up
+                      </Link>
+                    </p>
+                  </div>
+                )}
+
+                {view === 'mfa' && (
+                   <div>
+                    <div className="text-center mb-6">
+                      <h2 className="text-2xl font-bold text-text-primary">Enter Verification Code</h2>
+                      <p className="text-text-secondary mt-1">Enter the 6-digit code from your authenticator app.</p>
+                    </div>
+                    <form onSubmit={handleMfaVerify} className="space-y-4">
+                        <input
+                            type="text"
+                            value={mfaCode}
+                            onChange={(e) => setMfaCode(e.target.value)}
+                            placeholder="123456"
+                            maxLength={6}
+                            required
+                            className="w-full text-center tracking-[0.5em] text-2xl p-2 border rounded-md"
+                        />
+                        <SubmitButton text="Verify" pendingText="Verifying..." />
+                    </form>
+                    <button onClick={() => setView('signIn')} className="text-center text-sm text-text-secondary mt-6 w-full hover:underline">
+                        Back to login
+                    </button>
+                   </div>
+                )}
             </div>
           </motion.div>
         </motion.div>

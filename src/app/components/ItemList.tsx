@@ -1,48 +1,70 @@
 'use client'; 
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ItemCard from './ItemCard';
 import GridSkeletonLoader from './skeletons/GridSkeletonLoader';
 import { type User } from '@supabase/supabase-js';
 import { type ItemWithProfile } from '@/types';
+import { FaSpinner } from 'react-icons/fa';
 
-// FIX: This component no longer accepts `initialItems` as a prop.
 interface ItemListProps {
   user: User | null;
 }
 
 function ItemListComponent({ user }: ItemListProps) {
   const searchParams = useSearchParams();
-  const category = searchParams.get('category');
   
+  // State to hold the items, the current page, and whether more items are available
   const [items, setItems] = useState<ItemWithProfile[]>([]);
-  // FIX: isLoading now defaults to `true` to show the skeleton on initial load.
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
+  // This function fetches a specific page of items from our API
+  const fetchItems = useCallback(async (pageNum: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('page', pageNum.toString());
+    const response = await fetch(`/api/items?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch items');
+    }
+    return response.json();
+  }, [searchParams]);
+
+  // This effect runs on the initial load or when filters change
   useEffect(() => {
-    // FIX: This effect now runs on initial load AND when the category changes.
-    const fetchItems = async () => {
-      setIsLoading(true);
-      try {
-        // Build the URL based on whether a category is selected.
-        const url = category ? `/api/items?category=${category}` : '/api/items';
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error('Failed to fetch items');
-        }
-        const data = await response.json();
-        setItems(data);
-      } catch (error) {
-        console.error(error);
-        setItems([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    setIsLoading(true);
+    setPage(1); // Reset to page 1
+    fetchItems(1).then(data => {
+      setItems(data.items || []);
+      setHasMore(data.hasMore || false);
+      setIsLoading(false);
+    }).catch(error => {
+      console.error(error);
+      setIsLoading(false);
+    });
+  }, [searchParams, fetchItems]);
 
-    fetchItems();
-  }, [category]); // The effect re-runs whenever the 'category' search param changes.
+  // This function is called when the "Load More" button is clicked
+  const loadMoreItems = async () => {
+    if (isFetchingMore || !hasMore) return;
+
+    setIsFetchingMore(true);
+    const nextPage = page + 1;
+    
+    fetchItems(nextPage).then(data => {
+      // Append the new items to the existing list
+      setItems(prevItems => [...prevItems, ...(data.items || [])]);
+      setPage(nextPage);
+      setHasMore(data.hasMore || false);
+    }).catch(error => {
+      console.error(error);
+    }).finally(() => {
+      setIsFetchingMore(false);
+    });
+  };
 
   if (isLoading) {
     return <GridSkeletonLoader count={8} />;
@@ -53,11 +75,25 @@ function ItemListComponent({ user }: ItemListProps) {
       {items.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {items.map((item) => (
-            <ItemCard key={item.id} item={item as ItemWithProfile} user={user} />
+            <ItemCard key={`${item.id}-${item.created_at}`} item={item as ItemWithProfile} user={user} />
           ))}
         </div>
       ) : (
-        <p className="text-center text-text-secondary py-10">No items found.</p>
+        <p className="text-center text-text-secondary py-10">No items found matching your criteria.</p>
+      )}
+
+      {/* The "Load More" button, which only appears if more items are available */}
+      {hasMore && (
+        <div className="text-center mt-12">
+          <button
+            onClick={loadMoreItems}
+            disabled={isFetchingMore}
+            className="px-6 py-3 font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark disabled:bg-gray-400 flex items-center justify-center gap-2 mx-auto"
+          >
+            {isFetchingMore && <FaSpinner className="animate-spin" />}
+            {isFetchingMore ? 'Loading...' : 'Load More'}
+          </button>
+        </div>
       )}
     </>
   );

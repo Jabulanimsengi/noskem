@@ -1,10 +1,12 @@
 import { createClient } from '../../utils/supabase/server';
 import { notFound } from 'next/navigation';
 import ImageGallery from '../../components/ImageGallery';
-import BuyNowForm from './BuyNowForm';
 import ViewTracker from './ViewTracker';
 import ItemLocationClient from './ItemLocationClient';
 import Link from 'next/link';
+import { type ItemWithProfile } from '@/types';
+import { FaUser } from 'react-icons/fa';
+import PurchaseActionsClient from './PurchaseActionsClient';
 
 interface ItemDetailPageProps {
   params: {
@@ -14,25 +16,29 @@ interface ItemDetailPageProps {
 
 export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   const supabase = await createClient();
+  const itemId = params.id; // Correctly access the id here
 
-  // FIX: To resolve the build error, we use `params.id` directly in the query below
-  // instead of destructuring it into a separate `id` variable.
-  const { data: item, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: itemData, error } = await supabase
     .from('items')
-    .select(`*, category:categories(name), profiles (username)`)
-    .eq('id', params.id)
+    .select(`*, category:categories(name), profiles(id, username, avatar_url)`)
+    .eq('id', itemId) // Use the variable
     .single();
 
-  if (error || !item) {
+  if (error || !itemData) {
     notFound();
   }
+  
+  // Cast to the correct type after fetching
+  const item = itemData as unknown as ItemWithProfile;
 
   const formatCondition = (condition: string) => {
-    return condition.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return condition ? condition.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : '';
   };
   
-  // @ts-ignore
   const sellerUsername = item.profiles?.username || 'Anonymous';
+  const isOwner = user?.id === item.seller_id;
 
   return (
     <>
@@ -69,7 +75,7 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
                </div>
                <div className="flex justify-between">
                   <span className="text-text-secondary">Category</span>
-                   {/* @ts-ignore */}
+                  {/* @ts-ignore - The type from Supabase is sometimes incorrect for this relational query */}
                   <span className="font-semibold text-text-primary">{item.category?.name || 'N/A'}</span>
                </div>
             </div>
@@ -84,15 +90,21 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
             {item.latitude && item.longitude && (
               <ItemLocationClient lat={item.latitude} lng={item.longitude} />
             )}
+            
+            {!isOwner && item.status === 'available' && (
+              <PurchaseActionsClient item={item} user={user} />
+            )}
 
-            {item.buy_now_price && item.buy_now_price > 0 && item.status === 'available' && (
-              <div className="bg-surface rounded-xl shadow-md p-6">
-                <BuyNowForm
-                  itemId={item.id}
-                  sellerId={item.seller_id}
-                  finalAmount={item.buy_now_price}
-                />
-              </div>
+             {isOwner && (
+                <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md" role="alert">
+                    <div className="flex">
+                        <div className="py-1"><FaUser className="mr-3" /></div>
+                        <div>
+                            <p className="font-bold">This is your listing.</p>
+                            <p className="text-sm">You can manage this item from your dashboard.</p>
+                        </div>
+                    </div>
+                </div>
             )}
           </div>
         </div>

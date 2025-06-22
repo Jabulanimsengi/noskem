@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { useFormStatus } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { listItemAction, type ListItemFormState } from './actions';
-import { FaTimes } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaMapMarkerAlt } from 'react-icons/fa';
 import Image from 'next/image';
 import { type Category } from '@/types';
-import { useToast } from '@/context/ToastContext'; // Import useToast
+import { useToast } from '@/context/ToastContext';
+import { createClient } from '@/app/utils/supabase/client';
 
 const MapSelector = dynamic(() => import('./MapSelector'), { 
   ssr: false,
@@ -20,7 +21,8 @@ const initialState: ListItemFormState = { error: null, success: false };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400">
+    <button type="submit" disabled={pending} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400 flex items-center justify-center gap-2">
+      {pending && <FaSpinner className="animate-spin" />}
       {pending ? 'Processing...' : 'List Item (Cost: 25 Credits)'}
     </button>
   );
@@ -28,19 +30,76 @@ function SubmitButton() {
 
 export default function NewItemForm({ categories }: { categories: Category[] }) {
   const router = useRouter();
+  const { showToast } = useToast();
+  
+  // FIX: This form now uses the useActionState hook to robustly handle server responses.
   const [state, formAction] = useActionState(listItemAction, initialState);
-  const { showToast } = useToast(); // Get showToast function
+  
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [location, setLocation] = useState<{ lat: number | null, lng: number | null }>({ lat: null, lng: null });
+  const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
   const MAX_IMAGES = 5;
 
+  // This useEffect hook will now reliably listen for any errors from the server action.
+  useEffect(() => {
+    if (state.success) {
+      showToast('Your item has been listed successfully!', 'success');
+      router.push('/account/dashboard/my-listings');
+    }
+    if (state.error) {
+      showToast(state.error, 'error');
+    }
+  }, [state, router, showToast]);
+
+  // This function now correctly orchestrates image uploads and form submission.
+  const handleSubmitWithUploads = async (formData: FormData) => {
+    if (images.length === 0) {
+      showToast('Please upload at least one image.', 'error');
+      return;
+    }
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      showToast('You must be logged in.', 'error');
+      return;
+    }
+    
+    showToast('Uploading images...', 'info');
+    
+    try {
+      // Upload images directly to Supabase Storage
+      const uploadPromises = images.map(file => {
+        const filePath = `${user.id}/${Date.now()}_${file.name}`;
+        return supabase.storage.from('item-images').upload(filePath, file);
+      });
+      const uploadResults = await Promise.all(uploadPromises);
+
+      const uploadedImageUrls: string[] = [];
+      for (const result of uploadResults) {
+        if (result.error) throw new Error(`Image upload failed: ${result.error.message}`);
+        const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(result.data.path);
+        uploadedImageUrls.push(publicUrl);
+      }
+      
+      // Add the successfully uploaded image URLs to the form data
+      uploadedImageUrls.forEach(url => formData.append('imageUrls', url));
+      
+      // Trigger the server action with the complete form data
+      formAction(formData);
+
+    } catch (error: any) {
+      showToast(error.message || "An unexpected error occurred during image upload.", 'error');
+    }
+  };
+  
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      const remainingSlots = MAX_IMAGES - images.length;
-      const filesToAdd = newFiles.slice(0, remainingSlots);
-      setImages(prev => [...prev, ...filesToAdd]);
+      const newFiles = Array.from(e.target.files).filter(file => file.size <= 10 * 1024 * 1024);
+      if (Array.from(e.target.files).length > newFiles.length) {
+        showToast(`Some images were too large (max 10MB) and were not added.`, 'error');
+      }
+      setImages(prev => [...prev, ...newFiles].slice(0, MAX_IMAGES));
     }
   };
 
@@ -51,55 +110,49 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const handleLocationSelect = useCallback((lat: number, lng: number) => {
     setLocation({ lat, lng });
   }, []);
-
+  
+  const detectMyLocation = () => {
+    navigator.geolocation?.getCurrentPosition(
+      (position) => {
+        setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        showToast('Location detected!', 'success');
+      },
+      () => showToast('Could not detect location.', 'error')
+    );
+  };
+  
   useEffect(() => {
-    const newPreviews = images.map(file => URL.createObjectURL(file));
-    setImagePreviews(newPreviews);
-    return () => { newPreviews.forEach(url => URL.revokeObjectURL(url)); };
+    const urls = images.map(file => URL.createObjectURL(file));
+    setImagePreviews(urls);
+    return () => { urls.forEach(URL.revokeObjectURL); };
   }, [images]);
 
-  useEffect(() => {
-    if (state.success) {
-      // FIX: Replace alert with a toast notification
-      showToast('Your item has been listed successfully!', 'success');
-      router.push('/account/dashboard/my-listings');
-    }
-    if (state.error) {
-      showToast(state.error, 'error');
-    }
-    // Add showToast to dependency array
-  }, [state, router, showToast]);
-
-  // ... rest of the component remains the same
-  // ... (you can copy the full code from the previous response if needed)
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
   const labelStyles = "block text-sm font-medium text-text-secondary mb-1";
 
   return (
     <div className="container mx-auto max-w-2xl py-8">
-      <form action={formAction} className="p-8 bg-surface rounded-xl shadow-lg space-y-6">
+      {/* The form now calls our new handleSubmitWithUploads function via the 'action' prop */}
+      <form action={handleSubmitWithUploads} className="p-8 bg-surface rounded-xl shadow-lg space-y-6">
         <h1 className="text-2xl font-bold text-center text-text-primary">List a New Item</h1>
         
-        {/* Form fields */}
         <div>
           <label htmlFor="title" className={labelStyles}>Title</label>
           <input name="title" id="title" type="text" required className={inputStyles}/>
         </div>
         <div>
-            <label htmlFor="description" className={labelStyles}>Description</label>
-            <textarea name="description" id="description" rows={4} className={inputStyles}/>
+          <label htmlFor="description" className={labelStyles}>Description</label>
+          <textarea name="description" id="description" rows={4} className={inputStyles}/>
         </div>
         <div>
-            <label htmlFor="price" className={labelStyles}>Price (R)</label>
-            <input name="price" id="price" type="number" step="0.01" required className={inputStyles}/>
+          <label htmlFor="price" className={labelStyles}>Price (R)</label>
+          <input name="price" id="price" type="number" step="0.01" required className={inputStyles}/>
         </div>
         <div>
           <label htmlFor="categoryId" className={labelStyles}>Category</label>
           <select name="categoryId" id="categoryId" required className={inputStyles} defaultValue="">
             <option value="" disabled>Select a category</option>
-            {categories.map(category => (
-              <option key={category.id} value={category.id}>{category.name}</option>
-            ))}
+            {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
           </select>
         </div>
         <div>
@@ -111,17 +164,20 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
             <option value="used_fair">Used (Fair)</option>
           </select>
         </div>
-
-        {/* Geolocation Section */}
-        <div>
-          <label className={labelStyles}>Set Item Location</label>
-          <p className="text-xs text-gray-500 mb-2">Click on the map or drag the pin to set the location.</p>
-          <MapSelector onLocationSelect={handleLocationSelect} />
-          <input type="hidden" name="latitude" value={location.lat ?? ''} />
-          <input type="hidden" name="longitude" value={location.lng ?? ''} />
+        <div className="space-y-2">
+          <label className={labelStyles}>Item Location</label>
+          <button type="button" onClick={detectMyLocation} className="flex items-center gap-2 text-sm font-semibold text-brand hover:underline">
+            <FaMapMarkerAlt />
+            Detect My Location
+          </button>
+          <div className="mt-2">
+             <label htmlFor="locationDescription" className="text-xs text-gray-500">Location Name (e.g., Sandton, Johannesburg)</label>
+             <input name="locationDescription" id="locationDescription" type="text" placeholder="Enter a suburb or city" required className={inputStyles} />
+          </div>
+          <MapSelector onLocationSelect={handleLocationSelect} initialPosition={location ? [location.lat, location.lng] : undefined} />
+          <input type="hidden" name="latitude" value={location?.lat ?? ''} />
+          <input type="hidden" name="longitude" value={location?.lng ?? ''} />
         </div>
-
-        {/* Image Uploader Section */}
         <div>
           <label htmlFor="images" className={labelStyles}>Images ({images.length}/{MAX_IMAGES})</label>
           <input name="images" id="images" type="file" multiple accept="image/*" onChange={handleImageChange} disabled={images.length >= MAX_IMAGES} className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 disabled:opacity-50"/>
@@ -138,8 +194,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
             ))}
           </div>
         )}
-
-        {state.error && <div className="p-3 text-center text-white bg-red-500 rounded-md">{state.error}</div>}
         <SubmitButton />
       </form>
     </div>

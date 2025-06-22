@@ -41,7 +41,7 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
           <div key={item.id} className="flex flex-col sm:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border gap-4">
             <div className="flex items-center gap-4 w-full">
               <Image
-                src={Array.isArray(item.images) && item.images.length > 0 ? (item.images[0] as string) : '/placeholder.png'}
+                src={Array.isArray(item.images) && item.images.length > 0 ? (item.images[0] as string) : 'https://placehold.co/64x64/27272a/9ca3af?text=No+Image'}
                 alt={item.title || 'Item Image'}
                 width={64}
                 height={64}
@@ -59,9 +59,8 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
               >
                 Delete
               </button>
-              {/* Note: The edit button is a placeholder for now, as the edit page is not yet built. */}
               <Link
-                href="#"
+                href={`/account/dashboard/my-listings/${item.id}/edit`}
                 className="px-3 py-1.5 text-xs font-medium text-white bg-brand rounded-md hover:bg-brand-dark"
               >
                 Edit
