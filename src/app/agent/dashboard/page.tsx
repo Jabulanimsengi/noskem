@@ -1,29 +1,41 @@
+/**
+ * CODE REVIEW UPDATE
+ * ------------------
+ * This file has been updated to fix the error from your screenshot.
+ *
+ * Change Made:
+ * - The `AssembledOrder` type has been fully corrected. The `item`, `seller`, and `buyer`
+ * properties are now all typed as arrays (e.g., `({ title: string })[] | null`) to
+ * precisely match the data shape returned by the Supabase query.
+ * - The `OrderCard` component now safely accesses all related data using optional
+ * chaining and array indexing (e.g., `order.seller?.[0]?.username`).
+ */
 import { createClient } from '../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import InspectionModalTrigger from './InspectionModalTrigger';
 import { FaBox, FaCheck, FaTruck } from 'react-icons/fa';
 
-// Assuming a type definition exists for this complex object
+// FIX: The type for 'item', 'seller', and 'buyer' are now arrays to match the query result.
 type AssembledOrder = {
     id: number;
     status: string;
-    item: { title: string } | null;
-    seller: { username: string | null } | null;
-    buyer: { username:string | null } | null;
+    item: { title: string }[] | null;
+    seller: { username: string | null }[] | null;
+    buyer: { username: string | null }[] | null;
 };
 
 const OrderCard = ({ order }: { order: AssembledOrder }) => (
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex justify-between items-center gap-4">
         <div className="flex-grow">
             <p className="font-bold text-text-primary">Order #{order.id}</p>
-            <p className="text-sm text-text-secondary truncate">{order.item?.title || 'Item not found'}</p>
+            {/* FIX: Access related data safely from the array structure */}
+            <p className="text-sm text-text-secondary truncate">{order.item?.[0]?.title || 'Item not found'}</p>
             <p className="text-xs mt-1 text-text-secondary">
-                {order.seller?.username || 'N/A'} → {order.buyer?.username || 'N/A'}
+                {order.seller?.[0]?.username || 'N/A'} → {order.buyer?.[0]?.username || 'N/A'}
             </p>
         </div>
         {order.status === 'in_warehouse' && (
             <div className="flex-shrink-0">
-                 {/* FIX: Pass order.id to the orderId prop, not the whole order object */}
                  <InspectionModalTrigger orderId={order.id} />
             </div>
         )}
@@ -43,7 +55,13 @@ export default async function AgentDashboardPage() {
 
     const { data: ordersData, error } = await supabase
         .from('orders')
-        .select('id, status, item_id, seller_id, buyer_id')
+        .select(`
+            id,
+            status,
+            item:item_id ( title ),
+            seller:seller_id ( username ),
+            buyer:buyer_id ( username )
+        `)
         .in('status', ['payment_authorized', 'awaiting_collection', 'in_warehouse', 'inspection_passed', 'out_for_delivery'])
         .order('created_at', { ascending: true });
 
@@ -51,14 +69,7 @@ export default async function AgentDashboardPage() {
         return <p className="text-red-500 p-8 text-center">{error.message}</p>;
     }
 
-    const assembledOrders: AssembledOrder[] = await Promise.all(
-        (ordersData || []).map(async (order) => {
-            const { data: item } = await supabase.from('items').select('title').eq('id', order.item_id).single();
-            const { data: seller } = await supabase.from('profiles').select('username').eq('id', order.seller_id).single();
-            const { data: buyer } = await supabase.from('profiles').select('username').eq('id', order.buyer_id).single();
-            return { id: order.id, status: order.status, item, seller, buyer };
-        })
-    );
+    const assembledOrders: AssembledOrder[] = ordersData || [];
     
     const ordersInWarehouse = assembledOrders.filter(o => o.status === 'in_warehouse');
     const ordersForDelivery = assembledOrders.filter(o => o.status === 'inspection_passed');

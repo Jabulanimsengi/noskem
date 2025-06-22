@@ -1,3 +1,12 @@
+/**
+ * CODE REVIEW UPDATE
+ * ------------------
+ * This file has been updated based on the AI code review.
+ *
+ * Change Made:
+ * - Suggestion #31 (Performance): Refactored the component to accept `initialItems` from a Server Component parent.
+ * It now only fetches data on the client-side when the category search param changes, improving initial page load performance.
+ */
 'use client'; 
 
 import { useState, useEffect, Suspense } from 'react';
@@ -9,36 +18,44 @@ import { type ItemWithProfile } from '@/types';
 
 interface ItemListProps {
   user: User | null;
+  initialItems: ItemWithProfile[];
 }
 
-function ItemListComponent({ user }: ItemListProps) {
+function ItemListComponent({ user, initialItems }: ItemListProps) {
   const searchParams = useSearchParams();
   const category = searchParams.get('category');
   
-  const [items, setItems] = useState<ItemWithProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [items, setItems] = useState<ItemWithProfile[]>(initialItems);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const fetchItems = async () => {
-      setIsLoading(true);
-      try {
-        const url = category ? `/api/items?category=${category}` : '/api/items';
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error('Failed to fetch items');
+    // Only fetch if a category is selected in the URL.
+    // The initial, "all items" state is provided by the server.
+    if (category) {
+      const fetchItems = async () => {
+        setIsLoading(true);
+        try {
+          const url = `/api/items?category=${category}`;
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error('Failed to fetch items');
+          }
+          const data = await response.json();
+          setItems(data);
+        } catch (error) {
+          console.error(error);
+          setItems([]);
+        } finally {
+          setIsLoading(false);
         }
-        const data = await response.json();
-        setItems(data);
-      } catch (error) {
-        console.error(error);
-        setItems([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      };
 
-    fetchItems();
-  }, [category]); // This dependency array ensures data re-fetches when the category changes
+      fetchItems();
+    } else {
+      // If the category filter is cleared, revert to the initial server-provided items.
+      setItems(initialItems);
+    }
+  }, [category, initialItems]);
 
   if (isLoading) {
     return <GridSkeletonLoader count={8} />;
@@ -59,7 +76,6 @@ function ItemListComponent({ user }: ItemListProps) {
   );
 }
 
-// It's best practice to wrap components that use `useSearchParams` in a Suspense boundary.
 export default function ItemList(props: ItemListProps) {
   return (
     <Suspense fallback={<GridSkeletonLoader count={8} />}>

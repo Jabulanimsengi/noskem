@@ -1,6 +1,15 @@
+/**
+ * CODE REVIEW UPDATE
+ * ------------------
+ * This file has been updated based on the AI code review.
+ *
+ * Change Made:
+ * - Suggestion #7 (Reliability): Replaced `Date.now()` with a `useRef` counter for generating unique toast IDs.
+ * This prevents potential ID collisions if multiple toasts are created in the same millisecond.
+ */
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useRef } from 'react';
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle } from 'react-icons/fa';
 
 type ToastType = 'success' | 'error' | 'info';
@@ -64,13 +73,14 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast:
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastIdCounter = useRef(0); // Use a ref to store the counter
 
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
   const showToast = useCallback((message: string, type: ToastType) => {
-    const id = Date.now();
+    const id = toastIdCounter.current++; // Increment the counter for a guaranteed unique ID
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => removeToast(id), 5000);
   }, [removeToast]);

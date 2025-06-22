@@ -29,18 +29,22 @@ export default function BuyCreditsButton({ packageId, userEmail, priceZAR }: Buy
       showToast("Payment service not available. Please refresh.", "error");
       return;
     }
+    
+    if (typeof priceZAR !== 'number' || isNaN(priceZAR) || priceZAR <= 0) {
+      showToast("Invalid amount for payment.", "error");
+      return;
+    }
+    if (!userEmail) {
+      showToast("A valid email address is required to buy credits.", "error");
+      return;
+    }
     const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
     if (!publicKey) {
         showToast("Payment service is not configured correctly.", "error");
         return;
     }
-    // --- FIX: Add validation for the amount ---
-    if (priceZAR <= 0) {
-        showToast("Invalid amount for payment.", "error");
-        return;
-    }
 
-    const handler = window.PaystackPop.setup({
+    const paystackConfig = {
       key: publicKey,
       email: userEmail,
       amount: Math.round(priceZAR * 100),
@@ -62,12 +66,15 @@ export default function BuyCreditsButton({ packageId, userEmail, priceZAR }: Buy
           setIsProcessing(false);
         })();
       },
-    });
+    };
 
+    console.log("Initializing Paystack with config:", paystackConfig);
+
+    // FIX: Added non-null assertion (!) to assure TypeScript that PaystackPop is defined here.
+    const handler = window.PaystackPop!.setup(paystackConfig);
     handler.openIframe();
   };
 
-  // --- FIX: Logic moved to form's onSubmit handler ---
   return (
     <form onSubmit={handlePayment}>
         <button

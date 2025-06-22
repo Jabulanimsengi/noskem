@@ -8,11 +8,19 @@ import { type Notification } from './NotificationBell';
 import SearchBar from './SearchBar';
 import AuthButton from './AuthButton';
 import MobileMenu from './MobileMenu';
+import NotificationBell from './NotificationBell';
 
 // Define the props this component accepts from its server parent
 interface HeaderLayoutProps {
     user: User | null;
-    profile: { credit_balance: number; role: string; } | null;
+    // FIX: The profile type is updated to include all properties passed from the Header.
+    // This resolves the TypeScript error.
+    profile: {
+        credit_balance: number;
+        role: string | null;
+        username: string | null;
+        avatar_url: string | null;
+    } | null;
     notifications: Notification[];
 }
 
@@ -43,7 +51,9 @@ export default function HeaderLayout({ user, profile, notifications }: HeaderLay
                 <Link href="/about" className="hover:text-brand transition-colors">About Us</Link>
                 <Link href="/how-it-works" className="hover:text-brand transition-colors">How It Works</Link>
             </div>
-            <AuthButton user={user} profile={profile} notifications={notifications} />
+            
+            {user && <NotificationBell serverNotifications={notifications} />}
+            <AuthButton user={user} profile={profile} />
           </div>
 
           <div className="lg:hidden">

@@ -1,9 +1,19 @@
+/**
+ * CODE REVIEW UPDATE
+ * ------------------
+ * This file has been updated based on the AI code review.
+ *
+ * Change Made:
+ * - Suggestion #8 (Performance): Removed the blocking Leaflet CSS from the root layout.
+ * This stylesheet should be loaded only on pages that render a map.
+ */
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import Script from "next/script";
-import Header from "./components/Header"; // FIX: Import the data-fetching Header server component
+import Header from "./components/Header";
+import Footer from "./components/Footer"; // 1. Import the Footer component
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,13 +26,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" />
+        {/* The Leaflet CSS has been removed from here. */}
       </head>
       <body className={`${inter.className} bg-background text-text-primary`}>
         <Providers>
           <div className="flex flex-col min-h-screen">
-            <Header /> {/* FIX: Use the Header server component which will pass props to HeaderLayout */}
+            <Header />
             <main className="flex-grow">{children}</main>
+            <Footer /> {/* 2. Render the Footer component here */}
           </div>
         </Providers>
         <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />

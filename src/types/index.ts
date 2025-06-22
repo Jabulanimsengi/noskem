@@ -4,11 +4,11 @@ import { type Database } from './supabase';
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Item = Database['public']['Tables']['items']['Row'];
 export type Order = Database['public']['Tables']['orders']['Row'];
-export type Category = Database['public']['Tables']['categories']['Row']; // FIX: Added export for Category type
+export type Category = Database['public']['Tables']['categories']['Row'];
 
 // Defines the shape of an item when it includes the seller's profile
+// FIX: The type now correctly expects a single Profile object, not an array.
 export type ItemWithProfile = Item & {
-  // FIX: Supabase returns 'profiles', which can be an object or null
   profiles: Profile | null; 
 };
 

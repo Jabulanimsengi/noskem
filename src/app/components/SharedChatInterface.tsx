@@ -1,3 +1,15 @@
+/**
+ * CODE REVIEW UPDATE
+ * ------------------
+ * This file has been updated based on the AI code review.
+ *
+ * Changes Made:
+ * - Suggestion #35 (Performance): Implemented concurrent image uploads. Instead of
+ * uploading images in a sequential loop, `Promise.all` is now used to upload
+ * all files simultaneously, significantly reducing the total upload time.
+ * - Suggestion #36 (Security): Added a comment to acknowledge the low-risk XSS
+ * potential when creating notification text from user input.
+ */
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -48,13 +60,13 @@ export default function SharedChatInterface({ roomId, recipientId, currentUserId
 
     const channel = supabase.channel(`chat_${roomId}`)
       .on<Message>('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` }, (payload) => {
-          setMessages(current => [...current, payload.new]);
+          setMessages(current => [...current, payload.new as Message]);
           if (payload.new.sender_id !== currentUserId) {
             markMessagesAsRead(roomId);
           }
       })
       .on<Message>('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` }, (payload) => {
-        setMessages(current => current.map(msg => msg.id === payload.new.id ? payload.new : msg));
+        setMessages(current => current.map(msg => msg.id === payload.new.id ? (payload.new as Message) : msg));
       })
       .subscribe();
 
@@ -66,7 +78,6 @@ export default function SharedChatInterface({ roomId, recipientId, currentUserId
   }, [messages]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // FIX: Add a guard clause to ensure e.target.files is not null.
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
       setFilesToUpload(prev => [...prev, ...newFiles].slice(0, 5));
@@ -82,11 +93,19 @@ export default function SharedChatInterface({ roomId, recipientId, currentUserId
     try {
       let uploadedImageUrls: string[] = [];
       if (filesToUpload.length > 0) {
-        for (const file of filesToUpload) {
+        // Create an array of upload promises
+        const uploadPromises = filesToUpload.map(file => {
           const filePath = `${currentUserId}/${roomId}/${Date.now()}_${file.name}`;
-          const { data: uploadData, error: uploadError } = await supabase.storage.from('chat-images').upload(filePath, file);
-          if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
-          uploadedImageUrls.push(supabase.storage.from('chat-images').getPublicUrl(uploadData.path).data.publicUrl);
+          return supabase.storage.from('chat-images').upload(filePath, file);
+        });
+
+        // Execute all promises concurrently
+        const uploadResults = await Promise.all(uploadPromises);
+
+        // Process results
+        for (const result of uploadResults) {
+            if (result.error) throw new Error(`Image upload failed: ${result.error.message}`);
+            uploadedImageUrls.push(supabase.storage.from('chat-images').getPublicUrl(result.data.path).data.publicUrl);
         }
       }
 
@@ -99,6 +118,8 @@ export default function SharedChatInterface({ roomId, recipientId, currentUserId
       setNewMessage('');
       setFilesToUpload([]);
       
+      // Note: Sanitize user input if it were ever to be rendered as HTML.
+      // Here it's used as plain text, so the risk is low.
       const notificationText = messageText ? `New message: "${messageText.substring(0, 20)}..."` : `Sent ${uploadedImageUrls.length} image(s).`;
       const recipientPath = `/chat/${roomId.replace('chat_order_', '')}`;
       await createNotification(recipientId, `${currentUser.user_metadata?.username || 'a user'}: ${notificationText}`, recipientPath);

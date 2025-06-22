@@ -1,3 +1,13 @@
+/**
+ * CODE REVIEW UPDATE
+ * ------------------
+ * This file has been updated based on the AI code review.
+ *
+ * Change Made:
+ * - Suggestion #15 (Performance): Changed `router.push` to `router.replace`.
+ * This updates the URL without adding a new entry to the browser's history,
+ * which is better UX for filter controls.
+ */
 'use client';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
@@ -8,23 +18,22 @@ export default function SidebarFilters() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // State for controlled inputs
   const [minPrice, setMinPrice] = useState(searchParams.get('min_price') || '');
   const [maxPrice, setMaxPrice] = useState(searchParams.get('max_price') || '');
   const [conditions, setConditions] = useState<string[]>(searchParams.getAll('condition'));
 
-  // Update URL when filters change (with debouncing for price)
   useEffect(() => {
     const handler = setTimeout(() => {
       const params = new URLSearchParams(searchParams.toString());
       if (minPrice) params.set('min_price', minPrice); else params.delete('min_price');
       if (maxPrice) params.set('max_price', maxPrice); else params.delete('max_price');
       
-      params.delete('condition'); // Clear existing conditions
-      conditions.forEach(c => params.append('condition', c)); // Add current ones
+      params.delete('condition');
+      conditions.forEach(c => params.append('condition', c));
 
-      router.push(`${pathname}?${params.toString()}`);
-    }, 500); // 500ms debounce
+      // Use router.replace() for filter changes
+      router.replace(`${pathname}?${params.toString()}`);
+    }, 500);
 
     return () => clearTimeout(handler);
   }, [minPrice, maxPrice, conditions, pathname, router, searchParams]);

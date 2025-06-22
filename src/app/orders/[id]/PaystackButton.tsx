@@ -33,18 +33,22 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
       showToast("Paystack script not loaded. Please refresh the page.", 'error');
       return;
     }
+    
+    if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
+      showToast("Invalid payment amount provided.", 'error');
+      return;
+    }
+    if (!userEmail) {
+      showToast("A valid email address is required to make a payment.", 'error');
+      return;
+    }
     const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
     if (!publicKey) {
       showToast("Paystack payment service is not configured.", 'error');
       return;
     }
-    
-    if (amount <= 0) {
-        showToast("Invalid amount for payment.", 'error');
-        return;
-    }
 
-    const handler = window.PaystackPop.setup({
+    const paystackConfig = {
       key: publicKey,
       email: userEmail,
       amount: Math.round(amount * 100),
@@ -59,16 +63,19 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
 
           if (result.success) {
             showToast('Payment Authorized! The seller will be notified.', 'success');
-            // FIX: Navigate to the order page to ensure a clean UI update
-            router.push(`/orders/${orderId}`); 
+            router.push(`/orders/${orderId}`);
           } else {
             showToast(result.error || 'An unknown error occurred while updating the order.', 'error');
             setIsProcessing(false);
           }
         })();
       },
-    });
-
+    };
+    
+    console.log("Initializing Paystack with config:", paystackConfig);
+    
+    // FIX: Added non-null assertion (!) to assure TypeScript that PaystackPop is defined here.
+    const handler = window.PaystackPop!.setup(paystackConfig);
     handler.openIframe();
   };
 

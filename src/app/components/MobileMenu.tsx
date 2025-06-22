@@ -23,12 +23,14 @@ export default function MobileMenu({ isOpen, onClose, user, profile }: MobileMen
 
   const handleSignIn = () => {
     onClose();
-    openModal('signIn');
+    // FIX: Changed 'signIn' to 'sign_in' to match the expected value.
+    openModal('sign_in');
   };
 
   const handleSignUp = () => {
     onClose();
-    openModal('signUp');
+    // FIX: Changed 'signUp' to 'sign_up' to match the expected value.
+    openModal('sign_up');
   };
 
   return (

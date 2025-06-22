@@ -1,3 +1,13 @@
+/**
+ * CODE REVIEW UPDATE
+ * ------------------
+ * This file has been updated based on the AI code review.
+ *
+ * Change Made:
+ * - Suggestion #16 (Performance): Changed `router.push` to `router.replace`.
+ * This updates the URL without adding a new entry to the browser's history,
+ * which is better UX for sorting controls.
+ */
 'use client';
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
@@ -10,7 +20,8 @@ export default function SortFilter() {
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('sort', e.target.value);
-    router.push(`${pathname}?${params.toString()}`);
+    // Use router.replace() for sort changes
+    router.replace(`${pathname}?${params.toString()}`);
   };
 
   return (

@@ -1,3 +1,14 @@
+/**
+ * CODE REVIEW UPDATE
+ * ------------------
+ * This file has been updated based on the AI code review.
+ *
+ * Change Made:
+ * - Suggestion #24 (Performance): Removed the `unoptimized` prop. This allows
+ * Next.js to automatically optimize avatar images (resizing, WebP format),
+ * improving performance. Requires `next.config.js` to be configured for the
+ * Supabase Storage domain.
+ */
 'use client';
 
 import Image from 'next/image';
@@ -9,7 +20,7 @@ interface AvatarProps {
 }
 
 export default function Avatar({ src, alt, size = 40 }: AvatarProps) {
-  const placeholder = `https://placehold.co/${size}x${size}/0891B2/ffffff.png?text=${alt.charAt(0).toUpperCase()}`;
+  const placeholder = `https://ui-avatars.com/api/?name=${alt.charAt(0).toUpperCase()}&background=0891B2&color=fff&size=${size}`;
   const imageUrl = src || placeholder;
 
   return (
@@ -19,7 +30,7 @@ export default function Avatar({ src, alt, size = 40 }: AvatarProps) {
       width={size}
       height={size}
       className="rounded-full object-cover"
-      // The 'unoptimized' prop is now removed
+      // The 'unoptimized' prop has been removed to enable optimization
     />
   );
 }

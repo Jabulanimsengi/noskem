@@ -1,11 +1,18 @@
+/**
+ * CODE REVIEW UPDATE
+ * ------------------
+ * This file has been updated based on the AI code review.
+ *
+ * Change Made:
+ * - Suggestion #25 (Performance): Removed client-side data fetching (`useEffect`).
+ * The component now receives the `packages` array as a prop from its Server Component parent (`HomePage`).
+ */
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
 import { FaCheckCircle } from 'react-icons/fa';
-import { createClient } from '../utils/supabase/client';
 
 type CreditPackage = {
     id: number;
@@ -19,28 +26,14 @@ type CreditPackage = {
 const LISTING_FEE = 25;
 const PURCHASE_FEE = 25;
 
-export default function CreditPackagesSection({ user }: { user: User | null }) {
+// The component now accepts `packages` as a prop
+export default function CreditPackagesSection({ user, packages }: { user: User | null, packages: CreditPackage[] }) {
     const router = useRouter();
     const { openModal } = useAuthModal();
-    const [packages, setPackages] = useState<CreditPackage[]>([]);
-
-    useEffect(() => {
-        const fetchPackages = async () => {
-            const supabase = createClient();
-            const { data } = await supabase
-                .from('credit_packages')
-                .select('*')
-                .order('price_zar', { ascending: true });
-            if (data) {
-                setPackages(data);
-            }
-        };
-        fetchPackages();
-    }, []);
 
     const handlePurchaseClick = () => {
         if (!user) {
-            openModal('signIn');
+            openModal('sign_in');
         } else {
             router.push('/credits/buy');
         }

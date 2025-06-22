@@ -19,7 +19,6 @@ export default function ItemCard({ item, user }: ItemCardProps) {
 
   const handleAction = (callback: () => void) => {
     if (!user) {
-      // FIX: Use the correct 'sign_in' view type
       openModal('sign_in');
     } else {
       callback();
@@ -30,8 +29,10 @@ export default function ItemCard({ item, user }: ItemCardProps) {
     ? item.images[0]
     : 'https://placehold.co/600x400/27272a/9ca3af?text=No+Image';
 
-  const sellerUsername = item.profiles?.username || 'user';
-  const sellerAvatarUrl = item.profiles?.avatar_url || `https://placehold.co/32x32/0891B2/ffffff.png?text=${sellerUsername.charAt(0) || 'S'}`;
+  // FIX: Access the profile directly from the object, not from an array.
+  const sellerProfile = item.profiles;
+  const sellerUsername = sellerProfile?.username || 'user';
+  const sellerAvatarUrl = sellerProfile?.avatar_url || `https://placehold.co/32x32/0891B2/ffffff.png?text=${sellerUsername.charAt(0) || 'S'}`;
 
   return (
     <>
@@ -51,7 +52,8 @@ export default function ItemCard({ item, user }: ItemCardProps) {
           <div className="p-4 flex flex-col flex-grow">
               <h3 className="text-lg font-bold text-text-primary truncate">{item.title}</h3>
               
-              {item.profiles && (
+              {/* This logic now works correctly with the fixed type */}
+              {sellerProfile && (
                   <Link href={`/sellers/${sellerUsername}`} className="flex items-center gap-2 mt-2 group/seller">
                       <Image 
                         src={sellerAvatarUrl} 
@@ -81,7 +83,6 @@ export default function ItemCard({ item, user }: ItemCardProps) {
                           <Link href={`/items/${item.id}`} onClick={(e) => {
                             if (!user) {
                                 e.preventDefault();
-                                // FIX: Use the correct 'sign_in' view type
                                 openModal('sign_in');
                             }
                           }} className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark text-center">
