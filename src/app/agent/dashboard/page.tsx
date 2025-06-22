@@ -1,21 +1,9 @@
-/**
- * CODE REVIEW UPDATE
- * ------------------
- * This file has been updated to fix the error from your screenshot.
- *
- * Change Made:
- * - The `AssembledOrder` type has been fully corrected. The `item`, `seller`, and `buyer`
- * properties are now all typed as arrays (e.g., `({ title: string })[] | null`) to
- * precisely match the data shape returned by the Supabase query.
- * - The `OrderCard` component now safely accesses all related data using optional
- * chaining and array indexing (e.g., `order.seller?.[0]?.username`).
- */
 import { createClient } from '../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import InspectionModalTrigger from './InspectionModalTrigger';
 import { FaBox, FaCheck, FaTruck } from 'react-icons/fa';
+import { updateOrderStatusByAgent } from './actions';
 
-// FIX: The type for 'item', 'seller', and 'buyer' are now arrays to match the query result.
 type AssembledOrder = {
     id: number;
     status: string;
@@ -24,23 +12,42 @@ type AssembledOrder = {
     buyer: { username: string | null }[] | null;
 };
 
-const OrderCard = ({ order }: { order: AssembledOrder }) => (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex justify-between items-center gap-4">
-        <div className="flex-grow">
-            <p className="font-bold text-text-primary">Order #{order.id}</p>
-            {/* FIX: Access related data safely from the array structure */}
-            <p className="text-sm text-text-secondary truncate">{order.item?.[0]?.title || 'Item not found'}</p>
-            <p className="text-xs mt-1 text-text-secondary">
-                {order.seller?.[0]?.username || 'N/A'} → {order.buyer?.[0]?.username || 'N/A'}
-            </p>
-        </div>
-        {order.status === 'in_warehouse' && (
-            <div className="flex-shrink-0">
-                 <InspectionModalTrigger orderId={order.id} />
+const OrderCard = ({ order }: { order: AssembledOrder }) => {
+    const markAsCollected = updateOrderStatusByAgent.bind(null, order.id, 'in_warehouse');
+    const markAsDelivering = updateOrderStatusByAgent.bind(null, order.id, 'out_for_delivery');
+
+    return (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex justify-between items-center gap-4">
+            <div className="flex-grow">
+                <p className="font-bold text-text-primary">Order #{order.id}</p>
+                <p className="text-sm text-text-secondary truncate">{order.item?.[0]?.title || 'Item not found'}</p>
+                <p className="text-xs mt-1 text-text-secondary">
+                    {order.seller?.[0]?.username || 'N/A'} → {order.buyer?.[0]?.username || 'N/A'}
+                </p>
             </div>
-        )}
-    </div>
-);
+            
+            <div className="flex-shrink-0">
+                {['payment_authorized', 'awaiting_collection'].includes(order.status) && (
+                    <form action={markAsCollected}>
+                        <button type="submit" className="px-3 py-1 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md whitespace-nowrap">
+                            Mark as Collected
+                        </button>
+                    </form>
+                )}
+                {order.status === 'in_warehouse' && (
+                    <InspectionModalTrigger orderId={order.id} />
+                )}
+                {order.status === 'inspection_passed' && (
+                    <form action={markAsDelivering}>
+                        <button type="submit" className="px-3 py-1 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-md whitespace-nowrap">
+                            Mark for Delivery
+                        </button>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+};
 
 export default async function AgentDashboardPage() {
     const supabase = await createClient();

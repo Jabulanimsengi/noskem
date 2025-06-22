@@ -6,27 +6,25 @@ export type Item = Database['public']['Tables']['items']['Row'];
 export type Order = Database['public']['Tables']['orders']['Row'];
 export type Category = Database['public']['Tables']['categories']['Row'];
 
-// Defines the shape of an item when it includes the seller's profile
-// FIX: The type now correctly expects a single Profile object, not an array.
 export type ItemWithProfile = Item & {
   profiles: Profile | null; 
 };
 
-// A more detailed type for orders, matching a detailed query
 export type OrderWithDetails = Order & {
     item: Item;
     seller: Profile;
     buyer: Profile;
 };
 
-// Defines the shape of an offer with all its related data
+// FIX: Add the 'order_id' property to this type definition.
+// The 'order_id' is optional because it only exists on accepted offers.
 export type OfferWithDetails = Database['public']['Tables']['offers']['Row'] & {
     item: Item | null;
     buyer: Profile | null;
     seller: Profile | null;
+    order_id?: number | null;
 };
 
-// Defines a conversation with its related data
 export type Conversation = {
     room_id: string;
     last_message: string;

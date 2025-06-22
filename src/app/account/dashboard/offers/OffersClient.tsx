@@ -6,6 +6,7 @@ import { FaArrowDown, FaArrowUp, FaCheck, FaGavel, FaTimes } from 'react-icons/f
 import { acceptOfferAction, rejectOfferAction } from '@/app/offers/actions';
 import { useToast } from '@/context/ToastContext';
 import Image from 'next/image';
+import Link from 'next/link'; // Import the Link component
 import CounterOfferModal from '@/app/components/CounterOfferModal';
 
 interface OffersClientProps {
@@ -22,7 +23,6 @@ const OfferRow = ({ offer, type, currentUserId }: { offer: OfferWithDetails, typ
     const otherUser = type === 'sent' ? offer.seller : offer.buyer;
     const isMyTurn = offer.status.startsWith('pending') && offer.last_offer_by !== currentUserId;
     
-    // FIX: Safely determine the image URL.
     const imageUrl = (item?.images && typeof item.images[0] === 'string') 
         ? item.images[0] 
         : 'https://placehold.co/150x150/27272a/9ca3af?text=No+Image';
@@ -53,19 +53,29 @@ const OfferRow = ({ offer, type, currentUserId }: { offer: OfferWithDetails, typ
                         offer.status.includes('rejected') ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
                     }`}>{offer.status.replace(/_/g, ' ')}</span>
                 </div>
-                {isMyTurn && (
-                    <div className="flex gap-2 flex-shrink-0">
-                        <form action={() => acceptOfferAction(offer.id).then(() => onActionHandled('Offer accepted!', 'success'))}>
-                           <button title="Accept" type="submit" className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-full"><FaCheck /></button>
-                        </form>
-                         <form action={() => rejectOfferAction(offer.id).then(() => onActionHandled('Offer rejected.', 'info'))}>
-                           <button title="Reject" type="submit" className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full"><FaTimes /></button>
-                        </form>
-                        {type === 'received' && (
+                
+                <div className="flex gap-2 flex-shrink-0 items-center">
+                    {/* --- FIX: ADDED PAYMENT BUTTON LOGIC --- */}
+                    {/* For the buyer, if their sent offer is accepted, show the payment button */}
+                    {type === 'sent' && offer.status === 'accepted' && offer.order_id && (
+                        <Link href={`/orders/${offer.order_id}`} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 whitespace-nowrap">
+                            Proceed to Payment
+                        </Link>
+                    )}
+
+                    {/* For the seller, if they receive an offer, show action buttons */}
+                    {isMyTurn && type === 'received' && (
+                        <>
+                            <form action={() => acceptOfferAction(offer.id).catch(e => onActionHandled(e.message, 'error'))}>
+                               <button title="Accept" type="submit" className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-full"><FaCheck /></button>
+                            </form>
+                             <form action={() => rejectOfferAction(offer.id).then(() => onActionHandled('Offer rejected.', 'info'))}>
+                               <button title="Reject" type="submit" className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full"><FaTimes /></button>
+                            </form>
                             <button title="Counter-offer" onClick={() => setIsCounterModalOpen(true)} className="p-2 bg-gray-500 hover:bg-gray-600 text-white rounded-full"><FaGavel /></button>
-                        )}
-                    </div>
-                )}
+                        </>
+                    )}
+                </div>
             </div>
             {isCounterModalOpen && item && (
                  <CounterOfferModal 

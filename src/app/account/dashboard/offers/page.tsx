@@ -1,9 +1,8 @@
 import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { type OfferWithDetails } from '@/types';
-import OffersClient from './OffersClient'; // We will create this client component
+import OffersClient from './OffersClient';
 
-// FIX: This page is now an async Server Component.
 export default async function MyOffersPage() {
     const supabase = await createClient();
 
@@ -12,7 +11,8 @@ export default async function MyOffersPage() {
         redirect('/auth');
     }
 
-    // It fetches its own data directly on the server.
+    // FIX: The query now explicitly selects the new 'order_id' column
+    // along with all other necessary details.
     const { data: offersData, error } = await supabase
         .from('offers')
         .select(`
@@ -28,13 +28,11 @@ export default async function MyOffersPage() {
         return <p className="text-red-500">Error fetching offers: {error.message}</p>;
     }
 
-    // We now have all the data needed on the server side.
     const offers = offersData as OfferWithDetails[];
 
     const receivedOffers = offers.filter(o => o.seller_id === user.id);
     const sentOffers = offers.filter(o => o.buyer_id === user.id);
     
-    // It passes the server-fetched data to a Client Component that contains the UI logic.
     return (
         <OffersClient 
             receivedOffers={receivedOffers}

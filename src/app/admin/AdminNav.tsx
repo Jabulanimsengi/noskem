@@ -1,10 +1,18 @@
-'use client';
+ 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FaUsers, FaTachometerAlt, FaBoxOpen, FaGavel, FaCreditCard, FaStar, FaUserClock } from 'react-icons/fa';
+import { 
+  FaUsers, 
+  FaTachometerAlt, 
+  FaBoxOpen, 
+  FaGavel, 
+  FaCreditCard, 
+  FaStar, 
+  FaUserClock,
+  FaClipboardCheck // New Icon
+} from 'react-icons/fa';
 
-// This array defines all the sections of our new admin panel
 const navLinks = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: FaTachometerAlt },
   { name: 'User Management', href: '/admin/users', icon: FaUsers },
@@ -12,8 +20,9 @@ const navLinks = [
   { name: 'All Offers', href: '/admin/offers', icon: FaGavel },
   { name: 'All Orders', href: '/admin/orders', icon: FaCreditCard },
   { name: 'All Ratings', href: '/admin/ratings', icon: FaStar },
-  // FIX: Added the link to the new "Unconfirmed Users" page
-  { name: 'Unconfirmed Users', href: '/admin/unconfirmed-users', icon: FaUserClock },
+  // Add the new link for Inspection Reports
+  { name: 'Inspection Reports', href: '/admin/inspections', icon: FaClipboardCheck },
+  { name: 'Unconfirmed Users', href: 'src/app/admin/unconfirmed-users', icon: FaUserClock },
 ];
 
 export default function AdminNav() {
