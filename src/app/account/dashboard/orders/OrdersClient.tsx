@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { confirmReceipt, claimSellerFunds } from './actions';
 import OpenChatButton from '@/app/components/OpenChatButton';
 import LeaveReviewModal from '@/app/components/LeaveReviewModal'; 
-import { type OrderWithDetails } from './page'; // Import the type from the page
+import { type OrderWithDetails } from './page';
 
 const formatStatus = (status: string) => status.replace(/_/g, ' ').toUpperCase();
 
@@ -42,12 +42,13 @@ const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective
                         {perspective === 'selling' && order.status === 'completed' && (<form action={() => claimSellerFunds(order.id)}><button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 whitespace-nowrap">Claim Credits</button></form>)}
                         
                         {order.status === 'funds_paid_out' && (<p className="text-sm text-green-500 font-semibold">Paid Out</p>)}
+                        
+                        {/* The OpenChatButton will now correctly open the floating window */}
                         <OpenChatButton 
-                            orderId={order.id}
                             recipientId={otherUser?.id || ''}
                             recipientUsername={otherUser?.username || 'User'}
                             recipientAvatar={otherUser?.avatar_url || null}
-                            itemTitle={item?.title || 'this item'}
+                            itemTitle={`Order #${order.id}: ${item?.title || 'this item'}`}
                         />
                     </div>
                 </div>
@@ -72,7 +73,6 @@ interface OrdersClientProps {
 }
 
 export default function OrdersClient({ userId, initialBuyingOrders, initialSellingOrders }: OrdersClientProps) {
-    // The component now receives its initial state as props, removing the need for useEffect fetching.
     const [buyingOrders] = useState<OrderWithDetails[]>(initialBuyingOrders);
     const [sellingOrders] = useState<OrderWithDetails[]>(initialSellingOrders);
 

@@ -6,6 +6,7 @@ import { useConfirmationModal } from '@/context/ConfirmationModalContext';
 import { deleteItemAction } from './actions';
 import Image from 'next/image';
 import Link from 'next/link';
+import { FaEye } from 'react-icons/fa';
 
 interface MyListingsClientProps {
   items: Item[];
@@ -49,10 +50,20 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
               />
               <div className="flex-grow">
                 <p className="font-semibold text-text-primary truncate">{item.title}</p>
-                <p className="text-sm text-text-secondary capitalize">{item.status?.replace('_', ' ')}</p>
+                <div className="flex items-center gap-4 text-sm text-text-secondary">
+                    <span className={`font-semibold capitalize px-2 py-0.5 rounded-full ${
+                      item.status === 'available' ? 'bg-green-100 text-green-800' : 
+                      item.status === 'sold' ? 'bg-red-100 text-red-800' : 
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>{item.status?.replace('_', ' ')}</span>
+                    <div className="flex items-center gap-1">
+                        <FaEye />
+                        <span>{item.view_count || 0} views</span>
+                    </div>
+                </div>
               </div>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-shrink-0">
               <button
                 onClick={() => handleDelete(item)}
                 className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50"

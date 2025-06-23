@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { useSearchParams, useRouter } from 'next/navigation';
+// FIX: Import useRouter and usePathname
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { createClient } from '../utils/supabase/client';
@@ -11,10 +12,8 @@ import Link from 'next/link';
 import { signInAction, type SignInState } from '../auth/actions';
 import { useToast } from '@/context/ToastContext';
 
-// Initial state for our sign-in action
 const initialSignInState: SignInState = {};
 
-// --- Custom Submit Button for our new form ---
 function SubmitButton({ text, pendingText }: { text: string, pendingText: string }) {
   const { pending } = useFormStatus();
   return (
@@ -27,45 +26,41 @@ function SubmitButton({ text, pendingText }: { text: string, pendingText: string
 export default function AuthModal() {
   const { isOpen, closeModal, openModal } = useAuthModal();
   const supabase = createClient();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { showToast } = useToast();
+  
+  // FIX: Get router and pathname instances
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  // This state now controls which view we see: 'signIn' or 'mfa'
   const [view, setView] = useState<'signIn' | 'mfa'>('signIn');
   const [signInState, signInFormAction] = useActionState(signInAction, initialSignInState);
   
-  // State for the MFA verification code
   const [mfaCode, setMfaCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
-    // If the server action tells us MFA is required, switch the view
     if (signInState.mfaRequired) {
       setView('mfa');
     }
-    // If there's an error from the server action, show a toast
     if (signInState.error) {
       showToast(signInState.error, 'error');
     }
   }, [signInState, showToast]);
   
-  // This useEffect still handles opening the modal via URL param
   useEffect(() => {
     if (searchParams.get('authModal')) {
       openModal();
     }
   }, [searchParams, openModal]);
 
-  // Function to handle the final MFA verification step
   const handleMfaVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsVerifying(true);
-    // Get the latest authenticator factor
     const { data, error: factorError } = await supabase.auth.mfa.listFactors();
     if (factorError || !data?.totp?.[0]) {
         showToast(factorError?.message || 'Could not find an MFA factor. Please try logging in again.', 'error');
-        setView('signIn'); // Reset to the sign-in view
+        setView('signIn');
         setIsVerifying(false);
         return;
     }
@@ -81,14 +76,16 @@ export default function AuthModal() {
         showToast(error.message, 'error');
     } else {
         closeModal();
-        router.refresh(); // Refresh the page to update auth state
+        router.refresh(); 
     }
   };
   
-  // When closing the modal, always reset the view to the default
+  // FIX: This function now also cleans the URL
   const handleClose = () => {
     setView('signIn');
     closeModal();
+    // This removes the '?authModal=true' from the URL, breaking the loop.
+    router.replace(pathname, { scroll: false });
   };
 
   return (
@@ -118,8 +115,6 @@ export default function AuthModal() {
             </button>
             
             <div className="p-8">
-                {/* --- CONDITIONAL UI RENDERING --- */}
-
                 {view === 'signIn' && (
                   <div>
                     <div className="text-center mb-6">
@@ -139,7 +134,7 @@ export default function AuthModal() {
                     </form>
                     <p className="text-center text-sm text-text-secondary mt-6">
                       Don't have an account?{' '}
-                      <Link href="/signup" onClick={closeModal} className="font-semibold text-brand hover:underline">
+                      <Link href="/signup" onClick={handleClose} className="font-semibold text-brand hover:underline">
                           Sign Up
                       </Link>
                     </p>
@@ -162,7 +157,9 @@ export default function AuthModal() {
                             required
                             className="w-full text-center tracking-[0.5em] text-2xl p-2 border rounded-md"
                         />
-                        <SubmitButton text="Verify" pendingText="Verifying..." />
+                        <button type="submit" disabled={isVerifying} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400">
+                           {isVerifying ? "Verifying..." : "Verify"}
+                        </button>
                     </form>
                     <button onClick={() => setView('signIn')} className="text-center text-sm text-text-secondary mt-6 w-full hover:underline">
                         Back to login

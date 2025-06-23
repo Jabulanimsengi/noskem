@@ -11,8 +11,6 @@ export default async function MyOffersPage() {
         redirect('/auth');
     }
 
-    // FIX: The query now explicitly selects the new 'order_id' column
-    // along with all other necessary details.
     const { data: offersData, error } = await supabase
         .from('offers')
         .select(`
@@ -28,10 +26,14 @@ export default async function MyOffersPage() {
         return <p className="text-red-500">Error fetching offers: {error.message}</p>;
     }
 
-    const offers = offersData as OfferWithDetails[];
+    const offers = (offersData || []) as OfferWithDetails[];
 
-    const receivedOffers = offers.filter(o => o.seller_id === user.id);
-    const sentOffers = offers.filter(o => o.buyer_id === user.id);
+    // --- FIX: Correctly categorize offers based on who made the last move ---
+    // An offer is "received" if the user is a participant AND the last offer was NOT made by them.
+    const receivedOffers = offers.filter(o => o.last_offer_by !== user.id);
+    // An offer is "sent" if the last offer WAS made by them.
+    const sentOffers = offers.filter(o => o.last_offer_by === user.id);
+    // --- END OF FIX ---
     
     return (
         <OffersClient 

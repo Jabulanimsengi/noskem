@@ -7,7 +7,6 @@ import ItemCarousel from './components/ItemCarousel';
 import { HeroSection } from './components/HeroSection';
 import ItemList from './components/ItemList';
 import GridSkeletonLoader from './components/skeletons/GridSkeletonLoader';
-// FIX: Import the HomepageFilters component
 import HomepageFilters from './components/HomepageFilters';
 
 type CreditPackage = {
@@ -23,7 +22,6 @@ export default async function HomePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // The database queries remain the same.
   const [
     categoriesRes,
     popularItemsRes,
@@ -32,9 +30,9 @@ export default async function HomePage() {
     creditPackagesRes,
   ] = await Promise.all([
     supabase.from('categories').select('*').order('name', { ascending: true }),
-    supabase.from('items').select(`*, profiles:seller_id (username, avatar_url)`).eq('status', 'available').order('view_count', { ascending: false, nullsFirst: false }).limit(10),
-    supabase.from('items').select(`*, profiles:seller_id (username, avatar_url)`).eq('status', 'available').order('created_at', { ascending: false }).limit(10),
-    supabase.from('items').select(`*, profiles:seller_id (username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10),
+    supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('status', 'available').order('view_count', { ascending: false, nullsFirst: false }).limit(10),
+    supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('status', 'available').order('created_at', { ascending: false }).limit(10),
+    supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10),
     supabase.from('credit_packages').select('*').order('price_zar', { ascending: true }),
   ]);
 
@@ -59,6 +57,7 @@ export default async function HomePage() {
             <ItemCarousel title="Recently Listed" items={recentlyListedItems} user={user} />
           </div>
         )}
+        
         {recentlySoldItems.length > 0 && (
            <div className='border-t pt-8 mt-8'>
              <ItemCarousel title="Recently Sold" items={recentlySoldItems} user={user} />
@@ -72,8 +71,6 @@ export default async function HomePage() {
           </div>
           
           <CategoryFilter categories={categories} />
-          
-          {/* This component will now be correctly recognized. */}
           <HomepageFilters />
           
           <Suspense fallback={<GridSkeletonLoader count={8} />}>

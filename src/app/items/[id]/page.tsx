@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { type ItemWithProfile } from '@/types';
 import { FaUser } from 'react-icons/fa';
 import PurchaseActionsClient from './PurchaseActionsClient';
+import BackButton from '@/app/components/BackButton'; // 1. Import the component
 
 interface ItemDetailPageProps {
   params: {
@@ -16,21 +17,20 @@ interface ItemDetailPageProps {
 
 export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   const supabase = await createClient();
-  const itemId = params.id; // Correctly access the id here
+  const itemId = params.id;
 
   const { data: { user } } = await supabase.auth.getUser();
 
   const { data: itemData, error } = await supabase
     .from('items')
     .select(`*, category:categories(name), profiles(id, username, avatar_url)`)
-    .eq('id', itemId) // Use the variable
+    .eq('id', itemId)
     .single();
 
   if (error || !itemData) {
     notFound();
   }
   
-  // Cast to the correct type after fetching
   const item = itemData as unknown as ItemWithProfile;
 
   const formatCondition = (condition: string) => {
@@ -45,8 +45,13 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
       <ViewTracker itemId={item.id} />
     
       <div className="container mx-auto max-w-6xl p-4 sm:p-6 lg:py-12">
+        {/* 2. Add the BackButton component here */}
+        <div className="mb-6">
+          <BackButton />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
-          
+          {/* ... rest of the page remains the same */}
           <div>
             <ImageGallery images={item.images as string[] | null} itemTitle={item.title} />
           </div>

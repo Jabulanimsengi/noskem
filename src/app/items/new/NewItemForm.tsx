@@ -32,7 +32,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const router = useRouter();
   const { showToast } = useToast();
   
-  // FIX: This form now uses the useActionState hook to robustly handle server responses.
   const [state, formAction] = useActionState(listItemAction, initialState);
   
   const [images, setImages] = useState<File[]>([]);
@@ -40,7 +39,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
   const MAX_IMAGES = 5;
 
-  // This useEffect hook will now reliably listen for any errors from the server action.
   useEffect(() => {
     if (state.success) {
       showToast('Your item has been listed successfully!', 'success');
@@ -51,8 +49,11 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
     }
   }, [state, router, showToast]);
 
-  // This function now correctly orchestrates image uploads and form submission.
-  const handleSubmitWithUploads = async (formData: FormData) => {
+  // FIX: This function is now a standard event handler for onSubmit.
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    // Prevent the browser's default form submission
+    event.preventDefault();
+
     if (images.length === 0) {
       showToast('Please upload at least one image.', 'error');
       return;
@@ -68,7 +69,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
     showToast('Uploading images...', 'info');
     
     try {
-      // Upload images directly to Supabase Storage
       const uploadPromises = images.map(file => {
         const filePath = `${user.id}/${Date.now()}_${file.name}`;
         return supabase.storage.from('item-images').upload(filePath, file);
@@ -82,10 +82,11 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
         uploadedImageUrls.push(publicUrl);
       }
       
-      // Add the successfully uploaded image URLs to the form data
+      // Manually create a FormData object from the form
+      const formData = new FormData(event.currentTarget);
       uploadedImageUrls.forEach(url => formData.append('imageUrls', url));
       
-      // Trigger the server action with the complete form data
+      // Manually call the server action. This is now the correct pattern.
       formAction(formData);
 
     } catch (error: any) {
@@ -132,10 +133,16 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
 
   return (
     <div className="container mx-auto max-w-2xl py-8">
-      {/* The form now calls our new handleSubmitWithUploads function via the 'action' prop */}
-      <form action={handleSubmitWithUploads} className="p-8 bg-surface rounded-xl shadow-lg space-y-6">
+      {/* FIX: The form now uses onSubmit instead of the action prop. */}
+      <form onSubmit={handleSubmit} className="p-8 bg-surface rounded-xl shadow-lg space-y-6">
         <h1 className="text-2xl font-bold text-center text-text-primary">List a New Item</h1>
         
+        {/* The SubmitButton component is now inside the form and will trigger the onSubmit handler */}
+        <div className="pt-2">
+            <SubmitButton />
+        </div>
+
+        {/* All other form fields remain the same */}
         <div>
           <label htmlFor="title" className={labelStyles}>Title</label>
           <input name="title" id="title" type="text" required className={inputStyles}/>
@@ -194,7 +201,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
             ))}
           </div>
         )}
-        <SubmitButton />
       </form>
     </div>
   );

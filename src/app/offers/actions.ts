@@ -3,14 +3,13 @@
 import { createClient } from '../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createNotification } from '../components/actions';
+import { createNotification } from '@/app/actions';
 
 export interface OfferFormState {
   error: string | null;
   success: boolean;
 }
 
-// This function is correct and does not need changes.
 export async function createOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -62,7 +61,6 @@ export async function createOfferAction(prevState: OfferFormState, formData: For
 }
 
 
-// --- FIX: This function has been rewritten to be more robust. ---
 export async function acceptOfferAction(offerId: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -71,7 +69,6 @@ export async function acceptOfferAction(offerId: number) {
     throw new Error("Authentication required to accept an offer.");
   }
 
-  // Step 1: Fetch the offer itself, without any joins.
   const { data: offer, error: offerError } = await supabase
     .from('offers')
     .select('*')
@@ -81,16 +78,10 @@ export async function acceptOfferAction(offerId: number) {
   if (offerError || !offer) {
     throw new Error("Offer not found or there was an error fetching it.");
   }
-
-  // Step 2: Perform authorization checks. Only the user who received the offer can accept.
-  if (offer.last_offer_by === user.id) {
-    throw new Error("You cannot accept your own offer.");
-  }
   if (offer.seller_id !== user.id) {
     throw new Error("Only the item's seller can accept this offer.");
   }
   
-  // Step 3: Fetch the related item in a separate, simple query.
   const { data: item, error: itemError } = await supabase
     .from('items')
     .select('id, title, status')
@@ -100,37 +91,31 @@ export async function acceptOfferAction(offerId: number) {
   if (itemError || !item) {
     throw new Error("The item associated with this offer could not be found.");
   }
-  
-  // Step 4: Check if the item is still available for sale.
   if (item.status !== 'available') {
     throw new Error(`This offer cannot be accepted because the item is no longer available (status: ${item.status}).`);
   }
 
-  // Step 5: If all checks pass, call the database function to finalize the process.
-  // The function name 'accept_offer_and_create_order' matches the one you provided.
-  const { data: orderData, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
+  const { data: newOrderId, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
     p_offer_id: offer.id,
   });
 
-  if (rpcError || !orderData || orderData.length === 0) {
-    throw new Error(`Failed to create order from offer: ${rpcError?.message || 'Unknown database RPC error'}`);
+  if (rpcError || typeof newOrderId !== 'number') {
+    throw new Error(`Failed to create order from offer: ${rpcError?.message || 'Did not receive a valid order ID from the database.'}`);
   }
   
-  const newOrder = orderData[0];
   try {
     const message = `Your offer for "${item.title}" was accepted! Please proceed to payment.`;
-    await createNotification(offer.buyer_id, message, `/orders/${newOrder.id}`);
+    await createNotification(offer.buyer_id, message, `/orders/${newOrderId}`);
   } catch (notificationError) {
       console.error("Failed to create notification for accepted offer:", notificationError);
   }
 
   revalidatePath('/account/dashboard/offers');
   revalidatePath(`/items/${offer.item_id}`);
-  redirect(`/orders/${newOrder.id}`);
+  redirect(`/orders/${newOrderId}`);
 }
 
 
-// FIX: This function has also been refactored for better reliability.
 export async function rejectOfferAction(offerId: number) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -139,7 +124,6 @@ export async function rejectOfferAction(offerId: number) {
     const { data: offer } = await supabase.from('offers').select('*').eq('id', offerId).single();
     if (!offer) return;
     
-    // Check if user is part of the transaction
     if (offer.seller_id !== user.id && offer.buyer_id !== user.id) {
         return; 
     }
@@ -161,8 +145,6 @@ export async function rejectOfferAction(offerId: number) {
     revalidatePath('/account/dashboard/offers');
 }
 
-
-// FIX: This function has also been refactored for better reliability.
 export async function counterOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

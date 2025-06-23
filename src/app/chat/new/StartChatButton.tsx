@@ -1,23 +1,17 @@
 'use client';
 
 import { useChat } from '@/context/ChatContext';
+import { type Profile } from '@/types';
 import { createClient } from '@/app/utils/supabase/client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
-// This helper function creates a consistent, user-to-user room ID
 const createCanonicalRoomId = (userId1: string, userId2: string): string => {
     const sortedIds = [userId1, userId2].sort();
     return `chat_user_${sortedIds[0]}_${sortedIds[1]}`;
 };
 
-interface OpenChatButtonProps {
-    recipientId: string;
-    recipientUsername: string;
-    recipientAvatar: string | null;
-    itemTitle: string;
-}
-
-export default function OpenChatButton({ recipientId, recipientUsername, recipientAvatar, itemTitle }: OpenChatButtonProps) {
+export default function StartChatButton({ recipient }: { recipient: Profile }) {
     const { openChat } = useChat();
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -31,26 +25,29 @@ export default function OpenChatButton({ recipientId, recipientUsername, recipie
     }, []);
 
     const handleOpenChat = () => {
-        if(!currentUserId) return;
+        if (!currentUserId) return;
 
-        // Use the new canonical room ID logic
-        const roomId = createCanonicalRoomId(currentUserId, recipientId);
+        const roomId = createCanonicalRoomId(currentUserId, recipient.id);
 
+        // FIX: Removed the 'orderId' property to match the ChatSession type
         openChat({
             roomId: roomId,
-            recipientId,
-            recipientUsername,
-            recipientAvatar,
-            itemTitle: itemTitle
+            recipientId: recipient.id,
+            recipientUsername: recipient.username || 'User',
+            recipientAvatar: recipient.avatar_url || null,
+            itemTitle: 'Direct Message',
         });
     };
 
+    if (!currentUserId) return null;
+
     return (
-        <button 
+        <Link 
+            href="/chat"
             onClick={handleOpenChat}
             className="px-4 py-2 text-sm font-medium text-white bg-brand rounded-md hover:bg-brand-dark whitespace-nowrap"
         >
-            Contact
-        </button>
+            Message
+        </Link>
     );
 }

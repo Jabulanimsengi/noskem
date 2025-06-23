@@ -2,7 +2,7 @@
 
 import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { createNotification } from '../../components/actions';
+import { createNotification } from '@/app/actions';
 
 export async function fileInspectionReport(prevState: any, formData: FormData) {
   const supabase = await createClient();
@@ -42,7 +42,6 @@ export async function fileInspectionReport(prevState: any, formData: FormData) {
 
   const newStatus = inspectionResult === 'passed' ? 'inspection_passed' : 'inspection_failed';
   
-  // Fetch the order details to get the buyer ID and item title for the notification
   const { data: orderData, error: orderUpdateError } = await supabase
     .from('orders')
     .update({ status: newStatus, agent_id: user.id })
@@ -52,7 +51,6 @@ export async function fileInspectionReport(prevState: any, formData: FormData) {
 
   if (orderUpdateError) { return { error: 'Failed to update the order status.' }; }
   
-  // --- NOTIFICATION LOGIC FOR INSPECTION ---
   if(orderData) {
     const itemTitle = orderData.item?.title || 'your item';
     const buyerId = orderData.buyer?.id;
@@ -66,7 +64,6 @@ export async function fileInspectionReport(prevState: any, formData: FormData) {
       await createNotification(buyerId, message, `/account/dashboard/orders`);
     }
   }
-  // --- END OF NOTIFICATION LOGIC ---
 
   revalidatePath('/agent/dashboard');
   return { success: true, error: null };
@@ -96,23 +93,19 @@ export async function updateOrderStatusByAgent(orderId: number, newStatus: 'in_w
     throw new Error(error.message);
   }
 
-  // --- NOTIFICATION LOGIC FOR COLLECTION & DELIVERY ---
   if (order) {
     const itemTitle = order.item?.title || 'your item';
     
-    // Notify the SELLER when the item is collected and in the warehouse
     if (newStatus === 'in_warehouse' && order.seller?.id) {
         const message = `Your item "${itemTitle}" has been collected by our agent and is now in our warehouse pending inspection.`;
         await createNotification(order.seller.id, message, `/account/dashboard/orders`);
     }
 
-    // Notify the BUYER when the item is out for delivery
     if (newStatus === 'out_for_delivery' && order.buyer?.id) {
         const message = `Good news! Your item "${itemTitle}" has passed inspection and is now out for delivery.`;
         await createNotification(order.buyer.id, message, `/account/dashboard/orders`);
     }
   }
-  // --- END OF NOTIFICATION LOGIC ---
 
   revalidatePath('/agent/dashboard');
 }

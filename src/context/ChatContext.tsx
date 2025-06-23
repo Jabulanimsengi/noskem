@@ -2,37 +2,35 @@
 
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
-// Define the shape of a single chat conversation we want to manage
-interface Chat {
-  roomId: string; // e.g., 'chat_order_123'
-  orderId: string;
+// Defines the information needed for a single chat session
+export interface ChatSession {
+  roomId: string; // A unique ID for the chat room, e.g., "chat_user_1_user_2"
   recipientId: string;
   recipientUsername: string;
   recipientAvatar: string | null;
-  itemTitle: string;
+  itemTitle?: string; // Optional: The item the chat is about
 }
 
-// Define the shape of the context's value
+// Defines the functions our chat context will provide
 interface ChatContextType {
-  openChats: Chat[];
-  openChat: (chat: Chat) => void;
+  openChats: ChatSession[];
+  openChat: (chat: ChatSession) => void;
   closeChat: (roomId: string) => void;
 }
 
-// Create the context with a default undefined value
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Create the Provider component
+// The provider component that will wrap our application
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
-  const [openChats, setOpenChats] = useState<Chat[]>([]);
+  const [openChats, setOpenChats] = useState<ChatSession[]>([]);
 
-  const openChat = (newChat: Chat) => {
-    // Prevent opening the same chat multiple times
+  const openChat = (newChat: ChatSession) => {
     setOpenChats(prev => {
-      if (prev.find(c => c.roomId === newChat.roomId)) {
+      // If the chat is already open, don't add it again
+      if (prev.some(c => c.roomId === newChat.roomId)) {
         return prev;
       }
-      // Limit to 3 open chats at a time for better UI
+      // Add the new chat and limit to 3 windows to avoid screen clutter
       return [...prev, newChat].slice(-3);
     });
   };
@@ -48,7 +46,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Create a custom hook for easy access to the context
+// A custom hook for easy access to the chat context
 export const useChat = () => {
   const context = useContext(ChatContext);
   if (context === undefined) {
