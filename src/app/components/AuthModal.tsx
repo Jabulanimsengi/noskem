@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-// FIX: Import useRouter and usePathname
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthModal } from '@/context/AuthModalContext';
@@ -28,7 +27,6 @@ export default function AuthModal() {
   const supabase = createClient();
   const { showToast } = useToast();
   
-  // FIX: Get router and pathname instances
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -46,7 +44,13 @@ export default function AuthModal() {
     if (signInState.error) {
       showToast(signInState.error, 'error');
     }
-  }, [signInState, showToast]);
+    if (signInState.success) {
+      showToast('Signed in successfully!', 'success');
+      handleClose();
+      // FIX: Navigate to the homepage instead of the dashboard.
+      router.push('/'); 
+    }
+  }, [signInState, showToast, router, pathname]);
   
   useEffect(() => {
     if (searchParams.get('authModal')) {
@@ -57,34 +61,34 @@ export default function AuthModal() {
   const handleMfaVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsVerifying(true);
-    const { data, error: factorError } = await supabase.auth.mfa.listFactors();
-    if (factorError || !data?.totp?.[0]) {
-        showToast(factorError?.message || 'Could not find an MFA factor. Please try logging in again.', 'error');
-        setView('signIn');
-        setIsVerifying(false);
-        return;
-    }
+    try {
+        const { data, error: factorError } = await supabase.auth.mfa.listFactors();
+        if (factorError || !data?.totp?.[0]) {
+            throw new Error(factorError?.message || 'Could not find an MFA factor.');
+        }
 
-    const factorId = data.totp[0].id;
-    const { error } = await supabase.auth.mfa.challengeAndVerify({
-        factorId,
-        code: mfaCode,
-    });
-    
-    setIsVerifying(false);
-    if (error) {
+        const factorId = data.totp[0].id;
+        const { error } = await supabase.auth.mfa.challengeAndVerify({
+            factorId,
+            code: mfaCode,
+        });
+        
+        if (error) throw error;
+        
+        showToast('Signed in successfully!', 'success');
+        handleClose();
+        // FIX: Navigate to the homepage here as well.
+        router.push('/');
+    } catch (error: any) {
         showToast(error.message, 'error');
-    } else {
-        closeModal();
-        router.refresh(); 
+    } finally {
+        setIsVerifying(false);
     }
   };
   
-  // FIX: This function now also cleans the URL
   const handleClose = () => {
     setView('signIn');
     closeModal();
-    // This removes the '?authModal=true' from the URL, breaking the loop.
     router.replace(pathname, { scroll: false });
   };
 

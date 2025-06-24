@@ -5,21 +5,16 @@ import Link from 'next/link';
 import { FaShoppingCart, FaBars, FaPlusCircle } from 'react-icons/fa';
 import { MessageSquare } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
-// FIX: Remove Notification type import
 import SearchBar from './SearchBar';
 import AuthButton from './AuthButton';
 import MobileMenu from './MobileMenu';
 import NotificationBell from './NotificationBell';
+import { type Profile } from '@/types'; // Import the Profile type
 
+// FIX: Update the props to match what the new server Header provides.
 interface HeaderLayoutProps {
     user: User | null;
-    profile: {
-        credit_balance: number;
-        role: string | null;
-        username: string | null;
-        avatar_url: string | null;
-    } | null;
-    // FIX: Remove notifications from props
+    profile: Profile | null;
 }
 
 export default function HeaderLayout({ user, profile }: HeaderLayoutProps) {
@@ -63,7 +58,7 @@ export default function HeaderLayout({ user, profile }: HeaderLayoutProps) {
                 <Link href="/chat" title="Messages" className="text-gray-500 hover:text-brand">
                   <MessageSquare size={22} />
                 </Link>
-                {/* FIX: Render NotificationBell without any props */}
+                {/* The NotificationBell is now fully self-contained */}
                 <NotificationBell />
                 <div className="h-8 border-l border-gray-300"></div>
                 <AuthButton user={user} profile={profile} />

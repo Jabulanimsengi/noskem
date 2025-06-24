@@ -1,16 +1,19 @@
 'use server';
 
 import { createClient } from '@/app/utils/supabase/server';
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-// This is the shape of the state object our sign-in action will return
 export interface SignInState {
   error?: string | null;
   success?: boolean;
   mfaRequired?: boolean;
 }
 
-// Action to handle the initial email/password sign-in
+/**
+ * Handles the initial email/password sign-in attempt.
+ * Returns a success or error state to the client-side modal.
+ */
 export async function signInAction(prevState: SignInState, formData: FormData): Promise<SignInState> {
   const supabase = await createClient();
   const email = formData.get('email') as string;
@@ -33,25 +36,24 @@ export async function signInAction(prevState: SignInState, formData: FormData): 
     return { error: error.message };
   }
 
-  // If login is successful and no MFA is required, revalidate and redirect
-  redirect('/');
+  // Instead of redirecting, revalidate the cache and return a success message.
+  // The client component will handle the UI update.
+  revalidatePath('/', 'layout');
+  return { success: true };
 }
 
-// Action to verify the MFA code (moved from mfa_actions.ts)
-export async function verifyMfaAction(prevState: any, formData: FormData) {
-  const supabase = await createClient();
-  const code = formData.get('code') as string;
-
-  if (!code) {
-    return { error: 'Verification code is required.' };
-  }
-
-  // We need the factorId, but it's not available in this action.
-  // The challengeAndVerify must be done on the client after getting factors.
-  // This server-side action is better suited for a custom flow.
-  // For now, we will handle this on the client in the AuthModal.
-  
-  // Let's adjust. The modal will handle this logic.
-  // We'll keep this file for the signInAction for now.
-  return { error: "Verification should be handled on the client." };
+/**
+ * Handles signing the user out securely on the server.
+ * Redirects to the homepage after sign-out is complete.
+ */
+export async function signOutAction() {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    // A redirect from a server action is the most reliable way to ensure
+    // a clean state on the next page render.
+    return redirect('/');
 }
+
+// NOTE: The MFA verification logic is handled on the client-side in the
+// AuthModal component to provide a better user experience. A server action
+// for this is not strictly necessary in the current flow.

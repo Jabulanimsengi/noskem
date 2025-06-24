@@ -2,6 +2,7 @@ import { createClient } from '../../utils/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import Image from 'next/image';
 import PaystackButton from './PaystackButton'; 
+import { type Order, type Item } from '@/types';
 
 interface OrderPageProps {
   params: {
@@ -9,31 +10,22 @@ interface OrderPageProps {
   };
 }
 
-type OrderWithItem = {
-  id: number;
-  status: string;
-  final_amount: number;
-  created_at: string;
-  items: {
-    id: number;
-    title: string;
-    images: string[] | null;
-  } | null;
+type OrderWithItem = Order & {
+  items: Item | null;
 };
 
 export default async function OrderPage({ params }: OrderPageProps) {
-  // FIX: Access the id parameter safely to prevent the error.
-  const orderId = params.id;
   const supabase = await createClient();
+  const orderId = params.id;
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return redirect('/auth');
+    return redirect('/?authModal=true');
   }
 
   const { data: orderData, error } = await supabase
     .from('orders')
-    .select(`id, status, final_amount, created_at, items (id, title, images)`)
+    .select(`*, items (*)`)
     .eq('id', orderId)
     .single();
 
@@ -41,10 +33,21 @@ export default async function OrderPage({ params }: OrderPageProps) {
     notFound();
   }
 
-  const order = orderData as unknown as OrderWithItem;
+  const order = orderData as OrderWithItem;
+  
+  if (order.buyer_id !== user.id) {
+      return (
+        <div className="text-center p-8">
+            <h1 className="text-xl font-bold text-red-500">Access Denied</h1>
+            <p className="text-text-secondary">You are not authorized to view this order.</p>
+        </div>
+      );
+  }
   
   const item = order.items;
-  const imageUrl = (item && Array.isArray(item.images) && item.images.length > 0)
+
+  // FIX: Add a `typeof item.images[0] === 'string'` check to ensure the src is valid.
+  const imageUrl = (item && Array.isArray(item.images) && item.images.length > 0 && typeof item.images[0] === 'string')
     ? item.images[0]
     : 'https://placehold.co/600x400/27272a/9ca3af?text=No+Image';
 
@@ -63,7 +66,6 @@ export default async function OrderPage({ params }: OrderPageProps) {
               alt={item?.title || 'Item Image'}
               fill={true}
               style={{ objectFit: 'cover' }}
-              unoptimized
             />
           </div>
           <div>
@@ -81,13 +83,13 @@ export default async function OrderPage({ params }: OrderPageProps) {
             </div>
             <div className="flex justify-between">
                 <span className="text-text-secondary">Status:</span>
-                <span className="font-semibold px-2 py-1 bg-yellow-400/20 text-yellow-600 rounded-full">
+                <span className="font-semibold px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
                     {order.status.replace(/_/g, ' ').toUpperCase()}
                 </span>
             </div>
             <div className="flex justify-between">
                 <span className="text-text-secondary">Order Date:</span>
-                <span className="text-text-primary">{new Date(order.created_at).toLocaleDateString()}</span>
+                <span className="text-text-primary">{new Date(order.created_at || '').toLocaleDateString()}</span>
             </div>
         </div>
         

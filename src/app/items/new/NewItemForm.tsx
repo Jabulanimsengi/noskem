@@ -1,6 +1,5 @@
 'use client';
 
-// FIX: Import 'useTransition' from React
 import { useState, useEffect, useCallback, useActionState, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -24,9 +23,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const formRef = useRef<HTMLFormElement>(null);
   
   const [state, formAction] = useActionState(listItemAction, initialState);
-  
-  // FIX: Use the useTransition hook for the pending state.
-  // This replaces our manual 'isSubmitting' state.
   const [isPending, startTransition] = useTransition();
   
   const [images, setImages] = useState<File[]>([]);
@@ -34,6 +30,8 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
   const [locationDescription, setLocationDescription] = useState('');
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  // FIX: Add a new state to track the auto-detection process
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const MAX_IMAGES = 5;
 
   useEffect(() => {
@@ -49,7 +47,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     
-    // FIX: The entire submission logic is wrapped in startTransition
     startTransition(async () => {
       if (images.length === 0) {
         showToast('Please upload at least one image.', 'error');
@@ -108,13 +105,40 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
     setLocation({ lat, lng });
   }, []);
   
+  // FIX: Updated the "Detect My Location" function
   const detectMyLocation = () => {
-    navigator.geolocation?.getCurrentPosition(
-      (position) => {
-        setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-        showToast('Location detected!', 'success');
+    if (!navigator.geolocation) {
+      showToast('Geolocation is not supported by your browser.', 'error');
+      return;
+    }
+
+    setIsDetectingLocation(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocation({ lat: latitude, lng: longitude });
+
+        // Call the reverse geocoding API
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await response.json();
+          if (data && data.display_name) {
+            setLocationDescription(data.display_name);
+            showToast('Location detected and filled in!', 'success');
+          } else {
+            showToast('Location detected, but could not find an address.', 'info');
+          }
+        } catch (error) {
+          showToast('Could not fetch address for your location.', 'error');
+        } finally {
+          setIsDetectingLocation(false);
+        }
       },
-      () => showToast('Could not detect location.', 'error')
+      () => {
+        showToast('Unable to retrieve your location. Please check your browser permissions.', 'error');
+        setIsDetectingLocation(false);
+      }
     );
   };
   
@@ -185,9 +209,14 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
         </div>
         <div className="space-y-2">
           <label className={labelStyles}>Item Location</label>
-          <button type="button" onClick={detectMyLocation} className="flex items-center gap-2 text-sm font-semibold text-brand hover:underline">
-            <FaMapMarkerAlt />
-            Detect My Location
+          <button 
+            type="button" 
+            onClick={detectMyLocation} 
+            className="flex items-center gap-2 text-sm font-semibold text-brand hover:underline disabled:text-gray-400 disabled:no-underline"
+            disabled={isDetectingLocation}
+          >
+            {isDetectingLocation ? <FaSpinner className="animate-spin" /> : <FaMapMarkerAlt />}
+            {isDetectingLocation ? 'Detecting...' : 'Detect My Location'}
           </button>
           <div className="mt-2">
              <label htmlFor="locationDescription" className="text-xs text-gray-500">Location Name (e.g., Sandton, Johannesburg)</label>
@@ -240,7 +269,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
         )}
 
         <div className="pt-4 border-t">
-            {/* FIX: The button now uses the 'isPending' state from the useTransition hook */}
             <button 
               type="submit" 
               disabled={isPending} 

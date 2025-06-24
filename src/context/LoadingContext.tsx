@@ -1,10 +1,9 @@
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode } from 'react';
-// FIX: Import a spinner icon for the new loader
-import { FaSpinner } from 'react-icons/fa';
 
 interface LoadingContextType {
+  isLoading: boolean; // Expose the state itself
   showLoader: () => void;
   hideLoader: () => void;
 }
@@ -25,19 +24,10 @@ export const LoadingProvider = ({ children }: { children: ReactNode }) => {
   const showLoader = () => setIsLoading(true);
   const hideLoader = () => setIsLoading(false);
 
+  // The Provider now ONLY provides the state and functions, no UI.
   return (
-    <LoadingContext.Provider value={{ showLoader, hideLoader }}>
+    <LoadingContext.Provider value={{ isLoading, showLoader, hideLoader }}>
       {children}
-      
-      {/* FIX: This is the new, more obvious loading overlay UI */}
-      {isLoading && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <FaSpinner className="animate-spin text-white h-12 w-12" />
-            <p className="text-white font-semibold">Loading...</p>
-          </div>
-        </div>
-      )}
     </LoadingContext.Provider>
   );
 };

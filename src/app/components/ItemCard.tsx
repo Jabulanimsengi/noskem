@@ -65,7 +65,7 @@ export default function ItemCard({ item, user }: ItemCardProps) {
 
   return (
     <>
-      <div className="bg-surface rounded-xl shadow-lg overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+      <div className="bg-surface rounded-xl shadow-lg overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 h-full">
           <div className="relative w-full h-48">
             <Link href={`/items/${item.id}`} className="block h-full">
                 <Image 
@@ -104,16 +104,15 @@ export default function ItemCard({ item, user }: ItemCardProps) {
                   {item.buy_now_price ? `R${item.buy_now_price.toFixed(2)}` : 'Make an Offer'}
               </p>
 
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="mt-auto pt-4 border-t border-gray-200">
                 {item.status === 'available' ? (
                   <div className="grid grid-cols-2 gap-2">
                     <button 
                       onClick={handleStartChat}
                       className="px-3 py-2 text-sm font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center gap-1.5"
                     >
-                      {/* FIX: Use utility classes for sizing instead of a fixed size prop */}
                       <MessageSquare className="h-4 w-4" />
-                      Message
+                      <span>Message</span>
                     </button>
                     <button 
                       onClick={() => handleAction(() => setIsOfferModalOpen(true))} 

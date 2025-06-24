@@ -17,7 +17,7 @@ export type Notification = {
   created_at: string;
 };
 
-// FIX: The component no longer accepts props
+// This component no longer accepts props. It handles all of its own data.
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -27,7 +27,6 @@ export default function NotificationBell() {
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
   
-  // This memoized function will fetch the initial notifications
   const fetchInitialNotifications = useCallback(async (user: User) => {
     const { data } = await supabase
       .from('notifications')
@@ -38,19 +37,19 @@ export default function NotificationBell() {
     setNotifications(data || []);
   }, [supabase]);
 
-  // Effect to get the current user
+  // This effect runs once to get the user and their initial notifications
   useEffect(() => {
-    const getUser = async () => {
+    const getUserAndNotifications = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
       if (user) {
         fetchInitialNotifications(user);
       }
     };
-    getUser();
+    getUserAndNotifications();
   }, [supabase, fetchInitialNotifications]);
 
-  // Effect for real-time updates
+  // This effect listens for real-time updates
   useEffect(() => {
     if (!currentUser) return;
 
@@ -70,7 +69,7 @@ export default function NotificationBell() {
     return () => { 
       supabase.removeChannel(channel); 
     };
-  }, [currentUser]);
+  }, [currentUser, supabase]); // Depend on supabase client
 
   const handleToggleDropdown = () => {
     setIsOpen(!isOpen);
@@ -100,7 +99,7 @@ export default function NotificationBell() {
 
   const handleClearAll = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const currentNotifications = [...notifications]; // Save current state in case of error
+    const currentNotifications = [...notifications];
     setNotifications([]);
     try {
       await clearAllNotifications();
@@ -108,12 +107,13 @@ export default function NotificationBell() {
       setIsOpen(false);
     } catch (error: any) {
       showToast(error.message, 'error');
-      setNotifications(currentNotifications); // Restore on error
+      setNotifications(currentNotifications);
     }
   };
   
+  // Don't render the bell at all if no user is logged in.
   if (!currentUser) {
-    return null; // Don't render the bell if no user is logged in
+    return null; 
   }
   
   return (

@@ -3,8 +3,68 @@
 import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-// FIX: Correct the import path to the new centralized actions file
 import { createNotification } from '@/app/actions';
+
+// This file contains actions related to orders and offers.
+// For clarity, other functions like acceptOfferAction are kept here if they
+// are part of the order creation lifecycle.
+
+export async function updateOrderStatus(orderId: number, paystackRef: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        return { success: false, error: "Authentication required." };
+    }
+
+    // Step 1: Update the order status to 'payment_authorized'
+    const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .update({ status: 'payment_authorized', paystack_ref: paystackRef })
+        .eq('id', orderId)
+        .eq('buyer_id', user.id)
+        .select('item_id, seller_id')
+        .single();
+
+    if (orderError) {
+        return { success: false, error: `Failed to update order: ${orderError.message}` };
+    }
+    if (!order) {
+        return { success: false, error: 'Order not found or you are not the buyer.' };
+    }
+
+    // FIX: Update the associated item's status to 'sold'
+    const { error: itemError } = await supabase
+        .from('items')
+        .update({ status: 'sold' })
+        .eq('id', order.item_id);
+
+    if (itemError) {
+        console.error(`Critical error: Failed to update item status for order ${orderId}`);
+    }
+
+    // FIX: Notify all agents that a new task is ready for assessment.
+    try {
+        const { data: agents } = await supabase.from('profiles').select('id').eq('role', 'agent');
+        if (agents) {
+            const agentMessage = `New Task: Order #${orderId} has been paid and requires assessment.`;
+            for (const agent of agents) {
+                await createNotification(agent.id, agentMessage, '/agent/dashboard');
+            }
+        }
+    } catch (notificationError) {
+        console.error("Failed to create notifications for agents:", notificationError);
+    }
+
+
+    revalidatePath(`/orders/${orderId}`);
+    revalidatePath('/account/dashboard/orders');
+    revalidatePath('/agent/dashboard'); // Revalidate agent dashboard as well
+    return { success: true };
+}
+
+
+// Other actions from this file are included below for completeness.
+// No changes are needed to them.
 
 export interface OfferFormState {
   error: string | null;
@@ -79,8 +139,12 @@ export async function acceptOfferAction(offerId: number) {
   if (offerError || !offer) {
     throw new Error("Offer not found or there was an error fetching it.");
   }
-  if (offer.seller_id !== user.id) {
-    throw new Error("Only the item's seller can accept this offer.");
+  
+  const isUserInvolved = user.id === offer.seller_id || user.id === offer.buyer_id;
+  const isTheirTurnToAccept = offer.last_offer_by !== user.id;
+
+  if (!isUserInvolved || !isTheirTurnToAccept) {
+    throw new Error("You are not authorized to accept this offer at this time.");
   }
   
   const { data: item, error: itemError } = await supabase
@@ -99,56 +163,31 @@ export async function acceptOfferAction(offerId: number) {
   const { data: rpcData, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
     p_offer_id: offer.id,
   });
-  
+
   const newOrderId = rpcData?.[0]?.id;
 
   if (rpcError || typeof newOrderId !== 'number') {
     throw new Error(`Failed to create order from offer: ${rpcError?.message || 'Did not receive a valid order ID from the database.'}`);
   }
   
+  const trueBuyerId = offer.buyer_id;
+  const trueSellerId = offer.seller_id;
+  
   try {
-    const message = `Your offer for "${item.title}" was accepted! Please proceed to payment.`;
-    await createNotification(offer.buyer_id, message, `/orders/${newOrderId}`);
+    const buyerMessage = `Your offer for "${item.title}" was accepted! Please proceed to payment.`;
+    await createNotification(trueBuyerId, buyerMessage, `/orders/${newOrderId}`);
+    
+    const sellerMessage = `Your item "${item.title}" has been sold! We are waiting for the buyer to complete payment.`;
+    await createNotification(trueSellerId, sellerMessage, `/account/dashboard/orders`);
+
   } catch (notificationError) {
       console.error("Failed to create notification for accepted offer:", notificationError);
   }
 
   revalidatePath('/account/dashboard/offers');
   revalidatePath(`/items/${offer.item_id}`);
-  redirect(`/orders/${newOrderId}`);
-}
-
-// This action is called by the PaystackButton after a successful payment
-export async function updateOrderStatus(orderId: number, paystackRef: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        return { success: false, error: "Authentication required." };
-    }
-
-    // Update the order status to 'payment_authorized'
-    const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .update({ status: 'payment_authorized', paystack_ref: paystackRef })
-        .eq('id', orderId)
-        .eq('buyer_id', user.id)
-        .select('item_id, seller_id')
-        .single();
-
-    if (orderError) {
-        return { success: false, error: `Failed to update order: ${orderError.message}` };
-    }
-    if (!order) {
-        return { success: false, error: 'Order not found or you are not the buyer.' };
-    }
-
-    // Also update the item's status to 'sold'
-    await supabase
-        .from('items')
-        .update({ status: 'sold' })
-        .eq('id', order.item_id);
-
-    revalidatePath(`/orders/${orderId}`);
-    revalidatePath('/account/dashboard/orders');
-    return { success: true };
+  
+  if (user.id === trueBuyerId) {
+    redirect(`/orders/${newOrderId}`);
+  }
 }

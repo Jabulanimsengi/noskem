@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
@@ -9,24 +8,20 @@ import Link from 'next/link';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
 import Avatar from './Avatar';
 import { FaChevronDown } from 'react-icons/fa';
-import { useToast } from '@/context/ToastContext'; // Import useToast
+import { useToast } from '@/context/ToastContext';
+import { signOutAction } from '@/app/auth/actions';
+import { type Profile } from '@/types';
 
 interface AuthButtonProps {
   user: User | null;
-  profile: {
-    credit_balance: number;
-    role: string | null;
-    username: string | null;
-    avatar_url: string | null;
-  } | null;
+  profile: Profile | null;
 }
 
 export default function AuthButton({ user, profile }: AuthButtonProps) {
   const router = useRouter();
   const { openModal } = useAuthModal();
   const { showConfirmation } = useConfirmationModal();
-  const supabase = createClient();
-  const { showToast } = useToast(); // Get the showToast function
+  const { showToast } = useToast();
   
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -36,16 +31,14 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
         title: 'Confirm Sign Out',
         message: 'Are you sure you want to sign out?',
         onConfirm: async () => {
-            await supabase.auth.signOut();
-            router.push('/');
-            // FIX: Show toast on successful sign-out
-            showToast("You have been signed out.", 'info');
+            // FIX: Changed the toast type from 'info' to 'success' for consistency.
+            // Also updated the message slightly.
+            showToast("You have been signed out successfully.", 'success');
+            await signOutAction();
         }
     });
   };
 
-  // ... rest of the component remains the same
-  // ... (you can copy the full code from the previous response if needed)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -82,7 +75,7 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
                 Edit Profile
               </Link>
               {profile?.role === 'admin' && (
-                <Link href="/admin/users" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
+                <Link href="/admin/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
                   Admin Panel
                 </Link>
               )}
