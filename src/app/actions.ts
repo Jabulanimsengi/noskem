@@ -1,7 +1,8 @@
 'use server';
 
 import { createClient } from './utils/supabase/server';
-import { revalidatePath } from 'next/cache'; // Import revalidatePath
+// FIX: Import revalidatePath to update the cache
+import { revalidatePath } from 'next/cache';
 
 export async function markNotificationsAsRead(notificationIds: number[]) {
   const supabase = await createClient();
@@ -16,8 +17,12 @@ export async function markNotificationsAsRead(notificationIds: number[]) {
     .update({ is_read: true })
     .in('id', notificationIds)
     .eq('profile_id', user.id);
+
+  // FIX: Revalidate the layout to ensure the header refetches the new read status
+  revalidatePath('/', 'layout');
 }
 
+// ... (createNotification function remains the same) ...
 export async function createNotification(
   profileId: string,
   message: string,
@@ -34,7 +39,6 @@ export async function createNotification(
   });
 }
 
-// FIX: New function to toggle the read status of a single notification
 export async function toggleNotificationReadStatus(notificationId: number, newStatus: boolean) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -47,12 +51,31 @@ export async function toggleNotificationReadStatus(notificationId: number, newSt
     .from('notifications')
     .update({ is_read: newStatus })
     .eq('id', notificationId)
-    .eq('profile_id', user.id); // Security check to ensure users can only modify their own notifications
+    .eq('profile_id', user.id);
 
   if (error) {
     throw new Error(`Database error: ${error.message}`);
   }
   
-  // Revalidate the path to ensure the header component might refetch data if needed.
+  revalidatePath('/', 'layout');
+}
+
+// FIX: New function to clear all notifications for the current user
+export async function clearAllNotifications() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('Authentication required.');
+  }
+
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('profile_id', user.id);
+
+  if (error) {
+    throw new Error(`Database error: ${error.message}`);
+  }
+
   revalidatePath('/', 'layout');
 }

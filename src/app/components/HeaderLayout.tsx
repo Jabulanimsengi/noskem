@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { FaShoppingCart, FaBars, FaPlusCircle } from 'react-icons/fa';
 import { MessageSquare } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
-import { type Notification } from './NotificationBell';
+// FIX: Remove Notification type import
 import SearchBar from './SearchBar';
 import AuthButton from './AuthButton';
 import MobileMenu from './MobileMenu';
@@ -19,10 +19,10 @@ interface HeaderLayoutProps {
         username: string | null;
         avatar_url: string | null;
     } | null;
-    notifications: Notification[];
+    // FIX: Remove notifications from props
 }
 
-export default function HeaderLayout({ user, profile, notifications }: HeaderLayoutProps) {
+export default function HeaderLayout({ user, profile }: HeaderLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -51,7 +51,6 @@ export default function HeaderLayout({ user, profile, notifications }: HeaderLay
             
             {user ? (
               <div className="flex items-center gap-5 ml-6">
-                {/* FIX: Changed this link to a prominent button style */}
                 <Link 
                   href="/items/new" 
                   className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors shadow" 
@@ -64,7 +63,8 @@ export default function HeaderLayout({ user, profile, notifications }: HeaderLay
                 <Link href="/chat" title="Messages" className="text-gray-500 hover:text-brand">
                   <MessageSquare size={22} />
                 </Link>
-                <NotificationBell serverNotifications={notifications} />
+                {/* FIX: Render NotificationBell without any props */}
+                <NotificationBell />
                 <div className="h-8 border-l border-gray-300"></div>
                 <AuthButton user={user} profile={profile} />
               </div>

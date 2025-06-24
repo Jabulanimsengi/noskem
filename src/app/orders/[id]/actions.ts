@@ -3,14 +3,14 @@
 import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createNotification } from '../../components/actions';
+// FIX: Correct the import path to the new centralized actions file
+import { createNotification } from '@/app/actions';
 
 export interface OfferFormState {
   error: string | null;
   success: boolean;
 }
 
-// This function is correct and does not need changes.
 export async function createOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -70,7 +70,6 @@ export async function acceptOfferAction(offerId: number) {
     throw new Error("Authentication required to accept an offer.");
   }
 
-  // Step 1: Fetch the offer
   const { data: offer, error: offerError } = await supabase
     .from('offers')
     .select('*')
@@ -84,7 +83,6 @@ export async function acceptOfferAction(offerId: number) {
     throw new Error("Only the item's seller can accept this offer.");
   }
   
-  // Step 2: Fetch the item
   const { data: item, error: itemError } = await supabase
     .from('items')
     .select('id, title, status')
@@ -98,17 +96,16 @@ export async function acceptOfferAction(offerId: number) {
     throw new Error(`This offer cannot be accepted because the item is no longer available (status: ${item.status}).`);
   }
 
-  // Step 3: Call the database function
-  const { data: newOrderId, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
+  const { data: rpcData, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
     p_offer_id: offer.id,
   });
+  
+  const newOrderId = rpcData?.[0]?.id;
 
-  // FIX: The handler now correctly checks for a single numeric ID returned from the RPC.
   if (rpcError || typeof newOrderId !== 'number') {
     throw new Error(`Failed to create order from offer: ${rpcError?.message || 'Did not receive a valid order ID from the database.'}`);
   }
   
-  // Step 4: Create notification and redirect using the newOrderId
   try {
     const message = `Your offer for "${item.title}" was accepted! Please proceed to payment.`;
     await createNotification(offer.buyer_id, message, `/orders/${newOrderId}`);
@@ -121,77 +118,37 @@ export async function acceptOfferAction(offerId: number) {
   redirect(`/orders/${newOrderId}`);
 }
 
-
-// These other actions are correct and do not need changes.
-export async function rejectOfferAction(offerId: number) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: offer } = await supabase.from('offers').select('*').eq('id', offerId).single();
-    if (!offer) return;
-    
-    if (offer.seller_id !== user.id && offer.buyer_id !== user.id) {
-        return; 
-    }
-
-    const { data: item } = await supabase.from('items').select('title').eq('id', offer.item_id).single();
-    if (!item) return;
-
-    const newStatus = offer.seller_id === user.id ? 'rejected_by_seller' : 'rejected_by_buyer';
-    await supabase.from('offers').update({ status: newStatus }).eq('id', offerId);
-    
-    try {
-        const recipientId = offer.seller_id === user.id ? offer.buyer_id : offer.seller_id;
-        const message = `Your offer for "${item.title}" was rejected.`;
-        await createNotification(recipientId, message, '/account/dashboard/offers');
-    } catch (notificationError) {
-        console.error("Failed to create notification for rejected offer:", notificationError);
-    }
-
-    revalidatePath('/account/dashboard/offers');
-}
-
-export async function counterOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
+// This action is called by the PaystackButton after a successful payment
+export async function updateOrderStatus(orderId: number, paystackRef: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-        return { error: 'You must be logged in.', success: false };
+        return { success: false, error: "Authentication required." };
     }
 
-    const offerId = parseInt(formData.get('offerId') as string);
-    const newAmount = parseFloat(formData.get('newAmount') as string);
+    // Update the order status to 'payment_authorized'
+    const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .update({ status: 'payment_authorized', paystack_ref: paystackRef })
+        .eq('id', orderId)
+        .eq('buyer_id', user.id)
+        .select('item_id, seller_id')
+        .single();
 
-    if (isNaN(offerId) || isNaN(newAmount) || newAmount <= 0) {
-        return { error: 'Invalid data provided.', success: false };
+    if (orderError) {
+        return { success: false, error: `Failed to update order: ${orderError.message}` };
+    }
+    if (!order) {
+        return { success: false, error: 'Order not found or you are not the buyer.' };
     }
 
-    const { data: offer, error: fetchError } = await supabase.from('offers').select('*').eq('id', offerId).single();
-    
-    if (fetchError || !offer || (offer.seller_id !== user.id && offer.buyer_id !== user.id) || offer.last_offer_by === user.id) {
-        return { error: 'You are not authorized to modify this offer at this time.', success: false };
-    }
-    
-    const { data: item } = await supabase.from('items').select('title').eq('id', offer.item_id).single();
-    if (!item) {
-        return { error: 'Associated item could not be found.', success: false };
-    }
-
-    const recipientId = offer.seller_id === user.id ? offer.buyer_id : offer.seller_id;
-    const newStatus = offer.seller_id === user.id ? 'pending_buyer_review' : 'pending_seller_review';
-
+    // Also update the item's status to 'sold'
     await supabase
-        .from('offers')
-        .update({ offer_amount: newAmount, status: newStatus, last_offer_by: user.id })
-        .eq('id', offerId);
-    
-    try {
-        const message = `You received a counter-offer of R${newAmount.toFixed(2)} for "${item.title}".`;
-        await createNotification(recipientId, message, '/account/dashboard/offers');
-    } catch(notificationError) {
-        console.error("Failed to create notification for counter-offer:", notificationError);
-    }
+        .from('items')
+        .update({ status: 'sold' })
+        .eq('id', order.item_id);
 
-    revalidatePath('/account/dashboard/offers');
-    return { error: null, success: true };
+    revalidatePath(`/orders/${orderId}`);
+    revalidatePath('/account/dashboard/orders');
+    return { success: true };
 }

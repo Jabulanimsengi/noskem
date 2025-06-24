@@ -3,13 +3,13 @@
 import { createClient } from '@/app/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { FEATURE_FEE } from '@/lib/constants';
 
 export interface UpdateItemFormState {
   error: string | null;
   success: boolean;
 }
 
-// Action to delete a user's own item
 export async function deleteItemAction(itemId: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -17,7 +17,6 @@ export async function deleteItemAction(itemId: number) {
     throw new Error('Authentication required.');
   }
 
-  // First, verify the user owns the item
   const { data: item, error: fetchError } = await supabase
     .from('items')
     .select('id, seller_id, images')
@@ -32,7 +31,6 @@ export async function deleteItemAction(itemId: number) {
     throw new Error('You are not authorized to delete this item.');
   }
 
-  // Delete the item from the database
   const { error: deleteError } = await supabase
     .from('items')
     .delete()
@@ -48,7 +46,29 @@ export async function deleteItemAction(itemId: number) {
   return { success: true, message: 'Listing deleted successfully.' };
 }
 
-// NEW FUNCTION: Update an existing item
+export async function featureItemAction(itemId: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Authentication required.');
+  }
+
+  const { error } = await supabase.rpc('feature_item', {
+    p_user_id: user.id,
+    p_item_id: itemId,
+    p_feature_fee: FEATURE_FEE
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath('/account/dashboard/my-listings');
+  revalidatePath('/'); 
+  return { success: true, message: 'Your item is now featured!' };
+}
+
 export async function updateItemAction(
   prevState: UpdateItemFormState,
   formData: FormData
@@ -67,14 +87,18 @@ export async function updateItemAction(
   const condition = formData.get('condition') as string;
   const categoryId = formData.get('categoryId') as string;
 
-  if (!itemId || !title || !price || !condition || !categoryId) {
+  if (!title || title.trim().length === 0) {
+    return { error: 'The item title cannot be empty.', success: false };
+  }
+  
+  if (!itemId || !price || !condition || !categoryId) {
     return { error: 'Please fill out all required fields.', success: false };
   }
 
-  // Verify the user owns the item before updating
+  // FIX: Fetch the item's current status before attempting an update.
   const { data: item, error: fetchError } = await supabase
     .from('items')
-    .select('seller_id')
+    .select('seller_id, status') // Select status as well
     .eq('id', itemId)
     .single();
 
@@ -86,7 +110,11 @@ export async function updateItemAction(
     return { error: 'You are not authorized to edit this item.', success: false };
   }
 
-  // Proceed with the update
+  // FIX: Add a security check to prevent editing of sold items.
+  if (item.status !== 'available') {
+    return { error: 'This item has been sold and can no longer be edited.', success: false };
+  }
+
   const { error: updateError } = await supabase
     .from('items')
     .update({

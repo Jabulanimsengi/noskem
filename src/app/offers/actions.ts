@@ -10,6 +10,7 @@ export interface OfferFormState {
   success: boolean;
 }
 
+// ... (createOfferAction, rejectOfferAction, and counterOfferAction can remain the same) ...
 export async function createOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -60,7 +61,7 @@ export async function createOfferAction(prevState: OfferFormState, formData: For
   return { error: null, success: true };
 }
 
-
+// FIX: This function has been completely refactored for the correct workflow.
 export async function acceptOfferAction(offerId: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -78,8 +79,12 @@ export async function acceptOfferAction(offerId: number) {
   if (offerError || !offer) {
     throw new Error("Offer not found or there was an error fetching it.");
   }
-  if (offer.seller_id !== user.id) {
-    throw new Error("Only the item's seller can accept this offer.");
+  
+  const isUserInvolved = user.id === offer.seller_id || user.id === offer.buyer_id;
+  const isTheirTurnToAccept = offer.last_offer_by !== user.id;
+
+  if (!isUserInvolved || !isTheirTurnToAccept) {
+    throw new Error("You are not authorized to accept this offer at this time.");
   }
   
   const { data: item, error: itemError } = await supabase
@@ -95,26 +100,44 @@ export async function acceptOfferAction(offerId: number) {
     throw new Error(`This offer cannot be accepted because the item is no longer available (status: ${item.status}).`);
   }
 
-  const { data: newOrderId, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
+  // Call the database function to create the order
+  const { data: rpcData, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
     p_offer_id: offer.id,
   });
+
+  const newOrderId = rpcData?.[0]?.id;
 
   if (rpcError || typeof newOrderId !== 'number') {
     throw new Error(`Failed to create order from offer: ${rpcError?.message || 'Did not receive a valid order ID from the database.'}`);
   }
   
+  // Define the true buyer and seller based on the original offer record
+  const trueBuyerId = offer.buyer_id;
+  const trueSellerId = offer.seller_id;
+  
   try {
-    const message = `Your offer for "${item.title}" was accepted! Please proceed to payment.`;
-    await createNotification(offer.buyer_id, message, `/orders/${newOrderId}`);
+    // Notify the BUYER to proceed with payment.
+    const buyerMessage = `Your offer for "${item.title}" was accepted! Please proceed to payment.`;
+    await createNotification(trueBuyerId, buyerMessage, `/orders/${newOrderId}`);
+    
+    // Notify the SELLER that their item is sold and pending payment.
+    const sellerMessage = `Your item "${item.title}" has been sold! We are waiting for the buyer to complete payment.`;
+    await createNotification(trueSellerId, sellerMessage, `/account/dashboard/orders`);
+
   } catch (notificationError) {
       console.error("Failed to create notification for accepted offer:", notificationError);
   }
 
   revalidatePath('/account/dashboard/offers');
   revalidatePath(`/items/${offer.item_id}`);
-  redirect(`/orders/${newOrderId}`);
-}
 
+  // IMPORTANT: Only redirect the user who is the actual BUYER.
+  // If the seller was the one who clicked "Accept", they will not be redirected.
+  // Their offer list will just refresh.
+  if (user.id === trueBuyerId) {
+    redirect(`/orders/${newOrderId}`);
+  }
+}
 
 export async function rejectOfferAction(offerId: number) {
     const supabase = await createClient();

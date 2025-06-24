@@ -3,10 +3,11 @@
 import { type Item } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
-import { deleteItemAction } from './actions';
+import { deleteItemAction, featureItemAction } from './actions';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FaEye } from 'react-icons/fa';
+import { FaEye, FaStar } from 'react-icons/fa';
+import { FEATURE_FEE } from '@/lib/constants';
 
 interface MyListingsClientProps {
   items: Item[];
@@ -34,51 +35,84 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
     });
   };
 
+  const handleFeature = (item: Item) => {
+    showConfirmation({
+      title: 'Feature Your Listing',
+      // FIX: Update the confirmation message with the new fee.
+      message: `Are you sure? This will cost ${FEATURE_FEE} credits and display your item prominently on the homepage.`,
+      confirmText: 'Yes, feature it!',
+      onConfirm: async () => {
+        try {
+          const result = await featureItemAction(item.id);
+          if (result.success) {
+            showToast(result.message, 'success');
+          }
+        } catch (error: any) {
+          showToast(error.message, 'error');
+        }
+      },
+    });
+  };
+
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-semibold text-text-primary mb-4">My Listings</h2>
       {items.length > 0 ? (
-        items.map((item) => (
-          <div key={item.id} className="flex flex-col sm:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border gap-4">
-            <div className="flex items-center gap-4 w-full">
-              <Image
-                src={Array.isArray(item.images) && item.images.length > 0 ? (item.images[0] as string) : 'https://placehold.co/64x64/27272a/9ca3af?text=No+Image'}
-                alt={item.title || 'Item Image'}
-                width={64}
-                height={64}
-                className="rounded-md object-cover flex-shrink-0"
-              />
-              <div className="flex-grow">
-                <p className="font-semibold text-text-primary truncate">{item.title}</p>
-                <div className="flex items-center gap-4 text-sm text-text-secondary">
-                    <span className={`font-semibold capitalize px-2 py-0.5 rounded-full ${
-                      item.status === 'available' ? 'bg-green-100 text-green-800' : 
-                      item.status === 'sold' ? 'bg-red-100 text-red-800' : 
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>{item.status?.replace('_', ' ')}</span>
-                    <div className="flex items-center gap-1">
-                        <FaEye />
-                        <span>{item.view_count || 0} views</span>
-                    </div>
+        items.map((item) => {
+          const imageUrl = Array.isArray(item.images) && item.images.length > 0 && typeof item.images[0] === 'string' && item.images[0].startsWith('http')
+            ? item.images[0]
+            : 'https://placehold.co/64x64/27272a/9ca3af?text=No+Image';
+
+          return (
+            <div key={item.id} className="flex flex-col sm:flex-row items-center justify-between p-4 bg-gray-50 rounded-lg border gap-4">
+              <div className="flex items-center gap-4 w-full">
+                <Image
+                  src={imageUrl}
+                  alt={item.title || 'Item Image'}
+                  width={64}
+                  height={64}
+                  className="rounded-md object-cover flex-shrink-0"
+                />
+                <div className="flex-grow">
+                  <p className="font-semibold text-text-primary truncate">{item.title}</p>
+                  <div className="flex items-center gap-4 text-sm text-text-secondary">
+                      <span className={`font-semibold capitalize px-2 py-0.5 rounded-full text-xs ${
+                        item.is_featured ? 'bg-yellow-200 text-yellow-800' : 
+                        item.status === 'available' ? 'bg-green-100 text-green-800' : 
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {item.is_featured ? 'Featured' : item.status?.replace(/_/g, ' ')}
+                      </span>
+                      <div className="flex items-center gap-1 text-xs">
+                          <FaEye />
+                          <span>{item.view_count || 0} views</span>
+                      </div>
+                  </div>
                 </div>
               </div>
+              <div className="flex gap-2 items-center flex-shrink-0">
+                {!item.is_featured && item.status === 'available' && (
+                  <button
+                    onClick={() => handleFeature(item)}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-yellow-500 rounded-md hover:bg-yellow-600 flex items-center gap-1"
+                  >
+                    <FaStar />
+                    Feature
+                  </button>
+                )}
+                {/* FIX: Only show the "Edit" button if the item is available. */}
+                {item.status === 'available' && (
+                  <Link
+                    href={`/account/dashboard/my-listings/${item.id}/edit`}
+                    className="px-3 py-1.5 text-xs font-medium text-text-secondary border border-gray-300 rounded-md hover:bg-gray-200"
+                  >
+                    Edit
+                  </Link>
+                )}
+              </div>
             </div>
-            <div className="flex gap-2 items-center flex-shrink-0">
-              <button
-                onClick={() => handleDelete(item)}
-                className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50"
-              >
-                Delete
-              </button>
-              <Link
-                href={`/account/dashboard/my-listings/${item.id}/edit`}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-brand rounded-md hover:bg-brand-dark"
-              >
-                Edit
-              </Link>
-            </div>
-          </div>
-        ))
+          );
+        })
       ) : (
         <p className="text-text-secondary text-center py-8">You have not listed any items yet.</p>
       )}

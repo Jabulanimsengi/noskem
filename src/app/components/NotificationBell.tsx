@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
-import { FaBell, FaCheckCircle } from 'react-icons/fa';
+import { FaBell, FaCheckCircle, FaTrash } from 'react-icons/fa';
 import Link from 'next/link';
-// FIX: Import the new server action
-import { markNotificationsAsRead, toggleNotificationReadStatus } from '@/app/actions';
+import { markNotificationsAsRead, toggleNotificationReadStatus, clearAllNotifications } from '@/app/actions';
 import { useToast } from '@/context/ToastContext';
 import { type RealtimePostgresChangesPayload, type User } from '@supabase/supabase-js';
 
@@ -18,40 +17,54 @@ export type Notification = {
   created_at: string;
 };
 
-export default function NotificationBell({ serverNotifications }: { serverNotifications: Notification[] }) {
-  const supabase = createClient();
-  const [notifications, setNotifications] = useState(serverNotifications);
+// FIX: The component no longer accepts props
+export default function NotificationBell() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { showToast } = useToast();
-
-  useEffect(() => {
-    const fetchUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        setCurrentUser(user);
-    };
-    fetchUser();
-  }, [supabase]);
-
-  useEffect(() => {
-    setNotifications(serverNotifications);
-  }, [serverNotifications]);
+  const supabase = createClient();
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  
+  // This memoized function will fetch the initial notifications
+  const fetchInitialNotifications = useCallback(async (user: User) => {
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('profile_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    setNotifications(data || []);
+  }, [supabase]);
 
+  // Effect to get the current user
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+      if (user) {
+        fetchInitialNotifications(user);
+      }
+    };
+    getUser();
+  }, [supabase, fetchInitialNotifications]);
+
+  // Effect for real-time updates
   useEffect(() => {
     if (!currentUser) return;
 
-    const handleNewNotification = (payload: RealtimePostgresChangesPayload<{ [key: string]: any }>) => {
-      const newNotification = payload.new as Notification;
-      if (newNotification.profile_id === currentUser.id) {
-        setNotifications(current => [newNotification, ...current]);
+    const handleNewNotification = (payload: RealtimePostgresChangesPayload<Notification>) => {
+      if (payload.new && 'profile_id' in payload.new) {
+        if (payload.new.profile_id === currentUser.id) {
+          setNotifications(current => [payload.new as Notification, ...current]);
+        }
       }
     };
 
     const channel = supabase
       .channel('public:notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, handleNewNotification)
+      .on<Notification>('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, handleNewNotification)
       .subscribe();
 
     return () => { 
@@ -70,85 +83,98 @@ export default function NotificationBell({ serverNotifications }: { serverNotifi
     }
   };
   
-  // FIX: New handler to toggle a single notification's read status
   const handleToggleReadStatus = async (e: React.MouseEvent, notificationId: number, currentStatus: boolean) => {
-    // Prevent the click from navigating to the link's href
-    e.stopPropagation();
-    e.preventDefault();
-
+    e.stopPropagation(); e.preventDefault();
     const newStatus = !currentStatus;
-
-    // Optimistic UI Update: Instantly change the UI
     setNotifications(current => 
       current.map(n => n.id === notificationId ? { ...n, is_read: newStatus } : n)
     );
-
-    // Call the server action to update the database in the background
-    try {
-      await toggleNotificationReadStatus(notificationId, newStatus);
-    } catch (error: any) {
+    try { await toggleNotificationReadStatus(notificationId, newStatus); } 
+    catch (error: any) {
       showToast(error.message, 'error');
-      // If the server update fails, revert the UI change
       setNotifications(current => 
         current.map(n => n.id === notificationId ? { ...n, is_read: currentStatus } : n)
       );
     }
   };
+
+  const handleClearAll = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentNotifications = [...notifications]; // Save current state in case of error
+    setNotifications([]);
+    try {
+      await clearAllNotifications();
+      showToast('Notifications cleared.', 'success');
+      setIsOpen(false);
+    } catch (error: any) {
+      showToast(error.message, 'error');
+      setNotifications(currentNotifications); // Restore on error
+    }
+  };
+  
+  if (!currentUser) {
+    return null; // Don't render the bell if no user is logged in
+  }
   
   return (
     <div className="relative">
-      <button onClick={handleToggleDropdown} className="relative text-gray-500 hover:text-brand p-2">
-        <FaBell size={22} />
-        {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 block h-4 w-4 rounded-full bg-red-600 text-white text-xs font-bold ring-2 ring-surface flex items-center justify-center">
-            {unreadCount}
-          </span>
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-surface border border-gray-200 rounded-xl shadow-lg z-50">
-          <div className="p-3 font-bold text-text-primary border-b border-gray-200">
-            Notifications
-          </div>
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.length > 0 ? (
-              notifications.map(n => (
-                <Link key={n.id} href={n.link_url || '#'} className={`flex items-start gap-3 p-3 border-b border-gray-200 hover:bg-gray-100 ${!n.is_read ? 'bg-brand/5' : ''}`} onClick={() => setIsOpen(false)}>
-                    <div className="flex-shrink-0 mt-1">
-                        <FaBell className={`h-5 w-5 ${!n.is_read ? 'text-brand' : 'text-gray-400'}`} />
-                    </div>
-                    <div className="flex-grow">
-                        <p className={`text-sm ${!n.is_read ? 'text-text-primary font-semibold' : 'text-text-secondary'}`}>{n.message}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {new Date(n.created_at).toLocaleString()}
-                        </p>
-                    </div>
-                    {/* FIX: Add the toggle button */}
-                    <div className="flex-shrink-0 ml-2">
-                      <button 
-                        onClick={(e) => handleToggleReadStatus(e, n.id, n.is_read)}
-                        title={n.is_read ? 'Mark as unread' : 'Mark as read'}
-                        className="p-1 rounded-full"
-                      >
-                        {n.is_read ? (
-                          <div className="w-3 h-3 rounded-full bg-transparent border-2 border-gray-300"></div>
-                        ) : (
-                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                        )}
-                      </button>
-                    </div>
-                </Link>
-              ))
-            ) : (
-              <div className="p-6 text-center text-text-secondary">
-                  <FaCheckCircle className="mx-auto text-4xl text-gray-300 mb-2"/>
-                  <p>You're all caught up!</p>
-              </div>
+        <button onClick={handleToggleDropdown} className="relative text-gray-500 hover:text-brand p-2">
+            <FaBell size={22} />
+            {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-red-600 text-white text-xs font-bold ring-2 ring-surface flex items-center justify-center">
+                    {unreadCount}
+                </span>
             )}
-          </div>
-        </div>
-      )}
+        </button>
+
+        {isOpen && (
+            <div className="absolute right-0 mt-2 w-80 bg-surface border border-gray-200 rounded-xl shadow-lg z-50">
+                <div className="p-3 flex justify-between items-center border-b border-gray-200">
+                    <span className="font-bold text-text-primary">Notifications</span>
+                    {notifications.length > 0 && (
+                    <button onClick={handleClearAll} className="text-xs text-red-500 hover:underline flex items-center gap-1">
+                        <FaTrash />
+                        Clear All
+                    </button>
+                    )}
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                    {notifications.length > 0 ? (
+                    notifications.map(n => (
+                        <Link key={n.id} href={n.link_url || '#'} className="flex items-start gap-3 p-3 border-b last:border-b-0 border-gray-100 hover:bg-gray-100" onClick={() => setIsOpen(false)}>
+                            <div className="flex-shrink-0 mt-1">
+                                <FaBell className={`h-5 w-5 ${!n.is_read ? 'text-brand' : 'text-gray-400'}`} />
+                            </div>
+                            <div className="flex-grow">
+                                <p className={`text-sm ${!n.is_read ? 'text-text-primary font-semibold' : 'text-text-secondary'}`}>{n.message}</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    {new Date(n.created_at).toLocaleString()}
+                                </p>
+                            </div>
+                            <div className="flex-shrink-0 ml-2 self-center">
+                                <button 
+                                    onClick={(e) => handleToggleReadStatus(e, n.id, n.is_read)}
+                                    title={n.is_read ? 'Mark as unread' : 'Mark as read'}
+                                    className="p-1 rounded-full"
+                                >
+                                    {n.is_read ? (
+                                    <div className="w-3 h-3 rounded-full bg-transparent border-2 border-gray-300"></div>
+                                    ) : (
+                                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                                    )}
+                                </button>
+                            </div>
+                        </Link>
+                    ))
+                    ) : (
+                    <div className="p-6 text-center text-text-secondary">
+                        <FaCheckCircle className="mx-auto text-4xl text-gray-300 mb-2"/>
+                        <p>You're all caught up!</p>
+                    </div>
+                    )}
+                </div>
+            </div>
+        )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode } from 'react';
-import HeaderSkeleton from '../app/components/skeletons/HeaderSkeleton';
+// FIX: Import a spinner icon for the new loader
+import { FaSpinner } from 'react-icons/fa';
 
 interface LoadingContextType {
   showLoader: () => void;
@@ -27,11 +28,13 @@ export const LoadingProvider = ({ children }: { children: ReactNode }) => {
   return (
     <LoadingContext.Provider value={{ showLoader, hideLoader }}>
       {children}
+      
+      {/* FIX: This is the new, more obvious loading overlay UI */}
       {isLoading && (
-        <div className="fixed inset-0 bg-white z-[100]">
-          <HeaderSkeleton />
-          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-            <div className="w-full h-96 bg-gray-200 rounded-lg animate-pulse"></div>
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <FaSpinner className="animate-spin text-white h-12 w-12" />
+            <p className="text-white font-semibold">Loading...</p>
           </div>
         </div>
       )}

@@ -5,6 +5,8 @@ import { FaCoins } from 'react-icons/fa';
 import CreditAdjuster from './CreditAdjuster';
 import RoleManager from './RoleManager';
 import UserActions from './UserActions'; 
+// FIX: Import the Profile type
+import { type Profile } from '@/types';
 
 type FullProfile = {
     id: string;
@@ -18,6 +20,7 @@ type FullProfile = {
 
 export default async function UserManagementPage() {
     const supabase = await createClient();
+    // FIX: Add the 'await' keyword here
     const adminSupabase = await createAdminClient();
 
     const { data: { user: adminUser } } = await supabase.auth.getUser();
@@ -34,8 +37,10 @@ export default async function UserManagementPage() {
     }
     
     const userIds = usersData.users.map(u => u.id);
-    const { data: profilesData } = await adminSupabase.from('profiles').select('*').in('id', userIds);
-    const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+    const { data: profilesData } = await supabase.from('profiles').select('*').in('id', userIds);
+    
+    // FIX: Add the 'Profile' type to the map function parameter
+    const profilesMap = new Map(profilesData?.map((p: Profile) => [p.id, p]));
 
     const allUsers: FullProfile[] = usersData.users.map(user => {
         const profile = profilesMap.get(user.id);
@@ -46,7 +51,6 @@ export default async function UserManagementPage() {
             role: profile?.role || 'user',
             credit_balance: profile?.credit_balance || 0,
             created_at: user.created_at,
-            // FIX: Cast `user` to `any` to allow access to the banned_until property.
             banned_until: (user as any).banned_until,
         };
     });

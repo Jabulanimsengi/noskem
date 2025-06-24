@@ -5,7 +5,6 @@ import { createAdminClient } from '../../utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-// This is the shape of the state object our actions will return
 interface ActionState {
   error: string | null;
   success?: boolean;
@@ -25,8 +24,7 @@ async function verifyAdmin() {
   return user;
 }
 
-// ... (existing updateUserRole and adjustCreditsAction functions remain unchanged)
-
+// ... (existing updateUserRole and adjustCreditsAction functions remain unchanged) ...
 export async function updateUserRole(previousState: ActionState, formData: FormData): Promise<ActionState> {
   try {
     await verifyAdmin();
@@ -81,15 +79,16 @@ export async function adjustCreditsAction(previousState: ActionState, formData: 
   return { error: null, success: true, message: "Credits adjusted." };
 }
 
-// --- NEW ACTION: Ban/Un-ban a user ---
+// FIX: New action to suspend or un-suspend a user
 export async function toggleUserBanAction(userId: string, isCurrentlyBanned: boolean) {
   try {
     await verifyAdmin();
-    const adminSupabase = await createAdminClient();
+    const adminSupabase = createAdminClient();
     
     const { error } = await adminSupabase.auth.admin.updateUserById(
       userId,
-      { ban_duration: isCurrentlyBanned ? 'none' : '36500d' } // Ban for 100 years or unban
+      // Ban for 100 years, or set to 'none' to un-ban
+      { ban_duration: isCurrentlyBanned ? 'none' : '36500d' } 
     );
 
     if (error) throw error;
@@ -98,16 +97,17 @@ export async function toggleUserBanAction(userId: string, isCurrentlyBanned: boo
     return { error: `Failed to update user ban status: ${error.message}` };
   }
   revalidatePath('/admin/users');
-  return { error: null, success: true, message: isCurrentlyBanned ? "User unsuspended." : "User suspended." };
+  return { error: null, success: true, message: isCurrentlyBanned ? "User un-suspended." : "User suspended." };
 }
 
 
-// --- NEW ACTION: Delete a user ---
+// FIX: New action to permanently delete a user
 export async function deleteUserAction(userId: string) {
     try {
         await verifyAdmin();
-        const adminSupabase = await createAdminClient();
+        const adminSupabase = createAdminClient();
 
+        // This is a permanent and destructive action
         const { error } = await adminSupabase.auth.admin.deleteUser(userId);
         if (error) throw error;
 

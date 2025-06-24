@@ -3,7 +3,7 @@
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
 import { useToast } from '@/context/ToastContext';
 import { toggleUserBanAction, deleteUserAction } from './actions';
-import { FaUserSlash, FaTrash } from 'react-icons/fa';
+import { FaUserSlash, FaTrash, FaUserCheck } from 'react-icons/fa';
 
 interface UserActionsProps {
   userId: string;
@@ -16,8 +16,8 @@ export default function UserActions({ userId, isBanned }: UserActionsProps) {
 
   const handleToggleBan = () => {
     showConfirmation({
-      title: isBanned ? 'Unsuspend User' : 'Suspend User',
-      message: `Are you sure you want to ${isBanned ? 'unsuspend' : 'suspend'} this user? They will ${isBanned ? 'regain' : 'lose'} access to their account immediately.`,
+      title: isBanned ? 'Un-suspend User' : 'Suspend User',
+      message: `Are you sure you want to ${isBanned ? 'un-suspend' : 'suspend'} this user? They will ${isBanned ? 'regain' : 'lose'} access to their account immediately.`,
       onConfirm: async () => {
         const result = await toggleUserBanAction(userId, isBanned);
         if (result.success) {
@@ -32,8 +32,8 @@ export default function UserActions({ userId, isBanned }: UserActionsProps) {
   const handleDelete = () => {
     showConfirmation({
       title: 'Delete User',
-      message: 'Are you sure you want to permanently delete this user? This will remove all their associated data and cannot be undone.',
-      confirmText: 'Delete User',
+      message: 'DANGER: Are you sure you want to permanently delete this user? This will remove all their associated data and cannot be undone.',
+      confirmText: 'Yes, Delete User',
       onConfirm: async () => {
         const result = await deleteUserAction(userId);
         if (result.success) {
@@ -49,14 +49,14 @@ export default function UserActions({ userId, isBanned }: UserActionsProps) {
     <div className="flex items-center justify-end gap-2">
       <button
         onClick={handleToggleBan}
-        title={isBanned ? 'Unsuspend User' : 'Suspend User'}
+        title={isBanned ? 'Un-suspend User' : 'Suspend User'}
         className={`p-2 rounded-full transition-colors ${
           isBanned 
-            ? 'text-yellow-600 hover:bg-yellow-100'
-            : 'text-gray-500 hover:bg-gray-100'
+            ? 'text-green-600 hover:bg-green-100'
+            : 'text-yellow-600 hover:bg-yellow-100'
         }`}
       >
-        <FaUserSlash size={16} />
+        {isBanned ? <FaUserCheck size={16} /> : <FaUserSlash size={16} />}
       </button>
       <button
         onClick={handleDelete}

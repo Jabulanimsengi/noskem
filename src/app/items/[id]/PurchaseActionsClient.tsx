@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { type User } from '@supabase/supabase-js';
-import { type ItemWithProfile } from '@/types';
+// FIX: Use a type-only import for better practice.
+import { type ItemDataWithCategory } from './page';
 import { useAuthModal } from '@/context/AuthModalContext';
 import OfferModal from '@/app/components/OfferModal';
 import BuyNowForm from './BuyNowForm';
 
 interface PurchaseActionsClientProps {
-  item: ItemWithProfile;
+  item: ItemDataWithCategory;
   user: User | null;
 }
 
@@ -18,7 +19,6 @@ export default function PurchaseActionsClient({ item, user }: PurchaseActionsCli
 
   const handleOfferClick = () => {
     if (!user) {
-      // If user is not logged in, open the sign-in modal
       openModal('sign_in');
     } else {
       setIsOfferModalOpen(true);
@@ -30,7 +30,6 @@ export default function PurchaseActionsClient({ item, user }: PurchaseActionsCli
       <div className="bg-surface rounded-xl shadow-md p-6">
         <h2 className="text-xl font-bold text-text-primary mb-4">Purchase Options</h2>
         <div className="space-y-4">
-          {/* We only render the BuyNowForm if there is a price */}
           {item.buy_now_price && item.buy_now_price > 0 && (
             <BuyNowForm
               itemId={item.id}
@@ -38,7 +37,6 @@ export default function PurchaseActionsClient({ item, user }: PurchaseActionsCli
               finalAmount={item.buy_now_price}
             />
           )}
-          {/* We always render the Make Offer button */}
           <button
             onClick={handleOfferClick}
             className="w-full px-4 py-3 font-semibold text-brand border-2 border-brand rounded-lg hover:bg-brand/10 transition-colors"
@@ -48,7 +46,6 @@ export default function PurchaseActionsClient({ item, user }: PurchaseActionsCli
         </div>
       </div>
 
-      {/* The OfferModal is rendered outside the main flow and controlled by state */}
       {user && (
         <OfferModal
           isOpen={isOfferModalOpen}

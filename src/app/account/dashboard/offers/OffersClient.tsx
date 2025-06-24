@@ -8,6 +8,7 @@ import { useToast } from '@/context/ToastContext';
 import Image from 'next/image';
 import Link from 'next/link';
 import CounterOfferModal from '@/app/components/CounterOfferModal';
+import { useLoading } from '@/context/LoadingContext';
 
 interface OffersClientProps {
     receivedOffers: OfferWithDetails[];
@@ -17,22 +18,39 @@ interface OffersClientProps {
 
 const OfferRow = ({ offer, type, currentUserId }: { offer: OfferWithDetails, type: 'sent' | 'received', currentUserId: string }) => {
     const { showToast } = useToast();
+    const { showLoader, hideLoader } = useLoading();
     const [isCounterModalOpen, setIsCounterModalOpen] = useState(false);
 
     const item = offer.item;
     const otherUser = offer.seller_id === currentUserId ? offer.buyer : offer.seller;
+    // Your turn to act if the status is pending and the last offer was NOT made by you.
     const isMyTurn = offer.status.startsWith('pending') && offer.last_offer_by !== currentUserId;
     
     const imageUrl = (item?.images && typeof item.images[0] === 'string') 
         ? item.images[0] 
         : 'https://placehold.co/150x150/27272a/9ca3af?text=No+Image';
 
+    const handleAccept = async () => {
+        showLoader();
+        try {
+            await acceptOfferAction(offer.id);
+            // No success toast needed, as the page will redirect or revalidate.
+        } catch (e: any) {
+            showToast(e.message, 'error');
+        } finally {
+            hideLoader();
+        }
+    };
+
     const handleReject = async () => {
+        showLoader();
         try {
             await rejectOfferAction(offer.id);
             showToast('Offer rejected.', 'info');
         } catch (e: any) {
             showToast(e.message, 'error');
+        } finally {
+            hideLoader();
         }
     };
     
@@ -68,10 +86,9 @@ const OfferRow = ({ offer, type, currentUserId }: { offer: OfferWithDetails, typ
 
                     {isMyTurn && (
                         <>
-                            <form action={() => acceptOfferAction(offer.id).catch(e => showToast(e.message, 'error'))}>
+                            <form action={handleAccept}>
                                <button title="Accept" type="submit" className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-full"><FaCheck /></button>
                             </form>
-                            {/* FIX: Use a client-side handler for reject to show toast */}
                             <form action={handleReject}>
                                <button title="Reject" type="submit" className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full"><FaTimes /></button>
                             </form>
@@ -93,7 +110,6 @@ const OfferRow = ({ offer, type, currentUserId }: { offer: OfferWithDetails, typ
     )
 };
 
-// The main component now correctly determines which offers are 'sent' vs 'received'
 export default function OffersClient({ receivedOffers, sentOffers, currentUserId }: OffersClientProps) {
     return (
         <div>

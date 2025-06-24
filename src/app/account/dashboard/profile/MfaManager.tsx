@@ -8,7 +8,7 @@ import { useConfirmationModal } from '@/context/ConfirmationModalContext';
 
 interface MfaManagerProps {
   isMfaEnabled: boolean;
-  factors: any[]; // List of enabled factors from Supabase
+  factors: any[];
 }
 
 export default function MfaManager({ isMfaEnabled, factors }: MfaManagerProps) {
@@ -21,48 +21,50 @@ export default function MfaManager({ isMfaEnabled, factors }: MfaManagerProps) {
 
   const handleEnroll = async () => {
     setIsLoading(true);
-    const result = await enrollMfaAction();
-    if (result.error) {
-      showToast(result.error, 'error');
-    } else if (result.qrCodeDataUrl) {
-      // Supabase returns an object with the factor_id and the QR code
-      const enrolledFactor = await getNewestFactor();
-      if (enrolledFactor) {
-        setFactorId(enrolledFactor.id);
+    try {
+      const result = await enrollMfaAction();
+      if (result.error) {
+        showToast(result.error, 'error');
+      } else if (result.qrCodeDataUrl && result.factorId) {
+        setFactorId(result.factorId);
         setQrCode(result.qrCodeDataUrl);
       } else {
-        showToast('Could not retrieve factor ID after enrollment.', 'error');
+        showToast('An unknown error occurred during enrollment.', 'error');
       }
+    } catch (error: any) {
+      showToast(error.message || 'An unexpected client-side error occurred.', 'error');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
-  const getNewestFactor = async () => {
-    // This is a client-side call to get the latest factor status
-    const { createClient } = await import('@/app/utils/supabase/client');
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.mfa.listFactors();
-    if (error || !data) return null;
-    return data.totp[data.totp.length - 1]; // Get the most recently created factor
-  }
-
+  // FIX: This function has been wrapped in a try/catch/finally block for robustness.
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!factorId) return;
 
     setIsLoading(true);
-    const formData = new FormData();
-    formData.append('code', verifyCode);
-    formData.append('factorId', factorId);
+    try {
+      const formData = new FormData();
+      formData.append('code', verifyCode);
+      formData.append('factorId', factorId);
 
-    const result = await verifyMfaAction(formData);
-    if (result.error) {
-      showToast(result.error, 'error');
-    } else {
-      showToast('Two-Factor Authentication has been enabled!', 'success');
-      setQrCode(null); // Close the modal
+      const result = await verifyMfaAction(formData);
+
+      if (result.error) {
+        showToast(result.error, 'error');
+      } else {
+        showToast('Two-Factor Authentication has been enabled!', 'success');
+        setQrCode(null);
+        // Reload the page to show the updated MFA status ("Disable 2FA" button)
+        window.location.reload();
+      }
+    } catch (error: any) {
+      showToast(error.message || 'An unexpected error occurred during verification.', 'error');
+    } finally {
+      // This guarantees the loading state is always turned off.
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
   
   const handleUnenroll = async () => {
@@ -78,6 +80,7 @@ export default function MfaManager({ isMfaEnabled, factors }: MfaManagerProps) {
             const result = await unenrollMfaAction(totpFactor.id);
             if (result.success) {
                 showToast('Two-Factor Authentication has been disabled.', 'info');
+                window.location.reload();
             } else if (result.error) {
                 showToast(result.error, 'error');
             }
@@ -111,7 +114,6 @@ export default function MfaManager({ isMfaEnabled, factors }: MfaManagerProps) {
             </div>
         )}
 
-        {/* QR Code Verification Modal */}
         {qrCode && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                 <div className="bg-surface rounded-xl shadow-xl w-full max-w-sm p-8 text-center">

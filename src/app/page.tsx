@@ -6,7 +6,7 @@ import CreditPackagesSection from './components/CreditPackagesSection';
 import ItemCarousel from './components/ItemCarousel';
 import { HeroSection } from './components/HeroSection';
 import ItemList from './components/ItemList';
-import GridSkeletonLoader from './components/skeletons/GridSkeletonLoader';
+import HomepageSkeleton from './components/skeletons/HomepageSkeleton'; // Import the new skeleton
 import HomepageFilters from './components/HomepageFilters';
 
 type CreditPackage = {
@@ -18,18 +18,21 @@ type CreditPackage = {
     is_popular: boolean;
 };
 
-export default async function HomePage() {
+// This new component contains the actual page content that needs to be loaded.
+async function HomepageContent() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const [
     categoriesRes,
+    featuredItemsRes,
     popularItemsRes,
     recentlyListedRes,
     recentlySoldRes,
     creditPackagesRes,
   ] = await Promise.all([
     supabase.from('categories').select('*').order('name', { ascending: true }),
+    supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('is_featured', true).eq('status', 'available').limit(10),
     supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('status', 'available').order('view_count', { ascending: false, nullsFirst: false }).limit(10),
     supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('status', 'available').order('created_at', { ascending: false }).limit(10),
     supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10),
@@ -37,6 +40,7 @@ export default async function HomePage() {
   ]);
 
   const categories: Category[] = categoriesRes.data || [];
+  const featuredItems: ItemWithProfile[] = (featuredItemsRes.data || []) as ItemWithProfile[];
   const popularItems: ItemWithProfile[] = (popularItemsRes.data || []) as ItemWithProfile[];
   const recentlyListedItems: ItemWithProfile[] = (recentlyListedRes.data || []) as ItemWithProfile[];
   const recentlySoldItems: ItemWithProfile[] = (recentlySoldRes.data || []) as ItemWithProfile[];
@@ -47,11 +51,18 @@ export default async function HomePage() {
       <HeroSection />
       <div id="listings-section" className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         
-        {popularItems.length > 0 && (
+        {featuredItems.length > 0 && (
           <div className='pt-8 mt-8'>
+            <ItemCarousel title="⭐ Featured Items" items={featuredItems} user={user} />
+          </div>
+        )}
+
+        {popularItems.length > 0 && (
+          <div className='border-t pt-8 mt-8'>
             <ItemCarousel title="Popular Now" items={popularItems} user={user} />
           </div>
         )}
+        
         {recentlyListedItems.length > 0 && (
           <div className='border-t pt-8 mt-8'>
             <ItemCarousel title="Recently Listed" items={recentlyListedItems} user={user} />
@@ -73,12 +84,21 @@ export default async function HomePage() {
           <CategoryFilter categories={categories} />
           <HomepageFilters />
           
-          <Suspense fallback={<GridSkeletonLoader count={8} />}>
-            <ItemList user={user} />
-          </Suspense>
+          {/* The ItemList already has its own internal Suspense boundary, which is great. */}
+          <ItemList user={user} />
         </div>
       </div>
       <CreditPackagesSection user={user} packages={creditPackages} />
     </>
+  );
+}
+
+
+// The main page component now just wraps the content in a Suspense boundary.
+export default function HomePage() {
+  return (
+    <Suspense fallback={<HomepageSkeleton />}>
+      <HomepageContent />
+    </Suspense>
   );
 }

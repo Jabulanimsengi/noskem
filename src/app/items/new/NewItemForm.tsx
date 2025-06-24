@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useActionState } from 'react';
+// FIX: Import 'useTransition' from React
+import { useState, useEffect, useCallback, useActionState, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFormStatus } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { listItemAction, type ListItemFormState } from './actions';
-import { FaTimes, FaSpinner, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaMapMarkerAlt, FaSearch } from 'react-icons/fa';
 import Image from 'next/image';
 import { type Category } from '@/types';
 import { useToast } from '@/context/ToastContext';
@@ -18,25 +18,22 @@ const MapSelector = dynamic(() => import('./MapSelector'), {
 
 const initialState: ListItemFormState = { error: null, success: false };
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={pending} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400 flex items-center justify-center gap-2">
-      {pending && <FaSpinner className="animate-spin" />}
-      {pending ? 'Processing...' : 'List Item (Cost: 25 Credits)'}
-    </button>
-  );
-}
-
 export default function NewItemForm({ categories }: { categories: Category[] }) {
   const router = useRouter();
   const { showToast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
   
   const [state, formAction] = useActionState(listItemAction, initialState);
+  
+  // FIX: Use the useTransition hook for the pending state.
+  // This replaces our manual 'isSubmitting' state.
+  const [isPending, startTransition] = useTransition();
   
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
+  const [locationDescription, setLocationDescription] = useState('');
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const MAX_IMAGES = 5;
 
   useEffect(() => {
@@ -49,49 +46,48 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
     }
   }, [state, router, showToast]);
 
-  // FIX: This function is now a standard event handler for onSubmit.
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    // Prevent the browser's default form submission
     event.preventDefault();
-
-    if (images.length === 0) {
-      showToast('Please upload at least one image.', 'error');
-      return;
-    }
-
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      showToast('You must be logged in.', 'error');
-      return;
-    }
     
-    showToast('Uploading images...', 'info');
-    
-    try {
-      const uploadPromises = images.map(file => {
-        const filePath = `${user.id}/${Date.now()}_${file.name}`;
-        return supabase.storage.from('item-images').upload(filePath, file);
-      });
-      const uploadResults = await Promise.all(uploadPromises);
-
-      const uploadedImageUrls: string[] = [];
-      for (const result of uploadResults) {
-        if (result.error) throw new Error(`Image upload failed: ${result.error.message}`);
-        const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(result.data.path);
-        uploadedImageUrls.push(publicUrl);
+    // FIX: The entire submission logic is wrapped in startTransition
+    startTransition(async () => {
+      if (images.length === 0) {
+        showToast('Please upload at least one image.', 'error');
+        return;
       }
       
-      // Manually create a FormData object from the form
-      const formData = new FormData(event.currentTarget);
-      uploadedImageUrls.forEach(url => formData.append('imageUrls', url));
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        showToast('You must be logged in.', 'error');
+        return;
+      }
       
-      // Manually call the server action. This is now the correct pattern.
-      formAction(formData);
+      showToast('Uploading images...', 'info');
+      try {
+        const uploadPromises = images.map(file => {
+          const filePath = `${user.id}/${Date.now()}_${file.name}`;
+          return supabase.storage.from('item-images').upload(filePath, file);
+        });
+        const uploadResults = await Promise.all(uploadPromises);
+        const uploadedImageUrls: string[] = [];
+        for (const result of uploadResults) {
+          if (result.error) throw new Error(`Image upload failed: ${result.error.message}`);
+          const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(result.data.path);
+          uploadedImageUrls.push(publicUrl);
+        }
+        
+        if (!formRef.current) {
+          throw new Error("Form reference is not available.");
+        }
+        const formData = new FormData(formRef.current);
 
-    } catch (error: any) {
-      showToast(error.message || "An unexpected error occurred during image upload.", 'error');
-    }
+        uploadedImageUrls.forEach(url => formData.append('imageUrls', url));
+        formAction(formData);
+      } catch (error: any) {
+        showToast(error.message || "A client-side error occurred.", 'error');
+      }
+    });
   };
   
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,21 +124,37 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
     return () => { urls.forEach(URL.revokeObjectURL); };
   }, [images]);
 
+  const handleLocationSearch = async () => {
+    if (!locationDescription.trim()) {
+      showToast('Please enter a location name to search.', 'error');
+      return;
+    }
+    setIsSearchingLocation(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationDescription)}`);
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        setLocation({ lat: parseFloat(lat), lng: parseFloat(lon) });
+        showToast('Location found!', 'success');
+      } else {
+        showToast('Location not found. Please try a different name.', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to search for location.', 'error');
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
+
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
   const labelStyles = "block text-sm font-medium text-text-secondary mb-1";
-
+  
   return (
     <div className="container mx-auto max-w-2xl py-8">
-      {/* FIX: The form now uses onSubmit instead of the action prop. */}
-      <form onSubmit={handleSubmit} className="p-8 bg-surface rounded-xl shadow-lg space-y-6">
+      <form ref={formRef} onSubmit={handleSubmit} className="p-8 bg-surface rounded-xl shadow-lg space-y-6">
         <h1 className="text-2xl font-bold text-center text-text-primary">List a New Item</h1>
         
-        {/* The SubmitButton component is now inside the form and will trigger the onSubmit handler */}
-        <div className="pt-2">
-            <SubmitButton />
-        </div>
-
-        {/* All other form fields remain the same */}
         <div>
           <label htmlFor="title" className={labelStyles}>Title</label>
           <input name="title" id="title" type="text" required className={inputStyles}/>
@@ -179,7 +191,26 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
           </button>
           <div className="mt-2">
              <label htmlFor="locationDescription" className="text-xs text-gray-500">Location Name (e.g., Sandton, Johannesburg)</label>
-             <input name="locationDescription" id="locationDescription" type="text" placeholder="Enter a suburb or city" required className={inputStyles} />
+             <div className="flex items-center gap-2">
+                <input 
+                  name="locationDescription" 
+                  id="locationDescription" 
+                  type="text" 
+                  placeholder="Enter a suburb or city" 
+                  required 
+                  className={inputStyles}
+                  value={locationDescription}
+                  onChange={(e) => setLocationDescription(e.target.value)}
+                />
+                <button 
+                  type="button" 
+                  onClick={handleLocationSearch}
+                  disabled={isSearchingLocation}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-gray-600 rounded-lg hover:bg-gray-700 disabled:bg-gray-400"
+                >
+                  {isSearchingLocation ? <FaSpinner className="animate-spin" /> : <FaSearch />}
+                </button>
+             </div>
           </div>
           <MapSelector onLocationSelect={handleLocationSelect} initialPosition={location ? [location.lat, location.lng] : undefined} />
           <input type="hidden" name="latitude" value={location?.lat ?? ''} />
@@ -201,6 +232,24 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
             ))}
           </div>
         )}
+        
+        {state.error && (
+          <div className="p-3 text-center text-sm font-semibold text-white bg-red-500 rounded-md">
+            {state.error}
+          </div>
+        )}
+
+        <div className="pt-4 border-t">
+            {/* FIX: The button now uses the 'isPending' state from the useTransition hook */}
+            <button 
+              type="submit" 
+              disabled={isPending} 
+              className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400 flex items-center justify-center gap-2"
+            >
+              {isPending && <FaSpinner className="animate-spin" />}
+              {isPending ? 'Processing...' : 'List Item (Cost: 25 Credits)'}
+            </button>
+        </div>
       </form>
     </div>
   );

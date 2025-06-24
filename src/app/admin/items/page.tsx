@@ -1,6 +1,8 @@
 import { createClient } from '@/app/utils/supabase/server';
 import { type ItemWithProfile } from '@/types';
 import Link from 'next/link';
+// We will create this component in the next step
+import FeatureToggle from './FeatureToggle';
 
 export default async function AdminAllItemsPage() {
   const supabase = await createClient();
@@ -25,7 +27,9 @@ export default async function AdminAllItemsPage() {
               <th className="p-3 font-semibold">Seller</th>
               <th className="p-3 font-semibold">Price</th>
               <th className="p-3 font-semibold">Status</th>
-              <th className="p-3 font-semibold">Listed On</th>
+              {/* FIX: Add new columns for Featured status and Actions */}
+              <th className="p-3 font-semibold">Featured</th>
+              <th className="p-3 font-semibold text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -47,7 +51,14 @@ export default async function AdminAllItemsPage() {
                     {item.status.replace(/_/g, ' ')}
                   </span>
                 </td>
-                <td className="p-3 text-text-secondary">{new Date(item.created_at || '').toLocaleDateString()}</td>
+                {/* FIX: Display Yes/No for featured status */}
+                <td className="p-3 font-semibold">
+                  {item.is_featured ? 'Yes' : 'No'}
+                </td>
+                {/* FIX: Add the toggle button component */}
+                <td className="p-3 text-right">
+                    <FeatureToggle itemId={item.id} isFeatured={!!item.is_featured} />
+                </td>
               </tr>
             ))}
           </tbody>
