@@ -1,10 +1,13 @@
 import { createClient } from '../../utils/supabase/server';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { Suspense } from 'react';
 import ItemDetails from './ItemDetails';
 import PurchaseActionsClient from './PurchaseActionsClient';
 import ItemCarousel from '@/app/components/ItemCarousel';
 import ViewTracker from './ViewTracker';
+import BackButton from '@/app/components/BackButton';
+import { FaHome } from 'react-icons/fa';
 import { type Category, type ItemWithProfile } from '@/types';
 
 export type ItemDataWithCategory = ItemWithProfile & {
@@ -28,7 +31,6 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // FIX: Explicitly select 'location_description' in the query
   const { data: itemData, error } = await supabase
     .from('items')
     .select(`
@@ -46,7 +48,6 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
 
   const item = itemData as ItemDataWithCategory & { location_description: string | null };
   const isOwner = user?.id === item.seller_id;
-  const canPurchase = user && !isOwner && item.status === 'available';
 
   const { data: similarItemsData } = await supabase
     .from('items')
@@ -64,18 +65,27 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
         <ViewTracker itemId={item.id} />
       </Suspense>
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* Navigation Header */}
+        <div className="flex justify-between items-center mb-6">
+          <BackButton />
+          <Link href="/" className="text-text-secondary hover:text-brand transition-colors" aria-label="Back to Homepage">
+            <FaHome className="h-6 w-6" />
+          </Link>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            {/* The 'item' prop now satisfies the requirements of ItemDetails */}
             <ItemDetails item={item} />
           </div>
           <div className="space-y-6">
-            {canPurchase ? (
+            {/* Logic updated to show purchase options if item is available */}
+            {item.status === 'available' ? (
               <PurchaseActionsClient item={item} user={user} />
             ) : (
               <div className="bg-surface rounded-xl shadow-md p-6 text-center">
                 <p className="font-semibold text-text-secondary">
-                  {isOwner ? "This is your listing." : "This item is not available for purchase."}
+                  {isOwner ? "This is your listing." : "This item has been sold and is no longer available."}
                 </p>
               </div>
             )}
