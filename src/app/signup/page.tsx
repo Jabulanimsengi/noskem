@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { signupAction, type SignupFormState } from './actions';
 import Link from 'next/link';
+import { FaShoppingCart } from 'react-icons/fa';
 
 const initialState: SignupFormState = { error: null, success: false };
 
@@ -24,8 +25,13 @@ export default function SignUpPage() {
   const labelStyles = "block text-sm font-medium text-text-secondary mb-1";
 
   return (
-    <div className="container mx-auto max-w-md py-12 px-4">
-      <div className="p-8 bg-surface rounded-xl shadow-lg space-y-6">
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50 to-cyan-100 p-4 overflow-hidden">
+      
+      {/* Background Logo Watermarks */}
+      <FaShoppingCart className="absolute text-brand/5 text-[40rem] -top-24 -left-24 -rotate-12" />
+      <FaShoppingCart className="absolute text-brand/5 text-[30rem] -bottom-24 -right-24 rotate-12" />
+
+      <div className="p-8 bg-surface rounded-xl shadow-2xl space-y-6 w-full max-w-md z-10 border">
         <h1 className="text-3xl font-bold text-center text-text-primary">Create Your Account</h1>
         <form action={formAction} className="space-y-4">
           
