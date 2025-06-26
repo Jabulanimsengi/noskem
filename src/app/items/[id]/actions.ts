@@ -3,7 +3,6 @@
 import { createClient } from '../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-// Import the new fee constants
 import { INSPECTION_FEE, COLLECTION_FEE, DELIVERY_FEE, PURCHASE_FEE } from '@/lib/constants';
 
 export interface FormState {
@@ -25,7 +24,6 @@ export async function createCheckoutSession(
   const sellerId = formData.get('sellerId') as string;
   const itemPrice = parseFloat(formData.get('itemPrice') as string);
 
-  // FIX: Read the selected optional fees from the form data
   const includeInspection = formData.get('includeInspection') === 'true';
   const includeCollection = formData.get('includeCollection') === 'true';
   const includeDelivery = formData.get('includeDelivery') === 'true';
@@ -37,17 +35,29 @@ export async function createCheckoutSession(
     return { error: "You cannot buy your own item." };
   }
   
+  // 1. Deduct purchase fee
   const { data: feeDeducted, error: rpcError } = await supabase.rpc('deduct_purchase_fee', { p_user_id: user.id });
   if (rpcError || !feeDeducted) {
     return { error: `Could not process purchase fee. You may not have enough credits (${PURCHASE_FEE} required).` };
   }
   
-  // FIX: Calculate the final amount based on the selected fees
+  // 2. Log the purchase fee transaction
+  await supabase.from('financial_transactions').insert({
+      user_id: user.id,
+      order_id: null, 
+      type: 'purchase_fee',
+      status: 'completed',
+      amount: -PURCHASE_FEE,
+      description: `Fee for initiating purchase of item #${itemId}`
+  });
+
+  // 3. Calculate the final amount based on selected fees
   let finalAmount = itemPrice;
   if (includeInspection) finalAmount += INSPECTION_FEE;
   if (includeCollection) finalAmount += COLLECTION_FEE;
   if (includeDelivery) finalAmount += DELIVERY_FEE;
 
+  // 4. Create the order record
   const { data: orderData, error: insertError } = await supabase
     .from('orders').insert({
       item_id: parseInt(itemId),
@@ -55,7 +65,6 @@ export async function createCheckoutSession(
       seller_id: sellerId,
       final_amount: finalAmount,
       status: 'pending_payment',
-      // FIX: Save the individual fee amounts to the database
       inspection_fee_paid: includeInspection ? INSPECTION_FEE : 0,
       collection_fee_paid: includeCollection ? COLLECTION_FEE : 0,
       delivery_fee_paid: includeDelivery ? DELIVERY_FEE : 0,
@@ -65,6 +74,7 @@ export async function createCheckoutSession(
       return { error: `Could not create order: ${insertError.message}` };
   }
   
+  // 5. Revalidate paths and redirect
   revalidatePath('/');
   revalidatePath('/account/orders');
   redirect(`/orders/${orderData.id}`);

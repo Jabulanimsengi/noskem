@@ -16,7 +16,7 @@ export async function purchaseCredits(
 
   const { data: creditPackage, error: packageError } = await supabase
     .from('credit_packages')
-    .select('credits_amount, bonus_credits')
+    .select('credits_amount, bonus_credits, price_zar')
     .eq('id', packageId)
     .single();
 
@@ -41,7 +41,18 @@ export async function purchaseCredits(
       description: `Purchased package ID ${packageId} via Paystack ref: ${paystackRef}`,
   });
 
+  // --- FIX: Log the financial transaction for the credit purchase ---
+  await supabase.from('financial_transactions').insert({
+      user_id: user.id,
+      type: 'credit_purchase',
+      status: 'completed',
+      amount: creditPackage.price_zar, // This should be a positive value representing money spent
+      description: `Purchase of ${totalCreditsToAdd} credits (Package ID: ${packageId})`
+  });
+  // --- END OF FIX ---
+
   revalidatePath('/', 'layout');
+  revalidatePath('/account/dashboard/transactions');
 
   return { success: true };
 }

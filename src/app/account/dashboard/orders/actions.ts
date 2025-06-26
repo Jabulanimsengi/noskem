@@ -1,19 +1,9 @@
-/**
- * CODE REVIEW UPDATE
- * ------------------
- * This file has been updated based on the AI code review.
- *
- * Change Made:
- * - Suggestion #43 (Security): Removed the `payoutAmount` parameter from `claimSellerFunds`.
- * The payout amount is now calculated securely on the server by fetching the order's
- * final amount and applying the commission rate. This prevents a critical vulnerability
- * where a user could tamper with the client-side request to claim more funds.
- */
 'use server';
 
 import { createClient } from '../../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { COMMISSION_RATE } from '@/lib/constants'; // Import constant for calculation
+import { COMMISSION_RATE } from '@/lib/constants';
+import { createNotification } from '@/app/actions';
 
 export async function confirmReceipt(orderId: number) {
   const supabase = await createClient();
@@ -21,19 +11,18 @@ export async function confirmReceipt(orderId: number) {
   if (!user) { return; }
 
   const { data: order } = await supabase.from('orders').select('buyer_id, status').eq('id', orderId).single();
-  if (!order || order.buyer_id !== user.id || order.status !== 'payment_authorized') { return; }
+  
+  if (!order || order.buyer_id !== user.id || !['delivered', 'payment_authorized'].includes(order.status)) { return; }
 
   await supabase.from('orders').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', orderId);
   revalidatePath('/account/dashboard/orders');
 }
 
-// The insecure `payoutAmount` parameter has been removed.
 export async function claimSellerFunds(orderId: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) { return; }
 
-  // Fetch the full order to get the final_amount for server-side calculation
   const { data: order } = await supabase
     .from('orders')
     .select('seller_id, status, final_amount')
@@ -42,30 +31,88 @@ export async function claimSellerFunds(orderId: number) {
     
   if (!order || order.seller_id !== user.id || order.status !== 'completed') { return; }
 
-  // Securely calculate the payout amount on the server
-  const payoutAmount = Math.round(order.final_amount * (1 - COMMISSION_RATE));
+  // --- FIX: Log sale and commission to financial history ---
+  const commissionAmount = order.final_amount * COMMISSION_RATE;
+  const payoutAmount = order.final_amount - commissionAmount;
 
-  // Use an RPC to add credits, which is generally safer for financial operations
-  const { error: rpcError } = await supabase.rpc('add_credits_to_user', { 
+  // Create two separate records for the financial ledger
+  const saleTransaction = { 
+    user_id: user.id,
+    order_id: orderId,
+    type: 'sale' as const,
+    status: 'completed' as const,
+    amount: order.final_amount, 
+    description: `Sale of item for order #${orderId}`
+  };
+  const commissionTransaction = { 
+    user_id: user.id,
+    order_id: orderId,
+    type: 'commission' as const,
+    status: 'completed' as const,
+    amount: -commissionAmount, 
+    description: `${(COMMISSION_RATE * 100)}% commission for order #${orderId}`
+  };
+  
+  const { error: financialError } = await supabase.from('financial_transactions').insert([saleTransaction, commissionTransaction]);
+
+  if (financialError) {
+    console.error(`Failed to log financial transactions for order ${orderId}: ${financialError.message}`);
+    // Important: Do not proceed if the financial log fails
+    return; 
+  }
+  // --- END OF FIX ---
+
+  // This part remains: update the user's credit balance
+  await supabase.rpc('add_credits_to_user', { 
     user_id: user.id, 
     amount_to_add: payoutAmount 
   });
-  if (rpcError) {
-    // Optionally handle the error, e.g., by logging it
-    console.error(`Failed to claim funds for order ${orderId}: ${rpcError.message}`);
-    return;
-  }
-
-  // Log the transaction for auditing purposes
+  
   await supabase.from('credit_transactions').insert({ 
     profile_id: user.id, 
     amount: payoutAmount, 
     description: `Payout for completed order #${orderId}` 
   });
 
-  // Update the order status to prevent double claims
   await supabase.from('orders').update({ status: 'funds_paid_out' }).eq('id', orderId);
 
   revalidatePath('/account/dashboard/orders');
-  revalidatePath('/', 'layout'); // Revalidate layout to update credit balance in header
+  revalidatePath('/account/dashboard/transactions');
+  revalidatePath('/', 'layout');
+}
+
+
+export async function requestReturnAction(orderId: number) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Authentication required.');
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('buyer_id, status')
+    .eq('id', orderId)
+    .single();
+    
+  if (!order || order.buyer_id !== user.id || order.status !== 'delivered') {
+    throw new Error('This order cannot be disputed at this time.');
+  }
+
+  const { error: updateError } = await supabase
+    .from('orders')
+    .update({ status: 'disputed' })
+    .eq('id', orderId);
+
+  if (updateError) {
+    throw new Error(`Could not file dispute: ${updateError.message}`);
+  }
+
+  const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
+  if (admins) {
+    const adminMessage = `A dispute has been filed for Order #${orderId}. Please review.`;
+    for (const admin of admins) {
+      await createNotification(admin.id, adminMessage, '/admin/orders');
+    }
+  }
+
+  revalidatePath('/account/dashboard/orders');
 }
