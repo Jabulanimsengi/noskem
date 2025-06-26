@@ -1,7 +1,6 @@
 // File: app/utils/supabase/admin.ts
 
 import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
 
 // This special client uses the Service Role Key for admin operations.
 // It should ONLY be used in secure, server-side environments.

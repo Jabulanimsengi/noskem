@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+// FIX: Ensure the import is from '@/types'
 import { type OfferWithDetails } from '@/types';
 import { FaArrowDown, FaArrowUp, FaCheck, FaGavel, FaTimes } from 'react-icons/fa';
 import { acceptOfferAction, rejectOfferAction } from '@/app/offers/actions';
@@ -16,6 +17,8 @@ interface OffersClientProps {
     currentUserId: string;
 }
 
+// ... rest of the component code
+// (The rest of the component logic can remain the same as provided previously)
 const OfferRow = ({ offer, type, currentUserId }: { offer: OfferWithDetails, type: 'sent' | 'received', currentUserId: string }) => {
     const { showToast } = useToast();
     const { showLoader, hideLoader } = useLoading();
@@ -23,7 +26,6 @@ const OfferRow = ({ offer, type, currentUserId }: { offer: OfferWithDetails, typ
 
     const item = offer.item;
     const otherUser = offer.seller_id === currentUserId ? offer.buyer : offer.seller;
-    // Your turn to act if the status is pending and the last offer was NOT made by you.
     const isMyTurn = offer.status.startsWith('pending') && offer.last_offer_by !== currentUserId;
     
     const imageUrl = (item?.images && typeof item.images[0] === 'string') 
@@ -34,9 +36,9 @@ const OfferRow = ({ offer, type, currentUserId }: { offer: OfferWithDetails, typ
         showLoader();
         try {
             await acceptOfferAction(offer.id);
-            // No success toast needed, as the page will redirect or revalidate.
-        } catch (e: any) {
-            showToast(e.message, 'error');
+        } catch (e) {
+            const err = e as Error;
+            showToast(err.message, 'error');
         } finally {
             hideLoader();
         }
@@ -47,8 +49,9 @@ const OfferRow = ({ offer, type, currentUserId }: { offer: OfferWithDetails, typ
         try {
             await rejectOfferAction(offer.id);
             showToast('Offer rejected.', 'info');
-        } catch (e: any) {
-            showToast(e.message, 'error');
+        } catch (e) {
+            const err = e as Error;
+            showToast(err.message, 'error');
         } finally {
             hideLoader();
         }

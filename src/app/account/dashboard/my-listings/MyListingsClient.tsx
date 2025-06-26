@@ -26,10 +26,11 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
         try {
           const result = await deleteItemAction(item.id);
           if (result.success) {
-            showToast(result.message, 'success');
+            showToast(result.message || 'Listing deleted successfully.', 'success');
           }
-        } catch (error: any) {
-          showToast(error.message, 'error');
+        } catch (error) {
+           const err = error as Error;
+          showToast(err.message, 'error');
         }
       },
     });
@@ -38,17 +39,17 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
   const handleFeature = (item: Item) => {
     showConfirmation({
       title: 'Feature Your Listing',
-      // FIX: Update the confirmation message with the new fee.
       message: `Are you sure? This will cost ${FEATURE_FEE} credits and display your item prominently on the homepage.`,
       confirmText: 'Yes, feature it!',
       onConfirm: async () => {
         try {
           const result = await featureItemAction(item.id);
           if (result.success) {
-            showToast(result.message, 'success');
+            showToast(result.message || 'Item featured successfully.', 'success');
           }
-        } catch (error: any) {
-          showToast(error.message, 'error');
+        } catch (error) {
+           const err = error as Error;
+          showToast(err.message, 'error');
         }
       },
     });
@@ -100,7 +101,6 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
                     Feature
                   </button>
                 )}
-                {/* FIX: Only show the "Edit" button if the item is available. */}
                 {item.status === 'available' && (
                   <Link
                     href={`/account/dashboard/my-listings/${item.id}/edit`}
@@ -109,6 +109,12 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
                     Edit
                   </Link>
                 )}
+                 <button
+                    onClick={() => handleDelete(item)}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
               </div>
             </div>
           );

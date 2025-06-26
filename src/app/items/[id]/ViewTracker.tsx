@@ -8,10 +8,12 @@ export default function ViewTracker({ itemId }: { itemId: number }) {
     const supabase = createClient();
     
     const trackView = async () => {
-      // Call the RPC function to increment the view count for this item
+      // --- FIX: The argument name has been corrected ---
+      // It now correctly passes 'item_id_to_increment' as expected by the database function.
       await supabase.rpc('increment_view_count', {
         item_id_to_increment: itemId,
       });
+      // --- END OF FIX ---
     };
 
     // Track the view once per page load

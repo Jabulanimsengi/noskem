@@ -3,13 +3,16 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import OfferModal from './OfferModal';
+import dynamic from 'next/dynamic';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
 import { type ItemWithProfile } from '@/types';
 import { FaCheckCircle, FaEye } from 'react-icons/fa';
 import { MessageSquare } from 'lucide-react';
 import { useChat, type ChatSession } from '@/context/ChatContext';
+import { Button } from './Button'; 
+
+const OfferModal = dynamic(() => import('./OfferModal'));
 
 const createCanonicalRoomId = (userId1: string, userId2: string): string => {
     const sortedIds = [userId1, userId2].sort();
@@ -35,24 +38,20 @@ export default function ItemCard({ item, user }: ItemCardProps) {
   };
   
   const handleStartChat = () => {
-    if (!user) {
-        openModal('sign_in');
-        return;
-    }
-    if (user.id === item.seller_id) {
-        return;
-    }
+    handleAction(() => {
+        if (user!.id === item.seller_id) return;
 
-    const roomId = createCanonicalRoomId(user.id, item.seller_id);
+        const roomId = createCanonicalRoomId(user!.id, item.seller_id);
 
-    const chatSession: ChatSession = {
-      roomId: roomId,
-      recipientId: item.seller_id,
-      recipientUsername: item.profiles?.username || 'Seller',
-      recipientAvatar: item.profiles?.avatar_url || null,
-      itemTitle: `About: ${item.title}`,
-    };
-    openChat(chatSession);
+        const chatSession: ChatSession = {
+          roomId: roomId,
+          recipientId: item.seller_id,
+          recipientUsername: item.profiles?.username || 'Seller',
+          recipientAvatar: item.profiles?.avatar_url || null,
+          itemTitle: `About: ${item.title}`,
+        };
+        openChat(chatSession);
+    });
   };
 
   const finalImageUrl = (Array.isArray(item.images) && typeof item.images[0] === 'string' && item.images.length > 0)
@@ -104,30 +103,24 @@ export default function ItemCard({ item, user }: ItemCardProps) {
                   {item.buy_now_price ? `R${item.buy_now_price.toFixed(2)}` : 'Make an Offer'}
               </p>
 
-              <div className="mt-auto pt-4 border-t border-gray-200">
-                {item.status === 'available' ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      onClick={handleStartChat}
-                      className="px-3 py-2 text-sm font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      <span>Message</span>
-                    </button>
-                    <button 
-                      onClick={() => handleAction(() => setIsOfferModalOpen(true))} 
-                      className="px-3 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark"
-                    >
-                        Make Offer
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 bg-red-100 border-2 border-red-200 rounded-lg cursor-not-allowed">
-                    <FaCheckCircle />
-                    <span>Sold</span>
-                  </div>
-                )}
-              </div>
+                <div className="mt-auto pt-4 border-t border-gray-200">
+                    {item.status === 'available' ? (
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button variant="secondary" onClick={handleStartChat}>
+                                <MessageSquare className="h-4 w-4 mr-1.5" />
+                                Message
+                            </Button>
+                            <Button onClick={() => handleAction(() => setIsOfferModalOpen(true))}>
+                                Make Offer
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 bg-red-100 border-2 border-red-200 rounded-lg cursor-not-allowed">
+                            <FaCheckCircle />
+                            <span>Sold</span>
+                        </div>
+                    )}
+                </div>
           </div>
       </div>
 

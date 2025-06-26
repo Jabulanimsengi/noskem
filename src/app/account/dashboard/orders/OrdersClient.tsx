@@ -43,7 +43,6 @@ const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective
                         
                         {order.status === 'funds_paid_out' && (<p className="text-sm text-green-500 font-semibold">Paid Out</p>)}
                         
-                        {/* The OpenChatButton will now correctly open the floating window */}
                         <OpenChatButton 
                             recipientId={otherUser?.id || ''}
                             recipientUsername={otherUser?.username || 'User'}
@@ -67,27 +66,26 @@ const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective
 };
 
 interface OrdersClientProps {
-    userId: string;
     initialBuyingOrders: OrderWithDetails[];
     initialSellingOrders: OrderWithDetails[];
 }
 
-export default function OrdersClient({ userId, initialBuyingOrders, initialSellingOrders }: OrdersClientProps) {
+export default function OrdersClient({ initialBuyingOrders, initialSellingOrders }: OrdersClientProps) {
     const [buyingOrders] = useState<OrderWithDetails[]>(initialBuyingOrders);
     const [sellingOrders] = useState<OrderWithDetails[]>(initialSellingOrders);
 
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-2xl font-semibold text-text-primary mb-4">Items I'm Selling</h2>
+                <h2 className="text-2xl font-semibold text-text-primary mb-4">Items I&apos;m Selling</h2>
                 <div className="space-y-4">
-                    {sellingOrders.length > 0 ? sellingOrders.map((order) => <OrderRow key={order.id} order={order} perspective="selling" />) : <p className="text-text-secondary text-center py-4">You haven't sold any items yet.</p>}
+                    {sellingOrders.length > 0 ? sellingOrders.map((order) => <OrderRow key={order.id} order={order} perspective="selling" />) : <p className="text-text-secondary text-center py-4">You haven&apos;t sold any items yet.</p>}
                 </div>
             </div>
             <div>
-                <h2 className="text-2xl font-semibold text-text-primary mb-4">Items I'm Buying</h2>
+                <h2 className="text-2xl font-semibold text-text-primary mb-4">Items I&apos;m Buying</h2>
                  <div className="space-y-4">
-                    {buyingOrders.length > 0 ? buyingOrders.map((order) => <OrderRow key={order.id} order={order} perspective="buying" />) : <p className="text-text-secondary text-center py-4">You haven't bought any items yet.</p>}
+                    {buyingOrders.length > 0 ? buyingOrders.map((order) => <OrderRow key={order.id} order={order} perspective="buying" />) : <p className="text-text-secondary text-center py-4">You haven&apos;t bought any items yet.</p>}
                 </div>
             </div>
         </div>

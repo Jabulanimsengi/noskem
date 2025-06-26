@@ -3,13 +3,13 @@
 import { createClient } from '@/app/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { type Profile } from '@/types'; // Assuming you have a Profile type
 
 export interface CompleteProfileState {
   error: string | null;
   success: boolean;
 }
 
-// This action UPDATES the existing profile with the new details.
 export async function completeProfileAction(
   prevState: CompleteProfileState,
   formData: FormData
@@ -24,19 +24,18 @@ export async function completeProfileAction(
   const username = formData.get('username') as string;
   const accountType = formData.get('accountType') as 'individual' | 'business';
 
-  // Check if username is already taken
   const { data: existingProfile } = await supabase
     .from('profiles')
     .select('username')
     .eq('username', username)
-    .not('id', 'eq', user.id) // Exclude the user's own profile from the check
+    .not('id', 'eq', user.id)
     .single();
 
   if (existingProfile) {
     return { error: 'This username is already taken. Please choose another.', success: false };
   }
 
-  const profileData: any = {
+  const profileData: Partial<Profile> = {
     username,
     account_type: accountType,
     updated_at: new Date().toISOString(),
@@ -59,6 +58,6 @@ export async function completeProfileAction(
     return { error: `Failed to update profile: ${error.message}`, success: false };
   }
 
-  revalidatePath('/', 'layout'); // Revalidate everything to reflect the new profile info
-  redirect('/account/dashboard'); // Redirect to the main dashboard on success
+  revalidatePath('/', 'layout');
+  redirect('/account/dashboard');
 }

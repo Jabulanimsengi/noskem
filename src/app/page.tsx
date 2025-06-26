@@ -4,11 +4,13 @@ import { Category, ItemWithProfile } from '@/types';
 import CategoryFilter from './components/CategoryFilter';
 import CreditPackagesSection from './components/CreditPackagesSection';
 import ItemCarousel from './components/ItemCarousel';
-// FIX: Ensure the HeroSection is imported correctly as a named import
 import { HeroSection } from './components/HeroSection';
 import ItemList from './components/ItemList';
 import HomepageSkeleton from './components/skeletons/HomepageSkeleton';
 import HomepageFilters from './components/HomepageFilters';
+
+// FIX: Add this line to enable caching and revalidate every 60 seconds.
+export const revalidate = 60; 
 
 type CreditPackage = {
     id: number;
@@ -78,7 +80,7 @@ async function HomepageContent() {
         <div className="py-16 border-t mt-8">
           <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-brand-dark">Browse All Items</h2>
-              <p className="text-lg text-text-secondary mt-2">Find exactly what you're looking for.</p>
+              <p className="text-lg text-text-secondary mt-2">Find exactly what you&apos;re looking for.</p>
           </div>
           
           <CategoryFilter categories={categories} />
