@@ -2,16 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { FaShoppingCart, FaBars, FaPlusCircle } from 'react-icons/fa';
+// FIX: Add FaCoins icon for the new credit display
+import { FaShoppingCart, FaBars, FaPlusCircle, FaCoins } from 'react-icons/fa';
 import { MessageSquare } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
 import SearchBar from './SearchBar';
 import AuthButton from './AuthButton';
 import MobileMenu from './MobileMenu';
 import NotificationBell from './NotificationBell';
-import { type Profile } from '@/types'; // Import the Profile type
+import { type Profile } from '@/types';
 
-// FIX: Update the props to match what the new server Header provides.
 interface HeaderLayoutProps {
     user: User | null;
     profile: Profile | null;
@@ -55,10 +55,15 @@ export default function HeaderLayout({ user, profile }: HeaderLayoutProps) {
                   <span>Sell Item</span>
                 </Link>
 
+                {/* FIX: New Credit Balance Display Added Here */}
+                <Link href="/credits/buy" className="flex items-center gap-2 text-sm font-semibold text-text-secondary hover:text-brand" title="Your Credits">
+                    <FaCoins className="h-5 w-5 text-yellow-500"/>
+                    <span>{profile?.credit_balance ?? 0}</span>
+                </Link>
+
                 <Link href="/chat" title="Messages" className="text-gray-500 hover:text-brand">
                   <MessageSquare size={22} />
                 </Link>
-                {/* The NotificationBell is now fully self-contained */}
                 <NotificationBell />
                 <div className="h-8 border-l border-gray-300"></div>
                 <AuthButton user={user} profile={profile} />
@@ -78,6 +83,8 @@ export default function HeaderLayout({ user, profile }: HeaderLayoutProps) {
         </div>
       </nav>
 
+      {/* The AuthButton component now contains the dropdown logic */}
+      {/* We need to pass dropdown state management if it's inside AuthButton now */}
       <MobileMenu 
         isOpen={isMobileMenuOpen} 
         onClose={() => setIsMobileMenuOpen(false)}

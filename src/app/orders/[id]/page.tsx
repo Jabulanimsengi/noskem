@@ -16,7 +16,12 @@ type OrderWithItem = Order & {
 
 export default async function OrderPage({ params }: OrderPageProps) {
   const supabase = await createClient();
-  const orderId = params.id;
+
+  // FIX: Add a check to ensure the ID from the URL exists.
+  const orderId = params?.id;
+  if (!orderId) {
+    notFound();
+  }
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -35,7 +40,7 @@ export default async function OrderPage({ params }: OrderPageProps) {
 
   const order = orderData as OrderWithItem;
   
-  if (order.buyer_id !== user.id) {
+  if (order.buyer_id !== user.id && order.seller_id !== user.id) {
       return (
         <div className="text-center p-8">
             <h1 className="text-xl font-bold text-red-500">Access Denied</h1>
@@ -45,8 +50,6 @@ export default async function OrderPage({ params }: OrderPageProps) {
   }
   
   const item = order.items;
-
-  // FIX: Add a `typeof item.images[0] === 'string'` check to ensure the src is valid.
   const imageUrl = (item && Array.isArray(item.images) && item.images.length > 0 && typeof item.images[0] === 'string')
     ? item.images[0]
     : 'https://placehold.co/600x400/27272a/9ca3af?text=No+Image';
@@ -79,7 +82,7 @@ export default async function OrderPage({ params }: OrderPageProps) {
         <div className="space-y-2 text-sm mb-8">
             <div className="flex justify-between">
                 <span className="text-text-secondary">Order ID:</span>
-                <span className="font-mono text-text-primary">{order.id}</span>
+                <span className="font-mono text-text-primary">#{order.id}</span>
             </div>
             <div className="flex justify-between">
                 <span className="text-text-secondary">Status:</span>
@@ -93,15 +96,16 @@ export default async function OrderPage({ params }: OrderPageProps) {
             </div>
         </div>
         
-        {order.status === 'pending_payment' && order.final_amount > 0 ? (
+        {/* Only show payment button if the current user is the buyer and payment is pending */}
+        {order.status === 'pending_payment' && user.id === order.buyer_id && order.final_amount > 0 ? (
           <PaystackButton 
             orderId={order.id}
             userEmail={user.email || ''}
             amount={order.final_amount}
           />
         ) : (
-          <div className="p-4 text-center bg-green-100 text-green-700 rounded-lg">
-            This order has been processed.
+          <div className="p-4 text-center bg-gray-100 text-gray-700 rounded-lg">
+            <p>Waiting for other party or payment already processed.</p>
           </div>
         )}
       </div>

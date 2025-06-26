@@ -3,17 +3,15 @@
 import { createClient } from '@/app/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { randomUUID } from 'crypto';
 
 export interface SignInState {
   error?: string | null;
   success?: boolean;
   mfaRequired?: boolean;
+  actionId?: string;
 }
 
-/**
- * Handles the initial email/password sign-in attempt.
- * Returns a success or error state to the client-side modal.
- */
 export async function signInAction(prevState: SignInState, formData: FormData): Promise<SignInState> {
   const supabase = await createClient();
   const email = formData.get('email') as string;
@@ -29,31 +27,25 @@ export async function signInAction(prevState: SignInState, formData: FormData): 
   });
 
   if (error) {
-    // Check if the error is specifically because MFA is required
     if (error.code === 'mfa_required') {
       return { mfaRequired: true };
     }
     return { error: error.message };
   }
 
-  // Instead of redirecting, revalidate the cache and return a success message.
-  // The client component will handle the UI update.
   revalidatePath('/', 'layout');
-  return { success: true };
+  return { success: true, actionId: randomUUID() };
 }
 
-/**
- * Handles signing the user out securely on the server.
- * Redirects to the homepage after sign-out is complete.
- */
+// FIX: This action now returns a success state instead of redirecting.
 export async function signOutAction() {
     const supabase = await createClient();
-    await supabase.auth.signOut();
-    // A redirect from a server action is the most reliable way to ensure
-    // a clean state on the next page render.
-    return redirect('/');
-}
+    const { error } = await supabase.auth.signOut();
 
-// NOTE: The MFA verification logic is handled on the client-side in the
-// AuthModal component to provide a better user experience. A server action
-// for this is not strictly necessary in the current flow.
+    if (error) {
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath('/', 'layout');
+    return { success: true };
+}

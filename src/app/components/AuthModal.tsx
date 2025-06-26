@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useActionState } from 'react';
+// FIX: Import useRef to track the processed action
+import { useEffect, useState, useActionState, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,6 +35,9 @@ export default function AuthModal() {
   const [view, setView] = useState<'signIn' | 'mfa'>('signIn');
   const [signInState, signInFormAction] = useActionState(signInAction, initialSignInState);
   
+  // FIX: Create a ref to store the ID of the last processed successful action
+  const processedActionId = useRef<string | null>(null);
+
   const [mfaCode, setMfaCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -44,10 +48,13 @@ export default function AuthModal() {
     if (signInState.error) {
       showToast(signInState.error, 'error');
     }
-    if (signInState.success) {
+    // FIX: Check for success AND ensure this specific action has not been processed yet
+    if (signInState.success && signInState.actionId !== processedActionId.current) {
+      // Mark this action ID as processed so this block doesn't run again
+      processedActionId.current = signInState.actionId!;
+      
       showToast('Signed in successfully!', 'success');
       handleClose();
-      // FIX: Navigate to the homepage instead of the dashboard.
       router.push('/'); 
     }
   }, [signInState, showToast, router, pathname]);
@@ -77,7 +84,6 @@ export default function AuthModal() {
         
         showToast('Signed in successfully!', 'success');
         handleClose();
-        // FIX: Navigate to the homepage here as well.
         router.push('/');
     } catch (error: any) {
         showToast(error.message, 'error');

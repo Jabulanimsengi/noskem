@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { type User } from '@supabase/supabase-js';
-// FIX: Use a type-only import for better practice.
 import { type ItemDataWithCategory } from './page';
 import { useAuthModal } from '@/context/AuthModalContext';
 import OfferModal from '@/app/components/OfferModal';
@@ -34,7 +33,8 @@ export default function PurchaseActionsClient({ item, user }: PurchaseActionsCli
             <BuyNowForm
               itemId={item.id}
               sellerId={item.seller_id}
-              finalAmount={item.buy_now_price}
+              // FIX: Change prop name from 'finalAmount' to 'itemPrice'
+              itemPrice={item.buy_now_price}
             />
           )}
           <button

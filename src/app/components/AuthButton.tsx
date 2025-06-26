@@ -31,10 +31,13 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
         title: 'Confirm Sign Out',
         message: 'Are you sure you want to sign out?',
         onConfirm: async () => {
-            // FIX: Changed the toast type from 'info' to 'success' for consistency.
-            // Also updated the message slightly.
-            showToast("You have been signed out successfully.", 'success');
-            await signOutAction();
+            const result = await signOutAction();
+            if (result.success) {
+                showToast("You have been signed out successfully.", 'success');
+                router.push('/');
+            } else if (result.error) {
+                showToast(result.error, 'error');
+            }
         }
     });
   };
@@ -56,7 +59,6 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
         className="flex items-center gap-2 transition-opacity hover:opacity-80"
       >
         <Avatar src={profile?.avatar_url} alt={profile?.username || 'User'} size={32} />
-        <span className="text-sm font-semibold text-text-primary">{profile?.username || "Setup Profile"}</span>
         <FaChevronDown size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
@@ -85,11 +87,9 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
                 </Link>
               )}
             </div>
-            <div className="py-1 border-t border-gray-200">
-              <Link href="/credits/buy" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
-                Credits: <span className="font-bold text-brand">{profile?.credit_balance ?? 0}</span>
-              </Link>
-            </div>
+            
+            {/* FIX: Old Credit Balance Link Removed From Dropdown */}
+            
             <div className="py-1 border-t border-gray-200">
               <button onClick={handleSignOut} className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
                 Sign Out

@@ -2,8 +2,9 @@
 
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
+// FIX: Expose the 'isLoading' state in the context type
 interface LoadingContextType {
-  isLoading: boolean; // Expose the state itself
+  isLoading: boolean;
   showLoader: () => void;
   hideLoader: () => void;
 }
@@ -24,7 +25,7 @@ export const LoadingProvider = ({ children }: { children: ReactNode }) => {
   const showLoader = () => setIsLoading(true);
   const hideLoader = () => setIsLoading(false);
 
-  // The Provider now ONLY provides the state and functions, no UI.
+  // The Provider now provides the isLoading state along with the functions
   return (
     <LoadingContext.Provider value={{ isLoading, showLoader, hideLoader }}>
       {children}

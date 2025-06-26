@@ -5,9 +5,9 @@ import { Providers } from "./providers";
 import Script from "next/script";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
-// FIX: Import the new global UI components
-import LoadingIndicator from "./components/global/LoadingIndicator";
 import ToastContainer from "./components/global/ToastContainer";
+// FIX: Import the new global LoadingIndicator component
+import LoadingIndicator from "./components/global/LoadingIndicator";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head></head>
       <body className={`${inter.className} bg-background text-text-primary`}>
         <Providers>
-          {/* FIX: Render the global UI components here, inside Providers but outside the main layout div */}
+          {/* FIX: Render the global UI components here */}
           <ToastContainer />
           <LoadingIndicator />
 

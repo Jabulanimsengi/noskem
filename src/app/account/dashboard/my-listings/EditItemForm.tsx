@@ -1,10 +1,10 @@
 'use client';
 
-import { useActionState } from 'react';
+// FIX: Import useActionState from 'react'
+import { useActionState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { updateItemAction, type UpdateItemFormState } from './actions';
 import { type Item, type Category } from '@/types';
-import { useEffect } from 'react';
 import { useToast } from '@/context/ToastContext';
 
 const initialState: UpdateItemFormState = { error: null, success: false };
@@ -24,6 +24,7 @@ interface EditItemFormProps {
 }
 
 export default function EditItemForm({ item, categories }: EditItemFormProps) {
+  // FIX: Use useActionState here
   const [state, formAction] = useActionState(updateItemAction, initialState);
   const { showToast } = useToast();
 
@@ -31,6 +32,7 @@ export default function EditItemForm({ item, categories }: EditItemFormProps) {
     if (state.error) {
       showToast(state.error, 'error');
     }
+    // Note: On success, the action redirects, so no client-side handling is needed.
   }, [state, showToast]);
 
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";

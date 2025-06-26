@@ -4,22 +4,22 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   FaUsers, FaTachometerAlt, FaBoxOpen, FaGavel, FaCreditCard, 
-  FaStar, FaUserClock, FaClipboardCheck // Add new Icon
+  FaStar, FaUserClock, FaClipboardCheck, FaMoneyBillWave // Add new Icon
 } from 'react-icons/fa';
 
 const navLinks = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: FaTachometerAlt },
   { name: 'User Management', href: '/admin/users', icon: FaUsers },
+  // FIX: Add the new link for Transactions
+  { name: 'Transactions', href: '/admin/transactions', icon: FaMoneyBillWave },
   { name: 'All Items', href: '/admin/items', icon: FaBoxOpen },
   { name: 'All Offers', href: '/admin/offers', icon: FaGavel },
   { name: 'All Orders', href: '/admin/orders', icon: FaCreditCard },
   { name: 'All Ratings', href: '/admin/ratings', icon: FaStar },
-  // FIX: Add the new link for Inspection Reports
   { name: 'Inspection Reports', href: '/admin/inspections', icon: FaClipboardCheck },
   { name: 'Unconfirmed Users', href: '/admin/unconfirmed-users', icon: FaUserClock },
 ];
 
-// ... rest of the component remains the same
 export default function AdminNav() {
   const pathname = usePathname();
 

@@ -5,19 +5,14 @@ import Link from 'next/link';
 import { Button } from './Button'; 
 import { ArrowRight } from 'lucide-react';
 
+// FIX: Ensure the component is exported using 'export const'
 export const HeroSection: React.FC = () => {
-  // The backgroundImageUrl constant is no longer needed.
-
   return (
     <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8">
-      {/* FIX: The section now uses a solid background color instead of an image.
-        The arbitrary value bg-[#022b35] sets the color you requested.
-      */}
       <section 
         className="w-full overflow-hidden rounded-2xl shadow-lg bg-[#022b35] text-white text-center py-20 sm:py-24"
         aria-label="Hero Banner"
       >
-        {/* FIX: The overlay div has been removed as it's no longer needed. */}
         <div className="px-4">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4">
             The Smart Way to Sell & Buy

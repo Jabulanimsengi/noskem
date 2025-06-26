@@ -4,9 +4,10 @@ import { Category, ItemWithProfile } from '@/types';
 import CategoryFilter from './components/CategoryFilter';
 import CreditPackagesSection from './components/CreditPackagesSection';
 import ItemCarousel from './components/ItemCarousel';
+// FIX: Ensure the HeroSection is imported correctly as a named import
 import { HeroSection } from './components/HeroSection';
 import ItemList from './components/ItemList';
-import HomepageSkeleton from './components/skeletons/HomepageSkeleton'; // Import the new skeleton
+import HomepageSkeleton from './components/skeletons/HomepageSkeleton';
 import HomepageFilters from './components/HomepageFilters';
 
 type CreditPackage = {
@@ -18,7 +19,6 @@ type CreditPackage = {
     is_popular: boolean;
 };
 
-// This new component contains the actual page content that needs to be loaded.
 async function HomepageContent() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -84,7 +84,6 @@ async function HomepageContent() {
           <CategoryFilter categories={categories} />
           <HomepageFilters />
           
-          {/* The ItemList already has its own internal Suspense boundary, which is great. */}
           <ItemList user={user} />
         </div>
       </div>
@@ -93,8 +92,6 @@ async function HomepageContent() {
   );
 }
 
-
-// The main page component now just wraps the content in a Suspense boundary.
 export default function HomePage() {
   return (
     <Suspense fallback={<HomepageSkeleton />}>

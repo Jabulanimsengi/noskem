@@ -1,43 +1,39 @@
-import { createClient } from '../../utils/supabase/server';
-import { redirect } from 'next/navigation';
+'use client'; // This needs to be a client component to use hooks
+
+import { type ReactNode } from 'react';
 import DashboardNav from './DashboardNav';
-// FIX: Import the BackButton component
-import BackButton from '@/app/components/BackButton';
+import { usePathname } from 'next/navigation';
+import PageHeader from '@/app/components/PageHeader'; // Import the new component
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const supabase = await createClient();
+// Helper function to get a title from the current URL path
+const getTitleFromPathname = (pathname: string): string => {
+    if (pathname.endsWith('/orders')) return 'My Orders';
+    if (pathname.endsWith('/my-listings')) return 'My Listings';
+    if (pathname.endsWith('/transactions')) return 'My Transactions';
+    if (pathname.endsWith('/offers')) return 'My Offers';
+    if (pathname.endsWith('/notifications')) return 'Notifications';
+    if (pathname.endsWith('/profile')) return 'Edit Profile';
+    return 'Dashboard';
+};
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/?authModal=true');
-  }
+
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const title = getTitleFromPathname(pathname);
 
   return (
     <div className="container mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
-      {/* FIX: Add the BackButton component here */}
-      <div className="mb-6">
-        <BackButton />
-      </div>
-
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold tracking-tight text-text-primary">My Dashboard</h1>
-        <p className="mt-1 text-lg text-text-secondary">Manage your orders, notifications, and profile.</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <aside className="lg:col-span-3">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="md:col-span-1">
           <DashboardNav />
-        </aside>
-
-        <main className="lg:col-span-9">
-          <div className="bg-surface rounded-xl shadow-md p-6">
+        </div>
+        <div className="md:col-span-3">
+          {/* FIX: Add the new PageHeader component */}
+          <PageHeader title={title} />
+          <div className="bg-surface p-6 rounded-lg shadow-sm">
             {children}
           </div>
-        </main>
+        </div>
       </div>
     </div>
   );

@@ -1,18 +1,14 @@
 import { createClient } from '../../utils/supabase/server';
-import { notFound } from 'next/navigation';
-import ImageGallery from '../../components/ImageGallery';
-import ViewTracker from './ViewTracker';
-import ItemLocationClient from './ItemLocationClient';
-import Link from 'next/link';
-import { type Item, type Profile } from '@/types';
-import { FaUser } from 'react-icons/fa';
+import { notFound, redirect } from 'next/navigation';
+import { Suspense } from 'react';
+import ItemDetails from './ItemDetails';
 import PurchaseActionsClient from './PurchaseActionsClient';
-import BackButton from '@/app/components/BackButton';
+import ItemCarousel from '@/app/components/ItemCarousel';
+import ViewTracker from './ViewTracker';
+import { type Category, type ItemWithProfile } from '@/types';
 
-// This specific type includes the joined category and profile data
-type ItemWithDetails = Item & {
-  profiles: Profile | null;
-  category: { name: string } | null;
+export type ItemDataWithCategory = ItemWithProfile & {
+  categories: Category | null;
 };
 
 interface ItemDetailPageProps {
@@ -21,108 +17,75 @@ interface ItemDetailPageProps {
   };
 }
 
-// FIX: Ensure this type is EXPORTED so other components can import it.
-export type ItemDataWithCategory = ItemWithDetails;
-
+// Main component to fetch and display the item details
 export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   const supabase = await createClient();
-  const itemId = params.id;
+  
+  const itemId = params?.id;
+  if (!itemId) {
+    notFound();
+  }
 
   const { data: { user } } = await supabase.auth.getUser();
 
+  // FIX: Explicitly select 'location_description' in the query
   const { data: itemData, error } = await supabase
     .from('items')
-    .select(`*, category:categories(name), profiles:seller_id(id, username, avatar_url)`)
+    .select(`
+      *,
+      location_description, 
+      profiles:seller_id (username, avatar_url, id),
+      categories (name)
+    `)
     .eq('id', itemId)
     .single();
 
   if (error || !itemData) {
     notFound();
   }
-  
-  const item = itemData as ItemDataWithCategory;
 
-  const formatCondition = (condition: string | null) => {
-    return condition ? condition.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A';
-  };
-  
-  const sellerUsername = item.profiles?.username || 'Anonymous';
+  const item = itemData as ItemDataWithCategory & { location_description: string | null };
   const isOwner = user?.id === item.seller_id;
+  const canPurchase = user && !isOwner && item.status === 'available';
+
+  const { data: similarItemsData } = await supabase
+    .from('items')
+    .select('*, profiles:seller_id(username, avatar_url)')
+    .eq('category_id', item.category_id)
+    .neq('id', item.id)
+    .eq('status', 'available')
+    .limit(10);
+  
+  const similarItems = (similarItemsData || []) as ItemWithProfile[];
 
   return (
     <>
-      <ViewTracker itemId={item.id} />
-    
-      <div className="container mx-auto max-w-6xl p-4 sm:p-6 lg:py-12">
-        <div className="mb-6">
-          <BackButton />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
-          <div className="md:col-span-2 lg:col-span-2">
-            <ImageGallery images={item.images as string[] | null} itemTitle={item.title} />
+      <Suspense fallback={null}>
+        <ViewTracker itemId={item.id} />
+      </Suspense>
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            {/* The 'item' prop now satisfies the requirements of ItemDetails */}
+            <ItemDetails item={item} />
           </div>
-
-          <div className="flex flex-col gap-6 lg:col-span-1">
-            <div className="bg-surface rounded-xl shadow-md p-6">
-              <h1 className="text-3xl font-bold text-text-primary">{item.title}</h1>
-              <div className="text-sm text-text-secondary mt-2">
-                Sold by{' '}
-                <Link href={`/sellers/${sellerUsername}`} className="font-semibold text-brand hover:underline">
-                  {sellerUsername}
-                </Link>
-              </div>
-              <div className="mt-6">
-                <p className="text-4xl font-bold text-brand">
-                  {item.buy_now_price ? `R${item.buy_now_price.toFixed(2)}` : 'Make an Offer'}
+          <div className="space-y-6">
+            {canPurchase ? (
+              <PurchaseActionsClient item={item} user={user} />
+            ) : (
+              <div className="bg-surface rounded-xl shadow-md p-6 text-center">
+                <p className="font-semibold text-text-secondary">
+                  {isOwner ? "This is your listing." : "This item is not available for purchase."}
                 </p>
               </div>
-            </div>
-            
-            {!isOwner && item.status === 'available' && (
-              <PurchaseActionsClient item={item} user={user} />
-            )}
-
-             {isOwner && (
-                <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md" role="alert">
-                    <div className="flex">
-                        <div className="py-1"><FaUser className="mr-3" /></div>
-                        <div>
-                            <p className="font-bold">This is your listing.</p>
-                            <p className="text-sm">You can manage this item from your dashboard.</p>
-                        </div>
-                    </div>
-                </div>
             )}
           </div>
         </div>
-
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
-                <div className="bg-surface rounded-xl shadow-md p-6">
-                    <h2 className="text-xl font-bold text-text-primary mb-2">Description</h2>
-                    <p className="text-text-secondary whitespace-pre-wrap leading-relaxed">
-                        {item.description || 'No description provided.'}
-                    </p>
-                </div>
-                {item.latitude && item.longitude && (
-                    <ItemLocationClient lat={item.latitude} lng={item.longitude} />
-                )}
-            </div>
-            <div className="lg:col-span-1">
-                <div className="bg-surface rounded-xl shadow-md p-6 space-y-4">
-                    <h2 className="text-xl font-bold text-text-primary">Item Details</h2>
-                    <div className="flex justify-between border-b pb-2">
-                        <span className="text-text-secondary">Condition</span>
-                        <span className="font-semibold text-text-primary">{formatCondition(item.condition)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-text-secondary">Category</span>
-                        <span className="font-semibold text-text-primary">{item.category?.name || 'N/A'}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+        {similarItems.length > 0 && (
+          <div className='border-t pt-12 mt-12'>
+            <ItemCarousel title="Similar Items" items={similarItems} user={user} />
+          </div>
+        )}
       </div>
     </>
   );
