@@ -9,7 +9,7 @@ import { type OrderStatus } from '@/types';
 const statusOptions: OrderStatus[] = [
     'pending_payment', 'payment_authorized', 'awaiting_assessment', 
     'pending_admin_approval', 'awaiting_collection', 'in_warehouse', 
-    'out_for_delivery', 'delivered', 'completed', 'cancelled', 'disputed'
+    'out_for_delivery', 'delivered', 'completed', 'cancelled', 'disputed', 'funds_paid_out'
 ];
 
 interface OrderStatusManagerProps {

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Button } from './Button'; 
 import { ArrowRight } from 'lucide-react';
 
-// FIX: Ensure the component is exported using 'export const'
 export const HeroSection: React.FC = () => {
   return (
     <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8">
@@ -18,7 +17,7 @@ export const HeroSection: React.FC = () => {
             The Smart Way to Sell & Buy
           </h1>
           <p className="text-lg md:text-xl opacity-90 max-w-3xl mx-auto">
-            Noskem is South Africa's #1 trusted marketplace. We connect you directly with the right buyers who are willing to pay the right price for your goods.
+            Noskem is South Africa&apos;s #1 trusted marketplace. We connect you directly with the right buyers who are willing to pay the right price for your goods.
           </p>
           <div className="mt-8">
             <Link href="/items/new">

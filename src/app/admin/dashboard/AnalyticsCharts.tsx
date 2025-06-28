@@ -1,8 +1,7 @@
 'use client';
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// Define the shape of the analytics data prop
 interface AnalyticsData {
   dates: string[];
   signups: number[];
@@ -15,7 +14,6 @@ interface AnalyticsChartsProps {
 }
 
 export default function AnalyticsCharts({ analytics }: AnalyticsChartsProps) {
-  // Combine the arrays into an array of objects for easier charting
   const chartData = analytics.dates.map((date, index) => ({
     name: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     "New Users": analytics.signups[index],

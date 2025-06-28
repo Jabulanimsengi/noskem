@@ -1,10 +1,7 @@
 import { createClient } from '@/app/utils/supabase/server';
 import { redirect } from 'next/navigation';
-import { type Profile } from '@/types';
 import Link from 'next/link';
-import { FaArrowRight, FaArrowLeft } from 'react-icons/fa';
 
-// Define a type for our transaction data for better type safety
 type UserTransaction = {
   id: number;
   created_at: string;
@@ -15,7 +12,6 @@ type UserTransaction = {
   orders: { id: number } | null;
 };
 
-// Helper function to get styling for different transaction types
 const getTransactionTypeClass = (type: string) => {
     switch (type) {
         case 'sale': return 'bg-blue-100 text-blue-800';
@@ -34,7 +30,6 @@ export default async function UserTransactionsPage() {
     return redirect('/?authModal=true');
   }
 
-  // Fetch all transactions belonging to the current user
   const { data, error } = await supabase
     .from('financial_transactions')
     .select('*, orders(id)')

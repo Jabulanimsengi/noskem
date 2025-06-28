@@ -1,6 +1,5 @@
 import { createClient } from '@/app/utils/supabase/server';
 import { type Profile } from '@/types';
-import Link from 'next/link';
 import PayoutActions from './PayoutActions';
 
 type Transaction = {
@@ -73,7 +72,6 @@ export default async function AdminTransactionsPage() {
                         <td className="p-3 text-text-secondary">{tx.description}</td>
                         <td className="p-3 text-text-secondary">{new Date(tx.created_at).toLocaleString()}</td>
                         <td className="p-3 text-right">
-                            {/* The Approve button will only show for pending sales */}
                             {tx.type === 'sale' && tx.status === 'pending' && tx.orders && tx.profiles && (
                                 <PayoutActions 
                                     orderId={tx.orders.id}

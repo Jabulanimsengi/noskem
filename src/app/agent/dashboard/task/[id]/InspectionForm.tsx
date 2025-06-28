@@ -1,13 +1,13 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
-// FIX: Import useRouter from next/navigation
+// FIX: Import hooks from 'react' and 'react-dom' correctly.
+import { useEffect, useState } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { useFormStatus } from 'react-dom';
 import { fileInspectionReport } from '../../actions';
 import { useToast } from '@/context/ToastContext';
 import Image from 'next/image';
-import { FaTimes, FaSpinner } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
 
 const initialState = { success: false, error: null };
 
@@ -21,9 +21,9 @@ function SubmitButton() {
 }
 
 export default function InspectionForm({ orderId }: { orderId: number }) {
-    // FIX: Initialize the router
     const router = useRouter();
-    const [state, formAction] = useActionState(fileInspectionReport, initialState);
+    // FIX: The hook is correctly named useFormState.
+    const [state, formAction] = useFormState(fileInspectionReport, initialState);
     const { showToast } = useToast();
 
     const [images, setImages] = useState<File[]>([]);
@@ -33,7 +33,6 @@ export default function InspectionForm({ orderId }: { orderId: number }) {
     useEffect(() => {
         if (state.success) {
             showToast("Inspection report submitted successfully!", "success");
-            // FIX: On success, redirect the user to the agent dashboard
             router.push('/agent/dashboard');
         }
         if (state.error) {

@@ -26,8 +26,9 @@ export default function PayoutActions({ orderId, sellerId, finalAmount }: Payout
                 try {
                     await approvePayoutAction(orderId, sellerId, finalAmount);
                     showToast("Payout approved successfully!", 'success');
-                } catch (error: any) {
-                    showToast(error.message, 'error');
+                } catch (error) {
+                    const err = error as Error;
+                    showToast(err.message, 'error');
                 } finally {
                     hideLoader();
                 }

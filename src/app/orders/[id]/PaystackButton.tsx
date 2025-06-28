@@ -5,10 +5,14 @@ import { useState } from 'react';
 import { updateOrderStatus } from './actions';
 import { useToast } from '@/context/ToastContext';
 
+interface PaystackResponse {
+  reference: string;
+}
+
 declare global {
   interface Window {
     PaystackPop?: {
-      setup(options: any): {
+      setup(options: Record<string, unknown>): {
         openIframe: () => void;
       };
     };
@@ -56,7 +60,7 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
       ref: `order_${orderId}_${new Date().getTime()}`,
       metadata: { orderId: orderId },
       onClose: () => {},
-      callback: function (response: any) {
+      callback: function (response: PaystackResponse) {
         (async () => {
           setIsProcessing(true);
           const result = await updateOrderStatus(orderId, response.reference);
@@ -72,10 +76,7 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
       },
     };
     
-    console.log("Initializing Paystack with config:", paystackConfig);
-    
-    // FIX: Added non-null assertion (!) to assure TypeScript that PaystackPop is defined here.
-    const handler = window.PaystackPop!.setup(paystackConfig);
+    const handler = window.PaystackPop.setup(paystackConfig);
     handler.openIframe();
   };
 

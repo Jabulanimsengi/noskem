@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useActionState, useRef, useTransition } from 'react';
+// FIX: Import hooks from 'react' and 'react-dom' correctly.
+import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
+import { useFormState } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { listItemAction, type ListItemFormState } from './actions';
@@ -10,7 +12,7 @@ import { type Category } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import { createClient } from '@/app/utils/supabase/client';
 
-const MapSelector = dynamic(() => import('./MapSelector'), { 
+const MapSelector = dynamic(() => import('./MapSelector'), {
   ssr: false,
   loading: () => <div className="h-72 bg-gray-200 rounded-lg flex items-center justify-center"><p>Loading Map...</p></div>
 });
@@ -21,16 +23,16 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const router = useRouter();
   const { showToast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
-  
-  const [state, formAction] = useActionState(listItemAction, initialState);
+
+  // FIX: The hook is correctly named useFormState.
+  const [state, formAction] = useFormState(listItemAction, initialState);
   const [isPending, startTransition] = useTransition();
-  
+
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
   const [locationDescription, setLocationDescription] = useState('');
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
-  // FIX: Add a new state to track the auto-detection process
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const MAX_IMAGES = 5;
 
@@ -44,22 +46,22 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
     }
   }, [state, router, showToast]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    
+
     startTransition(async () => {
       if (images.length === 0) {
         showToast('Please upload at least one image.', 'error');
         return;
       }
-      
+
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         showToast('You must be logged in.', 'error');
         return;
       }
-      
+
       showToast('Uploading images...', 'info');
       try {
         const uploadPromises = images.map(file => {
@@ -73,7 +75,7 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
           const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(result.data.path);
           uploadedImageUrls.push(publicUrl);
         }
-        
+
         if (!formRef.current) {
           throw new Error("Form reference is not available.");
         }
@@ -81,12 +83,13 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
 
         uploadedImageUrls.forEach(url => formData.append('imageUrls', url));
         formAction(formData);
-      } catch (error: any) {
-        showToast(error.message || "A client-side error occurred.", 'error');
+      } catch (error) {
+        const err = error as Error;
+        showToast(err.message || "A client-side error occurred.", 'error');
       }
     });
   };
-  
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files).filter(file => file.size <= 10 * 1024 * 1024);
@@ -100,12 +103,11 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const handleRemoveImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index));
   };
-  
+
   const handleLocationSelect = useCallback((lat: number, lng: number) => {
     setLocation({ lat, lng });
   }, []);
-  
-  // FIX: Updated the "Detect My Location" function
+
   const detectMyLocation = () => {
     if (!navigator.geolocation) {
       showToast('Geolocation is not supported by your browser.', 'error');
@@ -119,7 +121,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
         const { latitude, longitude } = position.coords;
         setLocation({ lat: latitude, lng: longitude });
 
-        // Call the reverse geocoding API
         try {
           const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
           const data = await response.json();
@@ -129,7 +130,7 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
           } else {
             showToast('Location detected, but could not find an address.', 'info');
           }
-        } catch (error) {
+        } catch {
           showToast('Could not fetch address for your location.', 'error');
         } finally {
           setIsDetectingLocation(false);
@@ -141,7 +142,7 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
       }
     );
   };
-  
+
   useEffect(() => {
     const urls = images.map(file => URL.createObjectURL(file));
     setImagePreviews(urls);
@@ -164,7 +165,7 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
       } else {
         showToast('Location not found. Please try a different name.', 'error');
       }
-    } catch (error) {
+    } catch {
       showToast('Failed to search for location.', 'error');
     } finally {
       setIsSearchingLocation(false);
@@ -173,7 +174,7 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
 
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
   const labelStyles = "block text-sm font-medium text-text-secondary mb-1";
-  
+
   return (
     <div className="container mx-auto max-w-2xl py-8">
       <form ref={formRef} onSubmit={handleSubmit} className="p-8 bg-surface rounded-xl shadow-lg space-y-6">

@@ -5,7 +5,6 @@ import Image from 'next/image';
 
 export const dynamic = 'force-dynamic';
 
-// A more specific type for the data we are fetching
 type ReportForApproval = {
     id: number;
     items: { title: string | null } | null;
@@ -21,7 +20,6 @@ type ReportForApproval = {
 export default async function AdminAllInspectionsPage() {
   const supabase = createAdminClient();
 
-  // FIX: The query now starts from 'orders' and filters for the correct status.
   const { data: reports, error } = await supabase
     .from('orders')
     .select(`
@@ -48,7 +46,7 @@ export default async function AdminAllInspectionsPage() {
       <div className="space-y-4">
         {typedReports.length > 0 ? (
           typedReports.map(task => {
-            const report = task.inspection_reports[0]; // Each task will have one report
+            const report = task.inspection_reports[0];
             return (
               <div key={report.id} className="bg-gray-50 border rounded-lg p-4">
                 <div className="flex justify-between items-start gap-4">
@@ -65,7 +63,7 @@ export default async function AdminAllInspectionsPage() {
                 </div>
                 {report.report_text && (
                     <p className="mt-3 text-text-primary border-t pt-3 whitespace-pre-wrap italic">
-                        "{report.report_text}"
+                        &quot;{report.report_text}&quot;
                     </p>
                 )}
                 {report.image_urls && report.image_urls.length > 0 && (

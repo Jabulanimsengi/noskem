@@ -4,8 +4,8 @@ import 'leaflet/dist/leaflet.css';
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import { type LatLngExpression, type Map as LeafletMap } from 'leaflet';
+import L from 'leaflet';
 
-// Manually import and set the default Leaflet icons
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
@@ -21,10 +21,10 @@ export default function MapSelector({ onLocationSelect, initialPosition }: MapSe
   const [position, setPosition] = useState<LatLngExpression>(initialPosition || DEFAULT_POSITION);
   const mapRef = useRef<LeafletMap>(null);
 
-  // FIX: The useEffect for icon configuration has been moved inside the component.
   useEffect(() => {
-    const L = require("leaflet");
-    delete L.Icon.Default.prototype._getIconUrl;
+    const LIconDefault = L.Icon.Default.prototype as { _getIconUrl?: string };
+    delete LIconDefault._getIconUrl;
+
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: iconRetinaUrl.src,
       iconUrl: iconUrl.src,

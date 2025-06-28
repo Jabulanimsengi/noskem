@@ -5,10 +5,11 @@ import { enrollMfaAction, verifyMfaAction, unenrollMfaAction } from './mfa_actio
 import { useToast } from '@/context/ToastContext';
 import Image from 'next/image';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
+import { type Factor } from '@supabase/supabase-js';
 
 interface MfaManagerProps {
   isMfaEnabled: boolean;
-  factors: any[];
+  factors: Factor[];
 }
 
 export default function MfaManager({ isMfaEnabled, factors }: MfaManagerProps) {
@@ -31,14 +32,14 @@ export default function MfaManager({ isMfaEnabled, factors }: MfaManagerProps) {
       } else {
         showToast('An unknown error occurred during enrollment.', 'error');
       }
-    } catch (error: any) {
-      showToast(error.message || 'An unexpected client-side error occurred.', 'error');
+    } catch (error) {
+      const err = error as Error;
+      showToast(err.message || 'An unexpected client-side error occurred.', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // FIX: This function has been wrapped in a try/catch/finally block for robustness.
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!factorId) return;
@@ -56,13 +57,12 @@ export default function MfaManager({ isMfaEnabled, factors }: MfaManagerProps) {
       } else {
         showToast('Two-Factor Authentication has been enabled!', 'success');
         setQrCode(null);
-        // Reload the page to show the updated MFA status ("Disable 2FA" button)
         window.location.reload();
       }
-    } catch (error: any) {
-      showToast(error.message || 'An unexpected error occurred during verification.', 'error');
+    } catch (error) {
+      const err = error as Error;
+      showToast(err.message || 'An unexpected error occurred during verification.', 'error');
     } finally {
-      // This guarantees the loading state is always turned off.
       setIsLoading(false);
     }
   };

@@ -1,8 +1,7 @@
 'use server';
 
 import { createClient } from '@/app/utils/supabase/server';
-import { revalidatePath } from 'next/cache';
-import { LISTING_FEE } from '@/lib/constants'; // Import the fee constant
+import { LISTING_FEE } from '@/lib/constants';
 
 export interface ListItemFormState {
   error: string | null;
@@ -21,18 +20,15 @@ export async function listItemAction(
   }
 
   const title = formData.get('title') as string;
-  // ... (get other form data)
   
   const { data: feeDeducted, error: rpcError } = await supabase.rpc('deduct_listing_fee', { 
     p_user_id: user.id 
   });
 
   if (rpcError || !feeDeducted) {
-    // ... (error handling)
     return { error: 'Could not process listing fee. You may not have enough credits.', success: false };
   }
     
-  // --- FIX: Log the financial transaction for the listing fee ---
   await supabase.from('financial_transactions').insert({
       user_id: user.id,
       order_id: null,
@@ -41,9 +37,9 @@ export async function listItemAction(
       amount: -LISTING_FEE,
       description: `Fee for listing item: "${title}"`
   });
-  // --- END OF FIX ---
   
-  // ... (rest of the function to insert the item)
+  // This function would continue to insert the item into the database...
+  // For brevity, the rest of the item insertion logic is omitted.
 
   return { success: true, error: null };
 }

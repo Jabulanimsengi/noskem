@@ -25,16 +25,13 @@ export async function updateOrderStatus(orderId: number, paystackRef: string) {
     try {
         const { data: orderDetails } = await supabase
             .from('orders')
-            .select('seller_id, items (title)') // This returns `items` as an array
+            .select('seller_id, items (title)')
             .eq('id', orderId)
             .single();
 
         if (orderDetails && orderDetails.seller_id) {
-            // --- FIX IS HERE ---
-            // Access the first element of the 'items' array before getting the title.
             const item = Array.isArray(orderDetails.items) ? orderDetails.items[0] : orderDetails.items;
             const itemTitle = item?.title || 'your item';
-            // --- END OF FIX ---
             
             const sellerMessage = `Payment has been received for "${itemTitle}" (Order #${orderId}). An agent will be assigned for assessment shortly.`;
             
@@ -48,8 +45,9 @@ export async function updateOrderStatus(orderId: number, paystackRef: string) {
                 await createNotification(agent.id, agentMessage, '/agent/dashboard');
             }
         }
-    } catch (notificationError: any) {
-        console.error("Failed to create notifications:", notificationError.message);
+    } catch (notificationError) {
+        const err = notificationError as Error;
+        console.error("Failed to create notifications:", err.message);
     }
 
     revalidatePath(`/orders/${orderId}`);

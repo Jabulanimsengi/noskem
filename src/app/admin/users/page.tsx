@@ -4,9 +4,9 @@ import { redirect } from 'next/navigation';
 import { FaCoins } from 'react-icons/fa';
 import CreditAdjuster from './CreditAdjuster';
 import RoleManager from './RoleManager';
-import UserActions from './UserActions'; 
-// FIX: Import the Profile type
+import UserActions from './UserActions';
 import { type Profile } from '@/types';
+import { type User } from '@supabase/supabase-js';
 
 type FullProfile = {
     id: string;
@@ -15,13 +15,12 @@ type FullProfile = {
     role: string | null;
     credit_balance: number;
     created_at: string;
-    banned_until: string | undefined; 
+    banned_until: string | undefined;
 };
 
 export default async function UserManagementPage() {
     const supabase = await createClient();
-    // FIX: Add the 'await' keyword here
-    const adminSupabase = await createAdminClient();
+    const adminSupabase = createAdminClient();
 
     const { data: { user: adminUser } } = await supabase.auth.getUser();
     if (!adminUser) redirect('/?authModal=true');
@@ -35,14 +34,13 @@ export default async function UserManagementPage() {
     if (usersError) {
         return <p className="text-red-500 text-center p-8">Error fetching users: {usersError.message}</p>;
     }
-    
+
     const userIds = usersData.users.map(u => u.id);
     const { data: profilesData } = await supabase.from('profiles').select('*').in('id', userIds);
-    
-    // FIX: Add the 'Profile' type to the map function parameter
+
     const profilesMap = new Map(profilesData?.map((p: Profile) => [p.id, p]));
 
-    const allUsers: FullProfile[] = usersData.users.map(user => {
+    const allUsers: FullProfile[] = usersData.users.map((user: User) => {
         const profile = profilesMap.get(user.id);
         return {
             id: user.id,
@@ -51,7 +49,7 @@ export default async function UserManagementPage() {
             role: profile?.role || 'user',
             credit_balance: profile?.credit_balance || 0,
             created_at: user.created_at,
-            banned_until: (user as any).banned_until,
+            banned_until: (user as { banned_until?: string }).banned_until,
         };
     });
 
@@ -89,7 +87,7 @@ export default async function UserManagementPage() {
                                 <td className="p-4 align-top">
                                     <CreditAdjuster userId={user.id} />
                                 </td>
-                                <td className="p-4 align-top">
+                                <td className="p-4 align-top text-right">
                                     <UserActions
                                       userId={user.id}
                                       isBanned={!!(user.banned_until && new Date(user.banned_until) > new Date())}

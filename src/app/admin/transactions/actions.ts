@@ -14,27 +14,23 @@ async function verifyAdmin() {
     if (profile?.role !== 'admin') throw new Error("Authorization failed: Admins only.");
 }
 
-// This database function securely handles the payout transaction
 async function executePayout(orderId: number) {
     const supabase = await createClient();
     
-    // Use an RPC function to perform the transaction atomically
-    const { data: order, error: rpcError } = await supabase.rpc('execute_seller_payout', {
+    const { error: rpcError } = await supabase.rpc('execute_seller_payout', {
       p_order_id: orderId
     });
     
     if (rpcError) throw new Error(rpcError.message);
-    return order;
 }
 
 export async function approvePayoutAction(orderId: number, sellerId: string, finalAmount: number) {
     await verifyAdmin();
 
-    const order = await executePayout(orderId);
+    await executePayout(orderId);
     
     const payoutAmount = Math.round(finalAmount * (1 - COMMISSION_RATE));
 
-    // Notify the seller that their payout has been approved
     await createNotification(
         sellerId,
         `Your payout of R${payoutAmount.toFixed(2)} for order #${orderId} has been approved and processed.`,
@@ -43,5 +39,5 @@ export async function approvePayoutAction(orderId: number, sellerId: string, fin
 
     revalidatePath('/admin/transactions');
     revalidatePath('/account/dashboard/transactions');
-    revalidatePath('/', 'layout'); // To update credit balance in header
+    revalidatePath('/', 'layout');
 }

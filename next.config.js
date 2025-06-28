@@ -5,9 +5,7 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 });
 
 const nextConfig = {
-  // FIX: Add this line to enable production source maps
   productionBrowserSourceMaps: true,
-
   images: {
     remotePatterns: [
       {
@@ -24,7 +22,6 @@ const nextConfig = {
       },
     ],
   },
-  
   experimental: {
     serverActions: {
       bodySizeLimit: '4mb',
@@ -33,13 +30,20 @@ const nextConfig = {
 };
 
 if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  const supabaseHostname = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname;
-  nextConfig.images.remotePatterns.push({
-    protocol: 'https',
-    hostname: supabaseHostname,
-    port: '',
-    pathname: '/storage/v1/object/public/**',
-  });
+  try {
+    const supabaseHostname = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname;
+    if (!nextConfig.images.remotePatterns) {
+      nextConfig.images.remotePatterns = [];
+    }
+    nextConfig.images.remotePatterns.push({
+      protocol: 'https',
+      hostname: supabaseHostname,
+      port: '',
+      pathname: '/storage/v1/object/public/**',
+    });
+  } catch (error) {
+    console.error("Error parsing NEXT_PUBLIC_SUPABASE_URL:", error);
+  }
 }
 
 module.exports = withBundleAnalyzer(nextConfig);

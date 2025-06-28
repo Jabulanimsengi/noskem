@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+// FIX: Import 'useEffect' from 'react' and 'useFormState' from 'react-dom'.
+import { useEffect } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { updateUserProfile, type UpdateProfileState } from './actions';
 import Avatar from '../../../components/Avatar';
 import { type Profile } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import MfaManager from './MfaManager';
+import { type Factor } from '@supabase/supabase-js';
 
-// This is the submit button for the form
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -24,13 +25,13 @@ function SubmitButton() {
 
 interface ProfileClientProps {
   profile: Profile;
-  factors: any[];
+  factors: Factor[];
 }
 
-// This component now holds all the client-side logic and state.
 export default function ProfileClient({ profile, factors }: ProfileClientProps) {
   const initialState: UpdateProfileState = { message: '', type: null };
-  const [state, formAction] = useActionState(updateUserProfile, initialState);
+  // FIX: The hook is correctly named useFormState.
+  const [state, formAction] = useFormState(updateUserProfile, initialState);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -82,7 +83,6 @@ export default function ProfileClient({ profile, factors }: ProfileClientProps) 
         </div>
       </form>
       
-      {/* The MfaManager component is also part of this client component */}
       <MfaManager isMfaEnabled={isMfaEnabled} factors={factors} />
     </div>
   );

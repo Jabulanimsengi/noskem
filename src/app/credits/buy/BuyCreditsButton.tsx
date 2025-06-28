@@ -5,9 +5,14 @@ import { useState } from 'react';
 import { purchaseCredits } from './actions';
 import { useToast } from '@/context/ToastContext';
 
+// Define a more specific type for the Paystack callback response
+interface PaystackResponse {
+  reference: string;
+}
+
 declare global {
   interface Window {
-    PaystackPop?: { setup(options: any): { openIframe: () => void; }; };
+    PaystackPop?: { setup(options: Record<string, unknown>): { openIframe: () => void; }; };
   }
 }
 
@@ -52,7 +57,7 @@ export default function BuyCreditsButton({ packageId, userEmail, priceZAR }: Buy
       ref: `credits_${packageId}_${new Date().getTime()}`,
       metadata: { package_id: packageId },
       onClose: () => {},
-      callback: (response: any) => {
+      callback: (response: PaystackResponse) => {
         (async () => {
           setIsProcessing(true);
           const result = await purchaseCredits(packageId, response.reference);
@@ -68,10 +73,7 @@ export default function BuyCreditsButton({ packageId, userEmail, priceZAR }: Buy
       },
     };
 
-    console.log("Initializing Paystack with config:", paystackConfig);
-
-    // FIX: Added non-null assertion (!) to assure TypeScript that PaystackPop is defined here.
-    const handler = window.PaystackPop!.setup(paystackConfig);
+    const handler = window.PaystackPop.setup(paystackConfig);
     handler.openIframe();
   };
 

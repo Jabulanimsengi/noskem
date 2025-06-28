@@ -1,8 +1,8 @@
 'use client';
 
-// FIX: Import useActionState from 'react'
-import { useActionState, useEffect } from 'react';
-import { useFormStatus } from 'react-dom';
+// FIX: Import 'useEffect' from 'react' and 'useFormState' from 'react-dom'.
+import { useEffect } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { updateItemAction, type UpdateItemFormState } from './actions';
 import { type Item, type Category } from '@/types';
 import { useToast } from '@/context/ToastContext';
@@ -24,15 +24,14 @@ interface EditItemFormProps {
 }
 
 export default function EditItemForm({ item, categories }: EditItemFormProps) {
-  // FIX: Use useActionState here
-  const [state, formAction] = useActionState(updateItemAction, initialState);
+  // FIX: The hook is correctly named useFormState.
+  const [state, formAction] = useFormState(updateItemAction, initialState);
   const { showToast } = useToast();
 
   useEffect(() => {
     if (state.error) {
       showToast(state.error, 'error');
     }
-    // Note: On success, the action redirects, so no client-side handling is needed.
   }, [state, showToast]);
 
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";

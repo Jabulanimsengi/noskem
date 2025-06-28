@@ -8,7 +8,7 @@ export default function SignupConfirmPage() {
                 <FaEnvelopeOpenText className="mx-auto text-5xl text-brand mb-4" />
                 <h1 className="text-3xl font-bold text-text-primary">Confirm your email</h1>
                 <p className="text-text-secondary mt-2 mb-6">
-                    We've sent a confirmation link to your email address. Please click the link to complete your registration.
+                    We&apos;ve sent a confirmation link to your email address. Please click the link to complete your registration.
                 </p>
                 <Link href="/" className="font-semibold text-brand hover:underline">
                     Return to Homepage

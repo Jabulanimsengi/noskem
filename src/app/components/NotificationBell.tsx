@@ -17,7 +17,6 @@ export type Notification = {
   created_at: string;
 };
 
-// This component no longer accepts props. It handles all of its own data.
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -37,7 +36,6 @@ export default function NotificationBell() {
     setNotifications(data || []);
   }, [supabase]);
 
-  // This effect runs once to get the user and their initial notifications
   useEffect(() => {
     const getUserAndNotifications = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -49,7 +47,6 @@ export default function NotificationBell() {
     getUserAndNotifications();
   }, [supabase, fetchInitialNotifications]);
 
-  // This effect listens for real-time updates
   useEffect(() => {
     if (!currentUser) return;
 
@@ -69,7 +66,7 @@ export default function NotificationBell() {
     return () => { 
       supabase.removeChannel(channel); 
     };
-  }, [currentUser, supabase]); // Depend on supabase client
+  }, [currentUser, supabase]);
 
   const handleToggleDropdown = () => {
     setIsOpen(!isOpen);
@@ -82,22 +79,23 @@ export default function NotificationBell() {
     }
   };
   
-  const handleToggleReadStatus = async (e: React.MouseEvent, notificationId: number, currentStatus: boolean) => {
+  const handleToggleReadStatus = async (e: React.MouseEvent<HTMLButtonElement>, notificationId: number, currentStatus: boolean) => {
     e.stopPropagation(); e.preventDefault();
     const newStatus = !currentStatus;
     setNotifications(current => 
       current.map(n => n.id === notificationId ? { ...n, is_read: newStatus } : n)
     );
     try { await toggleNotificationReadStatus(notificationId, newStatus); } 
-    catch (error: any) {
-      showToast(error.message, 'error');
+    catch (error) {
+      const err = error as Error;
+      showToast(err.message, 'error');
       setNotifications(current => 
         current.map(n => n.id === notificationId ? { ...n, is_read: currentStatus } : n)
       );
     }
   };
 
-  const handleClearAll = async (e: React.MouseEvent) => {
+  const handleClearAll = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     const currentNotifications = [...notifications];
     setNotifications([]);
@@ -105,13 +103,13 @@ export default function NotificationBell() {
       await clearAllNotifications();
       showToast('Notifications cleared.', 'success');
       setIsOpen(false);
-    } catch (error: any) {
-      showToast(error.message, 'error');
+    } catch (error) {
+      const err = error as Error;
+      showToast(err.message, 'error');
       setNotifications(currentNotifications);
     }
   };
   
-  // Don't render the bell at all if no user is logged in.
   if (!currentUser) {
     return null; 
   }
@@ -169,7 +167,7 @@ export default function NotificationBell() {
                     ) : (
                     <div className="p-6 text-center text-text-secondary">
                         <FaCheckCircle className="mx-auto text-4xl text-gray-300 mb-2"/>
-                        <p>You're all caught up!</p>
+                        <p>You&apos;re all caught up!</p>
                     </div>
                     )}
                 </div>

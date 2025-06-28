@@ -1,9 +1,9 @@
 'use client';
 
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom'; // FIX: useFormStatus is imported from 'react-dom'
-import { updateUserRole } from './actions';
+// FIX: Import 'useEffect' from 'react' and 'useFormState' from 'react-dom'.
 import { useEffect } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
+import { updateUserRole } from './actions';
 import { useToast } from '@/context/ToastContext';
 
 function SubmitButton() {
@@ -15,10 +15,10 @@ function SubmitButton() {
     );
 }
 
-// This client component correctly handles the state for the updateUserRole server action.
 export default function RoleManager({ userId, currentRole }: { userId: string, currentRole: string }) {
     const { showToast } = useToast();
-    const [state, formAction] = useActionState(updateUserRole, { error: null });
+    // FIX: The hook is correctly named useFormState.
+    const [state, formAction] = useFormState(updateUserRole, { error: null });
 
     useEffect(() => {
         if (state?.error) {

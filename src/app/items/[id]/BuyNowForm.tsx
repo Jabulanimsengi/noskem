@@ -1,7 +1,8 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
-import { useFormStatus } from 'react-dom';
+// FIX: Import hooks from 'react' and 'react-dom' correctly.
+import { useMemo, useState } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { createCheckoutSession, type FormState } from './actions';
 import { INSPECTION_FEE, COLLECTION_FEE, DELIVERY_FEE } from '@/lib/constants';
 import { FaShieldAlt, FaTruck, FaBox } from 'react-icons/fa';
@@ -30,14 +31,14 @@ export default function BuyNowForm({
   sellerId: string;
   itemPrice: number;
 }) {
-  const [state, formAction] = useActionState(createCheckoutSession, initialState);
+  // FIX: The hook is correctly named useFormState.
+  const [state, formAction] = useFormState(createCheckoutSession, initialState);
 
   const [includeInspection, setIncludeInspection] = useState(false);
   const [includeCollection, setIncludeCollection] = useState(false);
   const [includeDelivery, setIncludeDelivery] = useState(false);
 
   const totalAmount = useMemo(() => {
-    // FIX: Add a guard to ensure itemPrice is a valid number before calculating.
     let total = itemPrice || 0;
     if (includeInspection) total += INSPECTION_FEE;
     if (includeCollection) total += COLLECTION_FEE;

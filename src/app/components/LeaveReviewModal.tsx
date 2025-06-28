@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+// FIX: Import hooks from 'react' and 'react-dom' correctly.
+import { useEffect, useState } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { submitReviewAction, type ReviewFormState } from '../reviews/actions';
 import { useToast } from '@/context/ToastContext';
 import { FaStar } from 'react-icons/fa';
@@ -17,7 +18,6 @@ function SubmitButton() {
   );
 }
 
-// Star rating component
 const StarRating = ({ rating, setRating }: { rating: number, setRating: (r: number) => void }) => {
     const [hover, setHover] = useState(0);
     return (
@@ -50,7 +50,8 @@ interface LeaveReviewModalProps {
 }
 
 export default function LeaveReviewModal({ isOpen, onClose, orderId, sellerId, itemTitle }: LeaveReviewModalProps) {
-  const [state, formAction] = useActionState(submitReviewAction, initialState);
+  // FIX: The hook is correctly named useFormState.
+  const [state, formAction] = useFormState(submitReviewAction, initialState);
   const { showToast } = useToast();
   const [rating, setRating] = useState(0);
 

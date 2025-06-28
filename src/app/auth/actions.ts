@@ -2,7 +2,6 @@
 
 import { createClient } from '@/app/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { randomUUID } from 'crypto';
 
 export interface SignInState {
@@ -37,7 +36,6 @@ export async function signInAction(prevState: SignInState, formData: FormData): 
   return { success: true, actionId: randomUUID() };
 }
 
-// FIX: This action now returns a success state instead of redirecting.
 export async function signOutAction() {
     const supabase = await createClient();
     const { error } = await supabase.auth.signOut();

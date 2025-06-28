@@ -1,7 +1,8 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { useFormStatus } from 'react-dom';
+// FIX: Import 'useState' from 'react' and 'useFormState' from 'react-dom'.
+import { useState } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { completeProfileAction, type CompleteProfileState } from './actions';
 
 const initialState: CompleteProfileState = { error: null, success: false };
@@ -16,7 +17,8 @@ function SubmitButton() {
 }
 
 export default function CompleteProfileForm() {
-  const [state, formAction] = useActionState(completeProfileAction, initialState);
+  // FIX: The hook is correctly named useFormState.
+  const [state, formAction] = useFormState(completeProfileAction, initialState);
   const [accountType, setAccountType] = useState<'individual' | 'business'>('individual');
 
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";

@@ -13,8 +13,9 @@ export default function ApprovalActions({ orderId }: { orderId: number }) {
         try {
             await approveInspection(orderId);
             showToast('Inspection approved.', 'success');
-        } catch (error: any) {
-            showToast(error.message, 'error');
+        } catch (error) {
+            const err = error as Error;
+            showToast(err.message, 'error');
         } finally {
             hideLoader();
         }
@@ -27,8 +28,9 @@ export default function ApprovalActions({ orderId }: { orderId: number }) {
             try {
                 await rejectInspection(orderId, reason);
                 showToast('Inspection rejected and order cancelled.', 'info');
-            } catch (error: any) {
-                showToast(error.message, 'error');
+            } catch (error) {
+                const err = error as Error;
+                showToast(err.message, 'error');
             } finally {
                 hideLoader();
             }

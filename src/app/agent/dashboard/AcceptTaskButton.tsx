@@ -13,8 +13,9 @@ export default function AcceptTaskButton({ orderId }: { orderId: number }) {
             try {
                 await assignToAgentAction(orderId);
                 showToast('Task accepted successfully!', 'success');
-            } catch (error: any) {
-                showToast(error.message, 'error');
+            } catch (error) {
+                const err = error as Error;
+                showToast(err.message, 'error');
             }
         });
     };

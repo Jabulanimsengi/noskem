@@ -3,20 +3,23 @@ import { notFound, redirect } from 'next/navigation';
 import EditItemForm from '../../EditItemForm';
 import { type Item, type Category } from '@/types';
 
-interface EditItemPageProps {
+// This interface correctly defines the shape of the props for this page.
+interface PageProps {
   params: { id: string };
 }
 
-export default async function EditItemPage({ params }: EditItemPageProps) {
-  const supabase = await createClient();
+// The component's props are typed with PageProps, and `params` is destructured.
+// This is the correct pattern and will resolve the TypeScript error.
+export default async function EditItemPage({ params }: PageProps) {
   const itemId = params.id;
+  
+  const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return redirect('/?authModal=true');
+    redirect('/?authModal=true');
   }
 
-  // Fetch the item and all categories simultaneously
   const [itemRes, categoriesRes] = await Promise.all([
     supabase.from('items').select('*').eq('id', itemId).single(),
     supabase.from('categories').select('*').order('name', { ascending: true })
@@ -25,7 +28,6 @@ export default async function EditItemPage({ params }: EditItemPageProps) {
   const item = itemRes.data as Item;
   const categories = categoriesRes.data as Category[];
 
-  // Validation: Ensure item exists and the user owns it
   if (itemRes.error || !item) {
     notFound();
   }

@@ -24,11 +24,10 @@ async function verifyAdmin() {
   return user;
 }
 
-// ... (existing updateUserRole and adjustCreditsAction functions remain unchanged) ...
 export async function updateUserRole(previousState: ActionState, formData: FormData): Promise<ActionState> {
   try {
     await verifyAdmin();
-    const adminSupabase = await createAdminClient();
+    const adminSupabase = createAdminClient();
     
     const userId = formData.get('userId') as string;
     const newRole = formData.get('newRole') as string;
@@ -40,8 +39,9 @@ export async function updateUserRole(previousState: ActionState, formData: FormD
     const { error } = await adminSupabase.from('profiles').update({ role: newRole }).eq('id', userId);
     if (error) throw error;
 
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error) {
+    const err = error as Error;
+    return { error: err.message };
   }
   
   revalidatePath('/admin/users');
@@ -70,8 +70,9 @@ export async function adjustCreditsAction(previousState: ActionState, formData: 
         description: `Manual adjustment by admin (${adminUser.email}): ${notes}`
     });
     
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error) {
+    const err = error as Error;
+    return { error: err.message };
   }
 
   revalidatePath('/admin/users');
@@ -79,7 +80,6 @@ export async function adjustCreditsAction(previousState: ActionState, formData: 
   return { error: null, success: true, message: "Credits adjusted." };
 }
 
-// FIX: New action to suspend or un-suspend a user
 export async function toggleUserBanAction(userId: string, isCurrentlyBanned: boolean) {
   try {
     await verifyAdmin();
@@ -87,32 +87,31 @@ export async function toggleUserBanAction(userId: string, isCurrentlyBanned: boo
     
     const { error } = await adminSupabase.auth.admin.updateUserById(
       userId,
-      // Ban for 100 years, or set to 'none' to un-ban
       { ban_duration: isCurrentlyBanned ? 'none' : '36500d' } 
     );
 
     if (error) throw error;
     
-  } catch (error: any) {
-    return { error: `Failed to update user ban status: ${error.message}` };
+  } catch (error) {
+    const err = error as Error;
+    return { error: `Failed to update user ban status: ${err.message}` };
   }
   revalidatePath('/admin/users');
   return { error: null, success: true, message: isCurrentlyBanned ? "User un-suspended." : "User suspended." };
 }
 
 
-// FIX: New action to permanently delete a user
 export async function deleteUserAction(userId: string) {
     try {
         await verifyAdmin();
         const adminSupabase = createAdminClient();
 
-        // This is a permanent and destructive action
         const { error } = await adminSupabase.auth.admin.deleteUser(userId);
         if (error) throw error;
 
-    } catch (error: any) {
-        return { error: `Failed to delete user: ${error.message}` };
+    } catch (error) {
+        const err = error as Error;
+        return { error: `Failed to delete user: ${err.message}` };
     }
     revalidatePath('/admin/users');
     return { error: null, success: true, message: 'User permanently deleted.' };

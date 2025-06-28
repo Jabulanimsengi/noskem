@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+// FIX: Import 'useEffect' from 'react' and 'useFormState' from 'react-dom'.
+import { useEffect } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { createOfferAction, type OfferFormState } from '../offers/actions';
 import { useToast } from '@/context/ToastContext';
 
@@ -25,7 +26,8 @@ interface OfferModalProps {
 }
 
 export default function OfferModal({ isOpen, onClose, itemId, itemTitle, sellerId }: OfferModalProps) {
-  const [state, formAction] = useActionState(createOfferAction, initialState);
+  // FIX: The hook is correctly named useFormState.
+  const [state, formAction] = useFormState(createOfferAction, initialState);
   const { showToast } = useToast();
 
   useEffect(() => {

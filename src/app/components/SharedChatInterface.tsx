@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
-import { type RealtimePostgresChangesPayload, type User } from '@supabase/supabase-js';
+import { type User } from '@supabase/supabase-js';
 import { FaCheck, FaCheckDouble, FaSpinner } from 'react-icons/fa';
 import { useToast } from '@/context/ToastContext';
-import Image from 'next/image';
 
 interface Message {
   id: number;
@@ -116,7 +115,6 @@ export default function SharedChatInterface({ roomId, recipientId, currentUser }
       return;
     }
 
-    // FIX: Add error handling for the notification creation.
     const { error: rpcError } = await supabase.rpc('create_new_notification', {
       p_profile_id: recipientId,
       p_message: `New message from ${currentUser.user_metadata?.username || 'a user'}`,

@@ -45,12 +45,11 @@ export async function assignToAgentAction(orderId: number) {
   
   const message = `An agent has been assigned to your item "${itemTitle}" for assessment and collection.`;
   await createNotification(sellerId, message, `/account/dashboard/orders`);
-  
+
   revalidatePath('/agent/dashboard');
 }
 
-
-export async function fileInspectionReport(prevState: any, formData: FormData) {
+export async function fileInspectionReport(prevState: unknown, formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: 'Authentication failed.' };
@@ -124,24 +123,36 @@ export async function fileInspectionReport(prevState: any, formData: FormData) {
   return { success: true, error: null };
 }
 
-// --- NEWLY ADDED FUNCTION ---
 export async function confirmCollectionAction(orderId: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Authentication failed.');
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'agent') throw new Error('Authorization failed.');
-
-  const { error } = await supabase
+  const { data: order, error: fetchError } = await supabase
     .from('orders')
-    .update({ status: 'in_warehouse', updated_at: new Date().toISOString() })
+    .select('agent_id, buyer_id, seller_id, items(title)')
     .eq('id', orderId)
-    .eq('agent_id', user.id);
+    .single();
 
-  if (error) {
-    throw new Error(`Failed to confirm collection for order #${orderId}: ${error.message}`);
+  if (fetchError || !order || order.agent_id !== user.id) {
+    throw new Error('You are not authorized to perform this action.');
   }
 
+  const { error: updateError } = await supabase
+    .from('orders')
+    .update({ status: 'in_warehouse' })
+    .eq('id', orderId);
+
+  if (updateError) {
+    throw new Error(`Failed to update order status: ${updateError.message}`);
+  }
+
+  const item = Array.isArray(order.items) ? order.items[0] : order.items;
+  const itemTitle = item?.title || 'the item';
+  const message = `Good news! ${itemTitle} (Order #${orderId}) has been collected and is now at our secure warehouse. It will be dispatched for delivery soon.`;
+  await createNotification(order.buyer_id, message, `/account/dashboard/orders`);
+  await createNotification(order.seller_id, message, `/account/dashboard/orders`);
+
   revalidatePath('/agent/dashboard');
+  revalidatePath('/account/dashboard/orders');
 }

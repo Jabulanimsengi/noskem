@@ -1,8 +1,8 @@
 'use client';
 
-// FIX: Import useRef to track the processed action
-import { useEffect, useState, useActionState, useRef } from 'react';
-import { useFormStatus } from 'react-dom';
+// FIX: Import hooks from 'react' and 'react-dom' correctly.
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthModal } from '@/context/AuthModalContext';
@@ -33,13 +33,19 @@ export default function AuthModal() {
   const searchParams = useSearchParams();
 
   const [view, setView] = useState<'signIn' | 'mfa'>('signIn');
-  const [signInState, signInFormAction] = useActionState(signInAction, initialSignInState);
+  // FIX: The hook is correctly named useFormState.
+  const [signInState, signInFormAction] = useFormState(signInAction, initialSignInState);
   
-  // FIX: Create a ref to store the ID of the last processed successful action
   const processedActionId = useRef<string | null>(null);
 
   const [mfaCode, setMfaCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+
+  const handleClose = useCallback(() => {
+    setView('signIn');
+    closeModal();
+    router.replace(pathname, { scroll: false });
+  }, [closeModal, router, pathname]);
 
   useEffect(() => {
     if (signInState.mfaRequired) {
@@ -48,16 +54,14 @@ export default function AuthModal() {
     if (signInState.error) {
       showToast(signInState.error, 'error');
     }
-    // FIX: Check for success AND ensure this specific action has not been processed yet
     if (signInState.success && signInState.actionId !== processedActionId.current) {
-      // Mark this action ID as processed so this block doesn't run again
       processedActionId.current = signInState.actionId!;
       
       showToast('Signed in successfully!', 'success');
       handleClose();
       router.push('/'); 
     }
-  }, [signInState, showToast, router, pathname]);
+  }, [signInState, showToast, router, handleClose]);
   
   useEffect(() => {
     if (searchParams.get('authModal')) {
@@ -85,17 +89,12 @@ export default function AuthModal() {
         showToast('Signed in successfully!', 'success');
         handleClose();
         router.push('/');
-    } catch (error: any) {
-        showToast(error.message, 'error');
+    } catch (error) {
+        const err = error as Error;
+        showToast(err.message, 'error');
     } finally {
         setIsVerifying(false);
     }
-  };
-  
-  const handleClose = () => {
-    setView('signIn');
-    closeModal();
-    router.replace(pathname, { scroll: false });
   };
 
   return (
@@ -143,7 +142,7 @@ export default function AuthModal() {
                       <SubmitButton text="Sign In" pendingText="Signing In..." />
                     </form>
                     <p className="text-center text-sm text-text-secondary mt-6">
-                      Don't have an account?{' '}
+                      Don&apos;t have an account?{' '}
                       <Link href="/signup" onClick={handleClose} className="font-semibold text-brand hover:underline">
                           Sign Up
                       </Link>

@@ -1,10 +1,9 @@
 'use client';
 
-// FIX: Import 'useActionState' from 'react' instead of 'useFormState' from 'react-dom'
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { adjustCreditsAction } from './actions';
+// FIX: Import 'useEffect' from 'react' and 'useFormState' from 'react-dom'.
 import { useEffect } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
+import { adjustCreditsAction } from './actions';
 import { useToast } from '@/context/ToastContext';
 
 function SubmitButton() {
@@ -19,14 +18,13 @@ function SubmitButton() {
 export default function CreditAdjuster({ userId }: { userId: string }) {
     const { showToast } = useToast();
     
-    // FIX: The hook has been renamed from 'useFormState' to 'useActionState'
-    const [state, formAction] = useActionState(adjustCreditsAction, { error: null, success: false, message: '' });
+    // FIX: The hook is correctly named useFormState.
+    const [state, formAction] = useFormState(adjustCreditsAction, { error: null, success: false, message: '' });
 
     useEffect(() => {
         if (state?.error) {
             showToast(state.error, 'error');
         }
-        // Optional: Show a success message if the action provides one
         if (state?.success && state.message) {
             showToast(state.message, 'success');
         }

@@ -2,7 +2,6 @@ import { createClient } from '@/app/utils/supabase/server';
 import { FaStar } from 'react-icons/fa';
 import Link from 'next/link';
 
-// Define a type for our review data for better type safety
 type ReviewWithDetails = {
   id: number;
   rating: number;
@@ -13,7 +12,6 @@ type ReviewWithDetails = {
   seller: { username: string | null } | null;
 };
 
-// A small component to render the star rating
 const StarDisplay = ({ rating }: { rating: number }) => (
     <div className="flex items-center gap-1">
         {[...Array(5)].map((_, i) => (
@@ -25,7 +23,6 @@ const StarDisplay = ({ rating }: { rating: number }) => (
 export default async function AdminAllRatingsPage() {
   const supabase = await createClient();
 
-  // This query fetches ALL reviews and includes the usernames of the reviewer and the seller.
   const { data: reviews, error } = await supabase
     .from('reviews')
     .select(`
@@ -60,7 +57,7 @@ export default async function AdminAllRatingsPage() {
                 <td className="p-3">
                   <StarDisplay rating={review.rating} />
                 </td>
-                <td className="p-3 text-text-secondary italic">"{review.comment || 'No comment'}"</td>
+                <td className="p-3 text-text-secondary italic">&quot;{review.comment || 'No comment'}&quot;</td>
                 <td className="p-3 text-text-secondary">{review.reviewer?.username || 'N/A'}</td>
                 <td className="p-3 text-text-secondary">{review.seller?.username || 'N/A'}</td>
                 <td className="p-3 font-mono text-xs">

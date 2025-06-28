@@ -13,8 +13,9 @@ export default function ConfirmCollectionButton({ orderId }: { orderId: number }
             try {
                 await confirmCollectionAction(orderId);
                 showToast('Collection confirmed!', 'success');
-            } catch (error: any) {
-                showToast(error.message, 'error');
+            } catch (error) {
+                const err = error as Error;
+                showToast(err.message, 'error');
             }
         });
     };

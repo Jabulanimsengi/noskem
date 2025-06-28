@@ -1,7 +1,8 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { useFormStatus } from 'react-dom';
+// FIX: Import 'useState' from 'react' and 'useFormState' from 'react-dom'.
+import { useState } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { signupAction, type SignupFormState } from './actions';
 import Link from 'next/link';
 import { FaShoppingCart } from 'react-icons/fa';
@@ -18,7 +19,8 @@ function SubmitButton() {
 }
 
 export default function SignUpPage() {
-  const [state, formAction] = useActionState(signupAction, initialState);
+  // FIX: The hook is correctly named useFormState.
+  const [state, formAction] = useFormState(signupAction, initialState);
   const [accountType, setAccountType] = useState<'individual' | 'business'>('individual');
 
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
@@ -27,7 +29,6 @@ export default function SignUpPage() {
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50 to-cyan-100 p-4 overflow-hidden">
       
-      {/* Background Logo Watermarks */}
       <FaShoppingCart className="absolute text-brand/5 text-[40rem] -top-24 -left-24 -rotate-12" />
       <FaShoppingCart className="absolute text-brand/5 text-[30rem] -bottom-24 -right-24 rotate-12" />
 
@@ -35,7 +36,6 @@ export default function SignUpPage() {
         <h1 className="text-3xl font-bold text-center text-text-primary">Create Your Account</h1>
         <form action={formAction} className="space-y-4">
           
-          {/* Account Type Selector */}
           <div>
             <label className={labelStyles}>Account Type</label>
             <div className="flex gap-2 rounded-lg p-1 bg-gray-100">
@@ -47,7 +47,6 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          {/* Conditional Fields */}
           {accountType === 'individual' ? (
             <>
               <div><label htmlFor="firstName" className={labelStyles}>First Name</label><input id="firstName" name="firstName" type="text" required className={inputStyles}/></div>
@@ -62,7 +61,6 @@ export default function SignUpPage() {
 
           <hr className="my-4"/>
 
-          {/* Core Fields */}
           <div><label htmlFor="email" className={labelStyles}>Email Address</label><input id="email" name="email" type="email" required className={inputStyles}/></div>
           <div><label htmlFor="username" className={labelStyles}>Username</label><input id="username" name="username" type="text" required className={inputStyles}/></div>
           <div><label htmlFor="password" className={labelStyles}>Password</label><input id="password" name="password" type="password" required className={inputStyles}/></div>

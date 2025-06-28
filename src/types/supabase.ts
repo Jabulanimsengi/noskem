@@ -628,15 +628,20 @@ export type Database = {
       order_status:
         | "pending_payment"
         | "payment_authorized"
-        | "inspection_pending"
+        | "awaiting_assessment"
+        | "pending_admin_approval"
+        | "awaiting_collection"
+        | "in_warehouse"
+        | "out_for_delivery"
+        | "delivered"
         | "completed"
         | "cancelled"
         | "disputed"
-        | "awaiting_collection"
-        | "in_warehouse"
+        | "inspection_pending"
         | "inspection_passed"
         | "inspection_failed"
-        | "out_for_delivery"
+        | "item_collected"
+        
       user_role: "user" | "agent" | "admin"
     }
     CompositeTypes: {
