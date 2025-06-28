@@ -18,13 +18,14 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
   const { showConfirmation } = useConfirmationModal();
 
   const handleDelete = (item: Item) => {
+    if (typeof item.id !== 'number') return;
     showConfirmation({
       title: 'Delete Listing',
       message: `Are you sure you want to permanently delete "${item.title}"? This action cannot be undone.`,
       confirmText: 'Delete',
       onConfirm: async () => {
         try {
-          const result = await deleteItemAction(item.id);
+          const result = await deleteItemAction(item.id!);
           if (result.success) {
             showToast(result.message || 'Listing deleted successfully.', 'success');
           }
@@ -37,13 +38,14 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
   };
 
   const handleFeature = (item: Item) => {
+    if (typeof item.id !== 'number') return;
     showConfirmation({
       title: 'Feature Your Listing',
       message: `Are you sure? This will cost ${FEATURE_FEE} credits and display your item prominently on the homepage.`,
       confirmText: 'Yes, feature it!',
       onConfirm: async () => {
         try {
-          const result = await featureItemAction(item.id);
+          const result = await featureItemAction(item.id!);
           if (result.success) {
             showToast(result.message || 'Item featured successfully.', 'success');
           }

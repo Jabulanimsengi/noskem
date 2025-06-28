@@ -1,16 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
-import { type ItemWithProfile } from '@/types';
-import { FaCheckCircle, FaEye } from 'react-icons/fa';
-import { MessageSquare } from 'lucide-react';
+import { type ItemWithProfile, Like } from '@/types';
+import { FaCheckCircle, FaEye, FaHeart } from 'react-icons/fa';
+import { MessageSquare, ShoppingCart } from 'lucide-react';
 import { useChat, type ChatSession } from '@/context/ChatContext';
-import { Button } from './Button'; 
+import { Button } from './Button';
+import { useToast } from '@/context/ToastContext';
+import { createCheckoutSession } from '@/app/items/[id]/actions';
+import { toggleLikeAction } from '@/app/likes/actions';
+import { createClient } from '@/app/utils/supabase/client';
 
 const OfferModal = dynamic(() => import('./OfferModal'));
 
@@ -26,8 +30,28 @@ interface ItemCardProps {
 
 export default function ItemCard({ item, user }: ItemCardProps) {
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
+  const [hasLiked, setHasLiked] = useState(false);
+  const [isLiking, startLikeTransition] = useTransition();
   const { openModal } = useAuthModal();
   const { openChat } = useChat();
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    // Check initial like status when the component mounts if a user is logged in
+    const checkInitialLike = async () => {
+        if (user) {
+            const supabase = createClient();
+            const { data } = await supabase
+                .from('likes')
+                .select('item_id')
+                .eq('user_id', user.id)
+                .eq('item_id', item.id)
+                .single();
+            setHasLiked(!!data);
+        }
+    };
+    checkInitialLike();
+  }, [user, item.id]);
 
   const handleAction = (callback: () => void) => {
     if (!user) {
@@ -36,13 +60,25 @@ export default function ItemCard({ item, user }: ItemCardProps) {
       callback();
     }
   };
+
+  const handleToggleLike = () => {
+      handleAction(() => {
+          startLikeTransition(async () => {
+              const result = await toggleLikeAction(item.id);
+              if(result.success) {
+                  setHasLiked(result.liked);
+                  showToast(result.liked ? 'Added to your liked items!' : 'Removed from liked items.', 'success');
+              } else if (result.error) {
+                  showToast(result.error, 'error');
+              }
+          });
+      });
+  };
   
   const handleStartChat = () => {
     handleAction(() => {
-        if (user!.id === item.seller_id) return;
-
-        const roomId = createCanonicalRoomId(user!.id, item.seller_id);
-
+        if (!user || user.id === item.seller_id) return;
+        const roomId = createCanonicalRoomId(user.id, item.seller_id);
         const chatSession: ChatSession = {
           roomId: roomId,
           recipientId: item.seller_id,
@@ -54,13 +90,29 @@ export default function ItemCard({ item, user }: ItemCardProps) {
     });
   };
 
+  const handleBuyNow = () => {
+    handleAction(async () => {
+        showToast('Processing...', 'info');
+        const formData = new FormData();
+        formData.append('itemId', item.id.toString());
+        formData.append('sellerId', item.seller_id);
+        formData.append('itemPrice', (item.buy_now_price || 0).toString());
+        formData.append('includeInspection', 'false');
+        formData.append('includeCollection', 'false');
+        formData.append('includeDelivery', 'false');
+        const result = await createCheckoutSession({ error: null }, formData);
+        if (result?.error) {
+            showToast(result.error, 'error');
+        }
+    });
+  };
+
   const finalImageUrl = (Array.isArray(item.images) && typeof item.images[0] === 'string' && item.images.length > 0)
     ? item.images[0]
     : 'https://placehold.co/600x400/27272a/9ca3af?text=No+Image';
 
   const sellerProfile = item.profiles;
   const sellerUsername = sellerProfile?.username || 'user';
-  const sellerAvatarUrl = sellerProfile?.avatar_url || `https://placehold.co/32x32/0891B2/ffffff.png?text=${sellerUsername.charAt(0) || 'S'}`;
 
   return (
     <>
@@ -76,6 +128,14 @@ export default function ItemCard({ item, user }: ItemCardProps) {
                   className="transition-transform duration-300 ease-in-out group-hover:scale-105"
                 />
             </Link>
+             <button
+                onClick={handleToggleLike}
+                disabled={isLiking}
+                className="absolute top-2 right-2 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+                aria-label="Like item"
+            >
+                <FaHeart className={`${hasLiked ? 'text-red-500' : 'text-white/80'}`} />
+            </button>
           </div>
           <div className="p-4 flex flex-col flex-grow">
               <h3 className="text-lg font-bold text-text-primary truncate">{item.title}</h3>
@@ -83,14 +143,7 @@ export default function ItemCard({ item, user }: ItemCardProps) {
               {sellerProfile && (
                   <div className="flex items-center justify-between mt-2">
                     <Link href={`/sellers/${sellerUsername}`} className="flex items-center gap-2 group/seller">
-                        <Image 
-                          src={sellerAvatarUrl} 
-                          alt={sellerUsername} 
-                          width={24} 
-                          height={24} 
-                          className="rounded-full" 
-                        />
-                        <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">{sellerUsername}</span>
+                        <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">by {sellerUsername}</span>
                     </Link>
                     <div className="flex items-center gap-1 text-xs text-text-secondary">
                         <FaEye />
@@ -105,13 +158,15 @@ export default function ItemCard({ item, user }: ItemCardProps) {
 
                 <div className="mt-auto pt-4 border-t border-gray-200">
                     {item.status === 'available' ? (
-                        <div className="grid grid-cols-2 gap-2">
-                            <Button variant="secondary" onClick={handleStartChat}>
-                                <MessageSquare className="h-4 w-4 mr-1.5" />
-                                Message
+                        <div className="grid grid-cols-3 gap-2">
+                            <Button size="sm" variant="secondary" onClick={handleStartChat}>
+                                <MessageSquare className="h-4 w-4" />
                             </Button>
-                            <Button onClick={() => handleAction(() => setIsOfferModalOpen(true))}>
-                                Make Offer
+                            <Button size="sm" variant="secondary" onClick={() => handleAction(() => setIsOfferModalOpen(true))}>
+                                Offer
+                            </Button>
+                            <Button size="sm" onClick={handleBuyNow} className="col-span-1">
+                                <ShoppingCart className="h-4 w-4" />
                             </Button>
                         </div>
                     ) : (

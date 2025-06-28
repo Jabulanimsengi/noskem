@@ -29,7 +29,6 @@ export default function StartChatButton({ recipient }: { recipient: Profile }) {
 
         const roomId = createCanonicalRoomId(currentUserId, recipient.id);
 
-        // FIX: Removed the 'orderId' property to match the ChatSession type
         openChat({
             roomId: roomId,
             recipientId: recipient.id,
@@ -39,7 +38,7 @@ export default function StartChatButton({ recipient }: { recipient: Profile }) {
         });
     };
 
-    if (!currentUserId) return null;
+    if (!currentUserId || currentUserId === recipient.id) return null;
 
     return (
         <Link 

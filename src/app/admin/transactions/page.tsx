@@ -73,11 +73,7 @@ export default async function AdminTransactionsPage() {
                         <td className="p-3 text-text-secondary">{new Date(tx.created_at).toLocaleString()}</td>
                         <td className="p-3 text-right">
                             {tx.type === 'sale' && tx.status === 'pending' && tx.orders && tx.profiles && (
-                                <PayoutActions 
-                                    orderId={tx.orders.id}
-                                    sellerId={tx.profiles.id}
-                                    finalAmount={tx.orders.final_amount}
-                                />
+                                <PayoutActions orderId={tx.orders.id} sellerId={tx.profiles.id} finalAmount={tx.orders.final_amount} />
                             )}
                         </td>
                     </tr>

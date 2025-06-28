@@ -10,11 +10,22 @@ export async function confirmReceipt(orderId: number) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) { return; }
 
-  const { data: order } = await supabase.from('orders').select('buyer_id, status').eq('id', orderId).single();
+  const { data: order, error } = await supabase.from('orders').select('*, items(seller_id)').eq('id', orderId).single();
   
   if (!order || order.buyer_id !== user.id || !['delivered', 'payment_authorized'].includes(order.status)) { return; }
 
-  await supabase.from('orders').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', orderId);
+  const { error: updateError } = await supabase.from('orders').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', orderId);
+
+  if (!updateError) {
+      // --- Gamification Logic ---
+      const sellerId = order.items?.seller_id;
+      if (sellerId) {
+          await supabase.rpc('award_badge_if_not_exists', { p_user_id: sellerId, p_badge_type: 'first_sale' });
+      }
+      await supabase.rpc('award_badge_if_not_exists', { p_user_id: user.id, p_badge_type: 'power_buyer' });
+      // --- End Gamification Logic ---
+  }
+
   revalidatePath('/account/dashboard/orders');
 }
 
@@ -31,11 +42,9 @@ export async function claimSellerFunds(orderId: number) {
     
   if (!order || order.seller_id !== user.id || order.status !== 'completed') { return; }
 
-  // --- FIX: Log sale and commission to financial history ---
   const commissionAmount = order.final_amount * COMMISSION_RATE;
   const payoutAmount = order.final_amount - commissionAmount;
 
-  // Create two separate records for the financial ledger
   const saleTransaction = { 
     user_id: user.id,
     order_id: orderId,
@@ -57,12 +66,9 @@ export async function claimSellerFunds(orderId: number) {
 
   if (financialError) {
     console.error(`Failed to log financial transactions for order ${orderId}: ${financialError.message}`);
-    // Important: Do not proceed if the financial log fails
     return; 
   }
-  // --- END OF FIX ---
 
-  // This part remains: update the user's credit balance
   await supabase.rpc('add_credits_to_user', { 
     user_id: user.id, 
     amount_to_add: payoutAmount 

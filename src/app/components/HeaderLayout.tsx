@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-// FIX: Add FaCoins icon for the new credit display
-import { FaShoppingCart, FaBars, FaPlusCircle, FaCoins } from 'react-icons/fa';
+import { FaShoppingCart, FaBars, FaPlusCircle, FaCoins, FaHeart } from 'react-icons/fa';
 import { MessageSquare } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
 import SearchBar from './SearchBar';
@@ -15,9 +14,10 @@ import { type Profile } from '@/types';
 interface HeaderLayoutProps {
     user: User | null;
     profile: Profile | null;
+    likesCount: number;
 }
 
-export default function HeaderLayout({ user, profile }: HeaderLayoutProps) {
+export default function HeaderLayout({ user, profile, likesCount }: HeaderLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -54,11 +54,19 @@ export default function HeaderLayout({ user, profile }: HeaderLayoutProps) {
                   <FaPlusCircle size={18} />
                   <span>Sell Item</span>
                 </Link>
-
-                {/* FIX: New Credit Balance Display Added Here */}
+                
                 <Link href="/credits/buy" className="flex items-center gap-2 text-sm font-semibold text-text-secondary hover:text-brand" title="Your Credits">
                     <FaCoins className="h-5 w-5 text-yellow-500"/>
                     <span>{profile?.credit_balance ?? 0}</span>
+                </Link>
+
+                <Link href="/account/dashboard/liked" title="My Liked Items" className="relative text-gray-500 hover:text-brand">
+                    <FaHeart size={22} />
+                    {likesCount > 0 && (
+                        <span className="absolute -top-2 -right-2 h-5 w-5 text-xs flex items-center justify-center rounded-full bg-red-600 text-white">
+                            {likesCount}
+                        </span>
+                    )}
                 </Link>
 
                 <Link href="/chat" title="Messages" className="text-gray-500 hover:text-brand">
@@ -69,9 +77,14 @@ export default function HeaderLayout({ user, profile }: HeaderLayoutProps) {
                 <AuthButton user={user} profile={profile} />
               </div>
             ) : (
-              <div className="ml-4">
-                 <AuthButton user={user} profile={profile} />
-              </div>
+                <div className="flex items-center gap-5 ml-6">
+                    <Link href="/account/dashboard/liked" title="My Liked Items" className="text-gray-500 hover:text-brand">
+                        <FaHeart size={22} />
+                    </Link>
+                    <div className="ml-4">
+                        <AuthButton user={user} profile={profile} />
+                    </div>
+                </div>
             )}
           </div>
 
@@ -83,8 +96,6 @@ export default function HeaderLayout({ user, profile }: HeaderLayoutProps) {
         </div>
       </nav>
 
-      {/* The AuthButton component now contains the dropdown logic */}
-      {/* We need to pass dropdown state management if it's inside AuthButton now */}
       <MobileMenu 
         isOpen={isMobileMenuOpen} 
         onClose={() => setIsMobileMenuOpen(false)}

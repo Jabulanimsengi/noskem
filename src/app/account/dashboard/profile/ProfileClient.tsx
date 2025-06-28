@@ -1,6 +1,5 @@
 'use client';
 
-// FIX: Import 'useEffect' from 'react' and 'useFormState' from 'react-dom'.
 import { useEffect } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { updateUserProfile, type UpdateProfileState } from './actions';
@@ -30,7 +29,6 @@ interface ProfileClientProps {
 
 export default function ProfileClient({ profile, factors }: ProfileClientProps) {
   const initialState: UpdateProfileState = { message: '', type: null };
-  // FIX: The hook is correctly named useFormState.
   const [state, formAction] = useFormState(updateUserProfile, initialState);
   const { showToast } = useToast();
 
@@ -41,6 +39,7 @@ export default function ProfileClient({ profile, factors }: ProfileClientProps) 
   }, [state, showToast]);
   
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
+  const labelStyles = "block text-sm font-medium text-text-secondary mb-1";
   const isMfaEnabled = factors.some(f => f.factor_type === 'totp' && f.status === 'verified');
 
   return (
@@ -50,34 +49,47 @@ export default function ProfileClient({ profile, factors }: ProfileClientProps) 
         <div className="flex items-center gap-4">
             <Avatar src={profile.avatar_url} alt={profile.username || 'user'} size={64} />
             <div>
-                <label htmlFor="avatar" className="block text-sm font-medium text-text-secondary mb-1">Update Profile Picture</label>
+                <label htmlFor="avatar" className={labelStyles}>Update Profile Picture</label>
                 <input type="file" name="avatar" id="avatar" accept="image/*" className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20"/>
             </div>
         </div>
 
         <div>
-          <label htmlFor="username" className="block text-sm font-medium text-text-secondary mb-1">Public Username</label>
+          <label htmlFor="username" className={labelStyles}>Public Username</label>
           <input id="username" name="username" type="text" defaultValue={profile.username || ''} required className={inputStyles} />
         </div>
 
         {profile.account_type === 'individual' ? (
           <>
             <div>
-              <label htmlFor="firstName" className="block text-sm font-medium text-text-secondary mb-1">First Name</label>
+              <label htmlFor="firstName" className={labelStyles}>First Name</label>
               <input id="firstName" name="firstName" type="text" defaultValue={profile.first_name || ''} required className={inputStyles}/>
             </div>
             <div>
-              <label htmlFor="lastName" className="block text-sm font-medium text-text-secondary mb-1">Last Name</label>
+              <label htmlFor="lastName" className={labelStyles}>Last Name</label>
               <input id="lastName" name="lastName" type="text" defaultValue={profile.last_name || ''} required className={inputStyles}/>
             </div>
           </>
         ) : (
           <div>
-            <label htmlFor="companyName" className="block text-sm font-medium text-text-secondary mb-1">Company Name</label>
+            <label htmlFor="companyName" className={labelStyles}>Company Name</label>
             <input id="companyName" name="companyName" type="text" defaultValue={profile.company_name || ''} required className={inputStyles}/>
           </div>
         )}
         
+        <div>
+            <label htmlFor="availability_notes" className={labelStyles}>Availability</label>
+            <textarea
+                id="availability_notes"
+                name="availability_notes"
+                rows={3}
+                className={inputStyles}
+                defaultValue={profile.availability_notes || ''}
+                placeholder="e.g., Available Mon-Fri, 9am - 5pm. Please message before making an offer."
+            />
+            <p className="text-xs text-gray-500 mt-1">Let buyers know your preferred contact times or availability for questions.</p>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
             <SubmitButton />
         </div>

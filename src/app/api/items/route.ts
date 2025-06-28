@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
   const minPrice = searchParams.get('min_price');
   const maxPrice = searchParams.get('max_price');
   const conditions = searchParams.getAll('condition');
+  const onSale = searchParams.get('on_sale') === 'true';
+  const lat = searchParams.get('lat');
+  const lon = searchParams.get('lon');
   const sortParam = searchParams.get('sort') || 'created_at.desc';
   const [sortColumn, sortOrder] = sortParam.split('.');
 
@@ -21,30 +24,57 @@ export async function GET(request: NextRequest) {
   const to = from + limit - 1;
 
   try {
-    let query = supabase
-      .from('items')
-      .select('*, profiles:seller_id(username, avatar_url)', { count: 'exact' })
-      .eq('status', 'available');
+    let query;
 
-    if (categorySlug) {
-      const { data: category } = await supabase.from('categories').select('id').eq('slug', categorySlug).single();
-      if (category) {
-        query = query.eq('category_id', category.id);
-      }
+    // --- FIX STARTS HERE ---
+    // We check for location params first. If they exist, we use the RPC call.
+    if (lat && lon) {
+        query = supabase
+            .rpc('get_items_nearby', { 
+                lat: parseFloat(lat), 
+                long: parseFloat(lon), 
+                radius_km: 50 // Default radius of 50km
+            })
+            .select('*, profiles:seller_id(username, avatar_url)');
+            
+            // Note: Further filtering on RPC results is limited. 
+            // For a full implementation, these filters would need to be added to the SQL function itself.
+            // For now, we apply sorting after the RPC call.
+             if (sortColumn && sortOrder) {
+                query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
+            }
+
+    } else {
+        // If no location, build a standard query where all filters can be applied.
+        query = supabase
+            .from('items')
+            .select('*, profiles:seller_id(username, avatar_url)', { count: 'exact' })
+            .eq('status', 'available');
+
+        if (categorySlug) {
+            const { data: category } = await supabase.from('categories').select('id').eq('slug', categorySlug).single();
+            if (category) {
+                query = query.eq('category_id', category.id);
+            }
+        }
+        if (minPrice) query = query.gte('buy_now_price', parseFloat(minPrice));
+        if (maxPrice) query = query.lte('buy_now_price', parseFloat(maxPrice));
+        if (conditions.length > 0) query = query.in('condition', conditions);
+        if (onSale) query = query.gt('discount_percentage', 0);
+        
+        if (sortColumn && sortOrder) {
+            query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
+        }
     }
-    if (minPrice) query = query.gte('buy_now_price', parseFloat(minPrice));
-    if (maxPrice) query = query.lte('buy_now_price', parseFloat(maxPrice));
-    if (conditions.length > 0) query = query.in('condition', conditions);
-    
-    if (sortColumn && sortOrder) {
-      query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
-    }
+    // --- FIX ENDS HERE ---
+
 
     const { data, count } = await query.range(from, to);
 
     return NextResponse.json({
       items: data,
-      hasMore: (count ?? 0) > to + 1,
+      // Note: count is not reliable with RPC, so we estimate hasMore
+      hasMore: data ? data.length === limit : false,
     });
 
   } catch (error: unknown) {

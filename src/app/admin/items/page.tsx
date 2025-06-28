@@ -42,15 +42,7 @@ export default async function AdminAllItemsPage() {
                 </td>
                 <td className="p-3 text-text-secondary">{item.profiles?.username || 'N/A'}</td>
                 <td className="p-3 text-text-secondary">R{item.buy_now_price?.toFixed(2)}</td>
-                <td className="p-3">
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${
-                    item.status === 'available' ? 'bg-green-100 text-green-800' :
-                    item.status === 'pending_payment' ? 'bg-yellow-100 text-yellow-800' :
-                    item.status === 'sold' ? 'bg-red-100 text-red-800' : 'bg-gray-100'
-                  }`}>
-                    {item.status.replace(/_/g, ' ')}
-                  </span>
-                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.status ? item.status.replace(/_/g, ' ') : 'N/A'}</td>
                 {/* FIX: Display Yes/No for featured status */}
                 <td className="p-3 font-semibold">
                   {item.is_featured ? 'Yes' : 'No'}

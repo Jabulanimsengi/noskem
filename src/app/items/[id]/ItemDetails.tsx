@@ -18,7 +18,7 @@ const formatCondition = (condition: string) => {
 };
 
 export default function ItemDetails({ item }: ItemDetailsProps) {
-    const images = (item.images || []).filter((img): img is string => typeof img === 'string');
+    const images = (item.images || []).filter((img: string | null): img is string => typeof img === 'string');
     const [selectedImage, setSelectedImage] = useState(images[0] || 'https://placehold.co/600x400?text=No+Image');
 
     return (
@@ -35,7 +35,7 @@ export default function ItemDetails({ item }: ItemDetailsProps) {
             </div>
             {images.length > 1 && (
                 <div className="p-2 bg-gray-50 flex space-x-2 overflow-x-auto">
-                    {images.map((img, index) => (
+                    {images.map((img: string, index: number) => (
                         <div
                             key={index}
                             onClick={() => setSelectedImage(img)}

@@ -1,14 +1,14 @@
 import { createClient } from '../utils/supabase/server';
 import HeaderLayout from './HeaderLayout';
 
-// FIX: This is now an async Server Component. It has no 'use client' directive.
 export default async function Header() {
   const supabase = await createClient();
   
-  // It fetches user and profile data directly on the server.
   const { data: { user } } = await supabase.auth.getUser();
   
   let profile = null;
+  let likesCount = 0;
+
   if (user) {
     const { data: profileData } = await supabase
       .from('profiles')
@@ -16,8 +16,13 @@ export default async function Header() {
       .eq('id', user.id)
       .single();
     profile = profileData;
+
+    const { count } = await supabase
+      .from('likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    likesCount = count || 0;
   }
   
-  // It passes the data as props to the client component responsible for the UI.
-  return <HeaderLayout user={user} profile={profile} />;
+  return <HeaderLayout user={user} profile={profile} likesCount={likesCount} />;
 }

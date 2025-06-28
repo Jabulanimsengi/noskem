@@ -1,6 +1,5 @@
 'use client';
 
-// FIX: Import hooks from 'react' and 'react-dom' correctly.
 import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
 import { useFormState } from 'react-dom';
 import { useRouter } from 'next/navigation';
@@ -24,7 +23,6 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const { showToast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
 
-  // FIX: The hook is correctly named useFormState.
   const [state, formAction] = useFormState(listItemAction, initialState);
   const [isPending, startTransition] = useTransition();
 
@@ -188,26 +186,42 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
           <label htmlFor="description" className={labelStyles}>Description</label>
           <textarea name="description" id="description" rows={4} className={inputStyles}/>
         </div>
-        <div>
-          <label htmlFor="price" className={labelStyles}>Price (R)</label>
-          <input name="price" id="price" type="number" step="0.01" required className={inputStyles}/>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="price" className={labelStyles}>Your Selling Price (R)</label>
+              <input name="price" id="price" type="number" step="0.01" required className={inputStyles} placeholder="e.g., 750.00"/>
+            </div>
+            <div>
+              <label htmlFor="newItemPrice" className={labelStyles}>Price When New (R)</label>
+              <input name="newItemPrice" id="newItemPrice" type="number" step="0.01" required className={inputStyles} placeholder="e.g., 1500.00"/>
+            </div>
         </div>
-        <div>
-          <label htmlFor="categoryId" className={labelStyles}>Category</label>
-          <select name="categoryId" id="categoryId" required className={inputStyles} defaultValue="">
-            <option value="" disabled>Select a category</option>
-            {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </select>
+
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="categoryId" className={labelStyles}>Category</label>
+              <select name="categoryId" id="categoryId" required className={inputStyles} defaultValue="">
+                <option value="" disabled>Select a category</option>
+                {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="condition" className={labelStyles}>Condition</label>
+              <select name="condition" id="condition" required defaultValue="used_good" className={inputStyles}>
+                <option value="new">New</option>
+                <option value="like_new">Like New</option>
+                <option value="used_good">Used (Good)</option>
+                <option value="used_fair">Used (Fair)</option>
+              </select>
+            </div>
         </div>
+
         <div>
-          <label htmlFor="condition" className={labelStyles}>Condition</label>
-          <select name="condition" id="condition" required defaultValue="used_good" className={inputStyles}>
-            <option value="new">New</option>
-            <option value="like_new">Like New</option>
-            <option value="used_good">Used (Good)</option>
-            <option value="used_fair">Used (Fair)</option>
-          </select>
+            <label htmlFor="purchaseDate" className={labelStyles}>Original Purchase Date</label>
+            <input name="purchaseDate" id="purchaseDate" type="date" required className={inputStyles}/>
         </div>
+
         <div className="space-y-2">
           <label className={labelStyles}>Item Location</label>
           <button 

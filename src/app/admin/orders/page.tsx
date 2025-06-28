@@ -51,7 +51,7 @@ export default async function AdminAllOrdersPage() {
                 <td className="p-3 font-medium">{order.item?.title || 'Item not found'}</td>
                 <td className="p-3 text-text-secondary">{order.buyer?.username || 'N/A'}</td>
                 <td className="p-3 text-text-secondary">{order.seller?.username || 'N/A'}</td>
-                <td className="p-3 font-semibold">R{order.final_amount.toFixed(2)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.final_amount ? `R${order.final_amount.toFixed(2)}` : 'N/A'}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${getStatusClass(order.status)}`}>
                     {formatStatus(order.status)}

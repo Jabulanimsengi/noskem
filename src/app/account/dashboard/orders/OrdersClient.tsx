@@ -28,7 +28,7 @@ const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto justify-end">
                     <div className="text-left sm:text-right">
-                        <p className="font-bold text-lg text-brand">R{order.final_amount.toFixed(2)}</p>
+                        <p className="font-bold text-lg text-brand">{order.final_amount ? `R${order.final_amount.toFixed(2)}` : 'N/A'}</p>
                         <p className="text-xs font-semibold px-2 py-1 bg-yellow-400/20 text-yellow-600 rounded-full mt-1 inline-block">{formatStatus(order.status)}</p>
                     </div>
                     <div className="flex gap-2 items-center">

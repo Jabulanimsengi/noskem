@@ -1,22 +1,24 @@
-import { type Database } from './supabase';
+import { type Database } from "../database.types"; // Corrected import path
 
 // Re-exporting generated types for easy access
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Item = Database['public']['Tables']['items']['Row'];
 export type Order = Database['public']['Tables']['orders']['Row'];
 export type Category = Database['public']['Tables']['categories']['Row'];
+export type Like = Database['public']['Tables']['likes']['Row'];
 
-// FIX: This creates a union of all possible statuses from the database enum AND our custom status.
-// This is the definitive fix for the type error.
+// Explicitly define BadgeType and a helper type for the badge object
+export type BadgeType = Database['public']['Enums']['badge_type'];
+export type UserBadge = { badge_type: BadgeType };
+
 export type OrderStatus = Database['public']['Enums']['order_status'] | 'funds_paid_out';
 
 export type ItemWithProfile = Item & {
-  profiles: Profile | null; 
+  profiles: Profile | null;
 };
 
-// FIX: Update OrderWithDetails to use the corrected OrderStatus type.
 export type OrderWithDetails = Omit<Order, 'status'> & {
-    status: OrderStatus; // Use the corrected OrderStatus type
+    status: OrderStatus;
     item: { id: number; title: string | null; images: (string | null)[] | null } | null;
     seller: Profile | null;
     buyer: Profile | null;

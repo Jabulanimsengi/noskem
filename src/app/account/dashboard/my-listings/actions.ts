@@ -4,11 +4,14 @@ import { createClient } from '@/app/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { FEATURE_FEE } from '@/lib/constants';
+import { createNotification } from '@/app/actions';
 
 export interface UpdateItemFormState {
   error: string | null;
   success: boolean;
 }
+
+// ... deleteItemAction and featureItemAction remain the same ...
 
 export async function deleteItemAction(itemId: number) {
   const supabase = await createClient();
@@ -69,6 +72,45 @@ export async function featureItemAction(itemId: number) {
   return { success: true, message: 'Your item is now featured!' };
 }
 
+export async function applyDiscountAction(itemId: number, percentage: number) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        throw new Error('Authentication required.');
+    }
+
+    if(percentage < 0 || percentage > 90) {
+        throw new Error('Discount must be between 0 and 90 percent.');
+    }
+
+    const { data: item, error: updateError } = await supabase
+        .from('items')
+        .update({ discount_percentage: percentage })
+        .eq('id', itemId)
+        .eq('seller_id', user.id)
+        .select('title')
+        .single();
+
+    if (updateError || !item) {
+        throw new Error(`Failed to apply discount: ${updateError?.message || 'Item not found.'}`);
+    }
+
+    // --- Price Drop Alert Logic ---
+    const { data: likes } = await supabase.from('likes').select('user_id').eq('item_id', itemId);
+    if (likes) {
+        const notificationMessage = `Good news! An item you liked, "${item.title}", is now on sale.`;
+        for (const like of likes) {
+            await createNotification(like.user_id, notificationMessage, `/items/${itemId}`);
+        }
+    }
+    // --- End of Logic ---
+
+    revalidatePath(`/items/${itemId}`);
+    revalidatePath('/account/dashboard/my-listings');
+    return { success: true, message: 'Discount applied!' };
+}
+
+
 export async function updateItemAction(
   prevState: UpdateItemFormState,
   formData: FormData
@@ -84,6 +126,8 @@ export async function updateItemAction(
   const title = formData.get('title') as string;
   const description = formData.get('description') as string;
   const price = formData.get('price') as string;
+  const newItemPrice = formData.get('newItemPrice') as string;
+  const purchaseDate = formData.get('purchaseDate') as string;
   const condition = formData.get('condition') as string;
   const categoryId = formData.get('categoryId') as string;
 
@@ -95,10 +139,9 @@ export async function updateItemAction(
     return { error: 'Please fill out all required fields.', success: false };
   }
 
-  // FIX: Fetch the item's current status before attempting an update.
   const { data: item, error: fetchError } = await supabase
     .from('items')
-    .select('seller_id, status') // Select status as well
+    .select('seller_id, status')
     .eq('id', itemId)
     .single();
 
@@ -110,7 +153,6 @@ export async function updateItemAction(
     return { error: 'You are not authorized to edit this item.', success: false };
   }
 
-  // FIX: Add a security check to prevent editing of sold items.
   if (item.status !== 'available') {
     return { error: 'This item has been sold and can no longer be edited.', success: false };
   }
@@ -121,6 +163,8 @@ export async function updateItemAction(
       title,
       description,
       buy_now_price: parseFloat(price),
+      new_item_price: parseFloat(newItemPrice),
+      purchase_date: purchaseDate,
       condition,
       category_id: parseInt(categoryId),
     })
