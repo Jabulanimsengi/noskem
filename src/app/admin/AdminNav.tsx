@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   FaUsers, FaTachometerAlt, FaBoxOpen, FaGavel, FaCreditCard, 
-  FaStar, FaUserClock, FaClipboardCheck, FaMoneyBillWave // Add new Icon
+  FaStar, FaUserClock, FaClipboardCheck, FaMoneyBillWave, FaIdCard, FaExclamationTriangle
 } from 'react-icons/fa';
 
 const navLinks = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: FaTachometerAlt },
   { name: 'User Management', href: '/admin/users', icon: FaUsers },
-  // FIX: Add the new link for Transactions
+  { name: 'ID Verifications', href: '/admin/verifications', icon: FaIdCard },
+  { name: 'Disputes', href: '/admin/disputes', icon: FaExclamationTriangle }, // New Link
   { name: 'Transactions', href: '/admin/transactions', icon: FaMoneyBillWave },
   { name: 'All Items', href: '/admin/items', icon: FaBoxOpen },
   { name: 'All Offers', href: '/admin/offers', icon: FaGavel },

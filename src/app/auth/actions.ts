@@ -1,8 +1,10 @@
+// src/app/auth/actions.ts
+
 'use server';
 
-import { createClient } from '@/app/utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { randomUUID } from 'crypto';
+import { redirect } from 'next/navigation';
 
 export interface SignInState {
   error?: string | null;
@@ -12,7 +14,7 @@ export interface SignInState {
 }
 
 export async function signInAction(prevState: SignInState, formData: FormData): Promise<SignInState> {
-  const supabase = await createClient();
+  const supabase = createClient();
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
 
@@ -33,11 +35,12 @@ export async function signInAction(prevState: SignInState, formData: FormData): 
   }
 
   revalidatePath('/', 'layout');
-  return { success: true, actionId: randomUUID() };
+  return { success: true, actionId: crypto.randomUUID() };
 }
 
-export async function signOutAction() {
-    const supabase = await createClient();
+// Corrected signOutAction
+export async function signOutAction(): Promise<{ success: boolean; error?: string }> {
+    const supabase = createClient();
     const { error } = await supabase.auth.signOut();
 
     if (error) {

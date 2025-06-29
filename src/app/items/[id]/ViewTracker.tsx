@@ -5,20 +5,35 @@ import { createClient } from '../../utils/supabase/client';
 
 export default function ViewTracker({ itemId }: { itemId: number }) {
   useEffect(() => {
+    // Ensure this effect only runs once when the component mounts with a valid itemId
+    if (!itemId) {
+      return;
+    }
+
     const supabase = createClient();
-    
+    let hasTracked = false; // Use a flag to prevent double-tracking
+
     const trackView = async () => {
-      // --- FIX: The argument name has been corrected ---
-      // It now correctly passes 'item_id_to_increment' as expected by the database function.
-      await supabase.rpc('increment_view_count', {
-        item_id_to_increment: itemId,
-      });
-      // --- END OF FIX ---
+      if (hasTracked) return;
+      hasTracked = true;
+
+      try {
+        const { error } = await supabase.rpc('increment_view_count', {
+          item_id_to_increment: itemId,
+        });
+
+        // If there's an error, log it to the browser's console for debugging
+        if (error) {
+          console.error('Error incrementing view count:', error);
+        }
+      } catch (e) {
+        console.error('An unexpected error occurred while tracking view:', e);
+      }
     };
 
-    // Track the view once per page load
     trackView();
-  }, [itemId]); // This ensures the effect runs only once
+
+  }, [itemId]); // Dependency array ensures this runs once per item
 
   // This component doesn't render any visible UI
   return null;

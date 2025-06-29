@@ -1,181 +1,197 @@
 'use server';
 
-import { createClient } from '@/app/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
-import { FEATURE_FEE } from '@/lib/constants';
-import { createNotification } from '@/app/actions';
+import { createClient } from '@/utils/supabase/server';
+import { type Item } from '@/types';
 
-export interface UpdateItemFormState {
-  error: string | null;
-  success: boolean;
-}
-
-// ... deleteItemAction and featureItemAction remain the same ...
-
-export async function deleteItemAction(itemId: number) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('Authentication required.');
-  }
-
-  const { data: item, error: fetchError } = await supabase
-    .from('items')
-    .select('id, seller_id, images')
-    .eq('id', itemId)
-    .single();
-
-  if (fetchError || !item) {
-    throw new Error('Item not found.');
-  }
-
-  if (item.seller_id !== user.id) {
-    throw new Error('You are not authorized to delete this item.');
-  }
-
-  const { error: deleteError } = await supabase
-    .from('items')
-    .delete()
-    .eq('id', itemId);
-
-  if (deleteError) {
-    throw new Error(`Failed to delete item: ${deleteError.message}`);
-  }
-
-  revalidatePath('/account/dashboard/my-listings');
-  revalidatePath('/'); 
-
-  return { success: true, message: 'Listing deleted successfully.' };
-}
-
-export async function featureItemAction(itemId: number) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('Authentication required.');
-  }
-
-  const { error } = await supabase.rpc('feature_item', {
-    p_user_id: user.id,
-    p_item_id: itemId,
-    p_feature_fee: FEATURE_FEE
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath('/account/dashboard/my-listings');
-  revalidatePath('/'); 
-  return { success: true, message: 'Your item is now featured!' };
-}
-
-export async function applyDiscountAction(itemId: number, percentage: number) {
+const getAuthenticatedUser = async () => {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-        throw new Error('Authentication required.');
+        throw new Error('You must be logged in to perform this action.');
     }
+    return user;
+};
 
-    if(percentage < 0 || percentage > 90) {
-        throw new Error('Discount must be between 0 and 90 percent.');
-    }
 
-    const { data: item, error: updateError } = await supabase
+export async function deleteItemAction(itemId: number) {
+    const user = await getAuthenticatedUser();
+    const supabase = await createClient();
+
+    const { data: item, error: fetchError } = await supabase
         .from('items')
-        .update({ discount_percentage: percentage })
+        .select('seller_id')
         .eq('id', itemId)
-        .eq('seller_id', user.id)
-        .select('title')
         .single();
 
-    if (updateError || !item) {
-        throw new Error(`Failed to apply discount: ${updateError?.message || 'Item not found.'}`);
+    if (fetchError || !item) {
+        throw new Error('Item not found or you do not have permission to delete it.');
     }
 
-    // --- Price Drop Alert Logic ---
-    const { data: likes } = await supabase.from('likes').select('user_id').eq('item_id', itemId);
-    if (likes) {
-        const notificationMessage = `Good news! An item you liked, "${item.title}", is now on sale.`;
-        for (const like of likes) {
-            await createNotification(like.user_id, notificationMessage, `/items/${itemId}`);
-        }
+    if (item.seller_id !== user.id) {
+        throw new Error('You are not authorized to delete this item.');
     }
-    // --- End of Logic ---
 
-    revalidatePath(`/items/${itemId}`);
+    const { error: deleteError } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', itemId);
+
+    if (deleteError) {
+        throw new Error(`Failed to delete item: ${deleteError.message}`);
+    }
+
     revalidatePath('/account/dashboard/my-listings');
-    return { success: true, message: 'Discount applied!' };
+    return { success: true, message: 'Listing deleted successfully.' };
+}
+
+export async function featureItemAction(itemId: number) {
+    const user = await getAuthenticatedUser();
+    const supabase = await createClient();
+
+    // In a real app, you would deduct credits here first.
+    // This is a placeholder for that logic.
+    console.log(`User ${user.id} is featuring item ${itemId}.`);
+
+    const { error } = await supabase
+        .from('items')
+        .update({ is_featured: true })
+        .eq('id', itemId)
+        .eq('seller_id', user.id);
+
+    if (error) {
+        throw new Error(`Failed to feature item: ${error.message}`);
+    }
+
+    revalidatePath('/account/dashboard/my-listings');
+    revalidatePath('/'); // Revalidate home page to show featured item
+    return { success: true, message: 'Your listing is now featured!' };
+}
+
+export async function bumpListingAction(itemId: number) {
+    const user = await getAuthenticatedUser();
+    const supabase = await createClient();
+
+    // Placeholder for credit deduction logic
+    console.log(`User ${user.id} is bumping item ${itemId}.`);
+
+    const { error } = await supabase
+        .from('items')
+        .update({ last_bumped_at: new Date().toISOString() })
+        .eq('id', itemId)
+        .eq('seller_id', user.id);
+    
+    if (error) {
+        throw new Error(`Failed to bump item: ${error.message}`);
+    }
+
+    revalidatePath('/account/dashboard/my-listings');
+    revalidatePath('/marketplace');
+    return { success: true, message: 'Your listing has been bumped to the top.' };
 }
 
 
+export async function setStoreSaleAction(
+    previousState: { error?: string; success?: boolean; message?: string },
+    formData: FormData
+) {
+    try {
+        const user = await getAuthenticatedUser();
+        const supabase = await createClient();
+
+        const discountRaw = formData.get('discount');
+        const durationRaw = formData.get('duration');
+
+        const discount = discountRaw ? parseInt(discountRaw as string, 10) : NaN;
+        const durationDays = durationRaw ? parseInt(durationRaw as string, 10) : NaN;
+
+        if (isNaN(discount) || discount < 5 || discount > 90) {
+            return { error: 'Discount must be a number between 5 and 90.' };
+        }
+        if (isNaN(durationDays) || durationDays <= 0) {
+            return { error: 'Please select a valid sale duration.' };
+        }
+
+        const saleEndsAt = new Date();
+        saleEndsAt.setDate(saleEndsAt.getDate() + durationDays);
+
+        const { error } = await supabase
+            .from('profiles')
+            .update({
+                sale_discount_percentage: discount,
+                sale_ends_at: saleEndsAt.toISOString(),
+            })
+            .eq('id', user.id);
+
+        if (error) {
+            throw new Error(`Could not update profile for sale: ${error.message}`);
+        }
+
+        revalidatePath('/account/dashboard/my-listings');
+        revalidatePath('/marketplace'); // So users see the sale prices
+
+        return { success: true, message: 'Your store-wide sale is now active!' };
+    } catch (e) {
+        const err = e as Error;
+        return { error: err.message };
+    }
+}
+
+export type UpdateItemFormState = {
+    error: string | null;
+    success: boolean;
+};
+
 export async function updateItemAction(
-  prevState: UpdateItemFormState,
-  formData: FormData
+    previousState: UpdateItemFormState,
+    formData: FormData
 ): Promise<UpdateItemFormState> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+    try {
+        const user = await getAuthenticatedUser();
+        const supabase = await createClient();
 
-  if (!user) {
-    return { error: 'You must be logged in to update an item.', success: false };
-  }
+        const itemId = formData.get('itemId');
+        if (!itemId) {
+            return { error: 'Item ID is missing.', success: false };
+        }
 
-  const itemId = parseInt(formData.get('itemId') as string);
-  const title = formData.get('title') as string;
-  const description = formData.get('description') as string;
-  const price = formData.get('price') as string;
-  const newItemPrice = formData.get('newItemPrice') as string;
-  const purchaseDate = formData.get('purchaseDate') as string;
-  const condition = formData.get('condition') as string;
-  const categoryId = formData.get('categoryId') as string;
+        const { data: item, error: fetchError } = await supabase
+            .from('items')
+            .select('seller_id')
+            .eq('id', itemId as string)
+            .single();
 
-  if (!title || title.trim().length === 0) {
-    return { error: 'The item title cannot be empty.', success: false };
-  }
-  
-  if (!itemId || !price || !condition || !categoryId) {
-    return { error: 'Please fill out all required fields.', success: false };
-  }
+        if (fetchError || !item) {
+            return { error: 'Item not found.', success: false };
+        }
 
-  const { data: item, error: fetchError } = await supabase
-    .from('items')
-    .select('seller_id, status')
-    .eq('id', itemId)
-    .single();
+        if (item.seller_id !== user.id) {
+            return { error: 'You are not authorized to edit this item.', success: false };
+        }
 
-  if (fetchError || !item) {
-    return { error: 'Item not found.', success: false };
-  }
+        const updatedData: Partial<Item> = {
+            title: formData.get('title') as string,
+            description: formData.get('description') as string,
+            buy_now_price: parseFloat(formData.get('price') as string),
+            category_id: parseInt(formData.get('categoryId') as string, 10),
+            condition: formData.get('condition') as Item['condition'],
+        };
 
-  if (item.seller_id !== user.id) {
-    return { error: 'You are not authorized to edit this item.', success: false };
-  }
+        const { error: updateError } = await supabase
+            .from('items')
+            .update(updatedData)
+            .eq('id', itemId as string);
 
-  if (item.status !== 'available') {
-    return { error: 'This item has been sold and can no longer be edited.', success: false };
-  }
+        if (updateError) {
+            return { error: `Failed to update item: ${updateError.message}`, success: false };
+        }
 
-  const { error: updateError } = await supabase
-    .from('items')
-    .update({
-      title,
-      description,
-      buy_now_price: parseFloat(price),
-      new_item_price: parseFloat(newItemPrice),
-      purchase_date: purchaseDate,
-      condition,
-      category_id: parseInt(categoryId),
-    })
-    .eq('id', itemId);
+        revalidatePath('/account/dashboard/my-listings');
+        revalidatePath(`/items/${itemId}`);
 
-  if (updateError) {
-    return { error: `Failed to update item: ${updateError.message}`, success: false };
-  }
-  
-  revalidatePath(`/account/dashboard/my-listings`);
-  revalidatePath(`/items/${itemId}`);
-  
-  redirect('/account/dashboard/my-listings');
+        return { error: null, success: true };
+    } catch (e) {
+        const err = e as Error;
+        return { error: err.message, success: false };
+    }
 }

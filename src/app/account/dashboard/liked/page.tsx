@@ -1,6 +1,6 @@
 import { createClient } from '@/app/utils/supabase/server';
 import { redirect } from 'next/navigation';
-import { type ItemWithProfile } from '@/types';
+import { type ItemWithSeller } from '@/types';
 import ItemCard from '@/app/components/ItemCard';
 import ClearLikesButton from './ClearLikesButton';
 
@@ -26,7 +26,7 @@ export default async function LikedItemsPage() {
 
     const itemIds = likedItemIdsData.map(like => like.item_id);
 
-    let items: ItemWithProfile[] = [];
+    let items: ItemWithSeller[] = [];
     
     if (itemIds.length > 0) {
         const { data: itemsData, error: itemsError } = await supabase
@@ -38,7 +38,7 @@ export default async function LikedItemsPage() {
             console.error("Error fetching liked item details:", itemsError);
             return <p className="text-red-500 text-center p-8">Could not load details for liked items.</p>;
         }
-        items = (itemsData || []) as ItemWithProfile[];
+        items = (itemsData || []) as ItemWithSeller[];
     }
 
     return (

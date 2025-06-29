@@ -3,11 +3,11 @@
 import { type Item } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
-import { deleteItemAction, featureItemAction } from './actions';
+import { deleteItemAction, featureItemAction, bumpListingAction } from './actions';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FaEye, FaStar } from 'react-icons/fa';
-import { FEATURE_FEE } from '@/lib/constants';
+import { FaEye, FaStar, FaArrowUp } from 'react-icons/fa';
+import StoreSaleManager from './StoreSaleManager';
 
 interface MyListingsClientProps {
   items: Item[];
@@ -18,14 +18,13 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
   const { showConfirmation } = useConfirmationModal();
 
   const handleDelete = (item: Item) => {
-    if (typeof item.id !== 'number') return;
     showConfirmation({
       title: 'Delete Listing',
       message: `Are you sure you want to permanently delete "${item.title}"? This action cannot be undone.`,
       confirmText: 'Delete',
       onConfirm: async () => {
         try {
-          const result = await deleteItemAction(item.id!);
+          const result = await deleteItemAction(item.id);
           if (result.success) {
             showToast(result.message || 'Listing deleted successfully.', 'success');
           }
@@ -38,14 +37,13 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
   };
 
   const handleFeature = (item: Item) => {
-    if (typeof item.id !== 'number') return;
     showConfirmation({
       title: 'Feature Your Listing',
-      message: `Are you sure? This will cost ${FEATURE_FEE} credits and display your item prominently on the homepage.`,
+      message: `Are you sure? This will cost X credits and display your item prominently on the homepage.`,
       confirmText: 'Yes, feature it!',
       onConfirm: async () => {
         try {
-          const result = await featureItemAction(item.id!);
+          const result = await featureItemAction(item.id);
           if (result.success) {
             showToast(result.message || 'Item featured successfully.', 'success');
           }
@@ -57,9 +55,27 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
     });
   };
 
+  const handleBump = (item: Item) => {
+    showConfirmation({
+        title: 'Bump Your Listing',
+        message: `Are you sure? This will cost X credits and move your item to the top of search results for a period.`,
+        confirmText: 'Yes, Bump it!',
+        onConfirm: async () => {
+            try {
+                const result = await bumpListingAction(item.id);
+                if (result.success) {
+                    showToast(result.message || 'Item bumped successfully.', 'success');
+                }
+            } catch (error) {
+                showToast((error as Error).message, 'error');
+            }
+        },
+    });
+  };
+
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold text-text-primary mb-4">My Listings</h2>
+      <StoreSaleManager />
       {items.length > 0 ? (
         items.map((item) => {
           const imageUrl = Array.isArray(item.images) && item.images.length > 0 && typeof item.images[0] === 'string' && item.images[0].startsWith('http')
@@ -80,8 +96,8 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
                   <p className="font-semibold text-text-primary truncate">{item.title}</p>
                   <div className="flex items-center gap-4 text-sm text-text-secondary">
                       <span className={`font-semibold capitalize px-2 py-0.5 rounded-full text-xs ${
-                        item.is_featured ? 'bg-yellow-200 text-yellow-800' : 
-                        item.status === 'available' ? 'bg-green-100 text-green-800' : 
+                        item.is_featured ? 'bg-yellow-200 text-yellow-800' :
+                        item.status === 'available' ? 'bg-green-100 text-green-800' :
                         'bg-red-100 text-red-800'
                       }`}>
                         {item.is_featured ? 'Featured' : item.status?.replace(/_/g, ' ')}
@@ -101,6 +117,15 @@ export default function MyListingsClient({ items }: MyListingsClientProps) {
                   >
                     <FaStar />
                     Feature
+                  </button>
+                )}
+                {item.status === 'available' && (
+                  <button
+                    onClick={() => handleBump(item)}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 flex items-center gap-1"
+                  >
+                    <FaArrowUp />
+                    Bump
                   </button>
                 )}
                 {item.status === 'available' && (

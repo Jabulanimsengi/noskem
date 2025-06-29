@@ -1,19 +1,18 @@
 'use client';
 
-import React, { createContext, useState, useContext, ReactNode, useCallback, useRef } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 
-// The Toast and ToastType interfaces remain the same
-type ToastType = 'success' | 'error' | 'info';
+export type ToastType = 'success' | 'error' | 'info';
+
 export interface Toast {
   id: number;
   message: string;
   type: ToastType;
 }
 
-// The context now also exposes the list of toasts
 interface ToastContextType {
   toasts: Toast[];
-  showToast: (message: string, type: ToastType) => void;
+  showToast: (message: string, type?: ToastType) => void;
   removeToast: (id: number) => void;
 }
 
@@ -29,19 +28,21 @@ export const useToast = () => {
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const toastIdCounter = useRef(0);
 
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  const showToast = useCallback((message: string, type: ToastType) => {
-    const id = toastIdCounter.current++;
+  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+    const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => removeToast(id), 5000);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+      removeToast(id);
+    }, 5000);
   }, [removeToast]);
 
-  // The Provider now ONLY provides the state and functions, no UI.
   return (
     <ToastContext.Provider value={{ toasts, showToast, removeToast }}>
       {children}

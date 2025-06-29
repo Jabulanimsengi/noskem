@@ -1,8 +1,9 @@
+// src/app/components/AuthModal.tsx
+
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { createClient } from '../utils/supabase/client';
@@ -12,6 +13,7 @@ import { signInAction, type SignInState } from '../auth/actions';
 import { useToast } from '@/context/ToastContext';
 import { getGuestLikes, clearGuestLikes } from '@/utils/guestLikes';
 import { mergeGuestLikesAction } from '@/app/likes/actions';
+import { useRouter } from 'next/navigation';
 
 const initialSignInState: SignInState = {};
 
@@ -25,41 +27,33 @@ function SubmitButton({ text, pendingText }: { text: string, pendingText: string
 }
 
 export default function AuthModal() {
-  const { isOpen, closeModal, openModal } = useAuthModal();
+  const { isOpen, closeModal } = useAuthModal();
   const supabase = createClient();
   const { showToast } = useToast();
-  
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const [view, setView] = useState<'signIn' | 'mfa'>('signIn');
   const [signInState, signInFormAction] = useFormState(signInAction, initialSignInState);
-  
+
   const processedActionId = useRef<string | null>(null);
 
   const [mfaCode, setMfaCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleClose = useCallback(() => {
-    setView('signIn');
-    closeModal();
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('authModal');
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [closeModal, router, pathname, searchParams]);
-
   const handleSuccessfulSignIn = useCallback(async () => {
+    // --- DEBUGGING LOG ---
+    console.log("1. AuthModal: handleSuccessfulSignIn called. Attempting to show toast...");
+    showToast('Signed in successfully!', 'success');
+
     const guestLikes = getGuestLikes();
     if (guestLikes.length > 0) {
       await mergeGuestLikesAction(guestLikes);
       clearGuestLikes();
     }
-    showToast('Signed in successfully!', 'success');
-    handleClose();
-    // Use router.refresh() to force a re-render of server components with new auth state
+    
+    closeModal();
     router.refresh();
-  }, [showToast, handleClose, router]);
+  }, [showToast, closeModal, router]);
 
   useEffect(() => {
     if (signInState.mfaRequired) {
@@ -73,12 +67,6 @@ export default function AuthModal() {
       handleSuccessfulSignIn();
     }
   }, [signInState, showToast, handleSuccessfulSignIn]);
-  
-  useEffect(() => {
-    if (searchParams.get('authModal')) {
-      openModal();
-    }
-  }, [searchParams, openModal]);
 
   const handleMfaVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,9 +82,9 @@ export default function AuthModal() {
             factorId,
             code: mfaCode,
         });
-        
+
         if (error) throw error;
-        
+
         await handleSuccessfulSignIn();
 
     } catch (error) {
@@ -106,6 +94,12 @@ export default function AuthModal() {
         setIsVerifying(false);
     }
   };
+  
+  useEffect(() => {
+      if (!isOpen) {
+          setTimeout(() => setView('signIn'), 200);
+      }
+  }, [isOpen]);
 
   return (
     <AnimatePresence>
@@ -114,7 +108,7 @@ export default function AuthModal() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={handleClose}
+          onClick={closeModal}
           className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
         >
           <motion.div
@@ -126,13 +120,13 @@ export default function AuthModal() {
             className="w-full max-w-sm bg-surface rounded-xl shadow-xl relative"
           >
             <button
-              onClick={handleClose}
+              onClick={closeModal}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
               aria-label="Close authentication modal"
             >
               <FaTimes size={20} />
             </button>
-            
+
             <div className="p-8">
                 {view === 'signIn' && (
                   <div>
@@ -142,18 +136,18 @@ export default function AuthModal() {
                     </div>
                     <form action={signInFormAction} className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1" htmlFor="email">Email Address</label>
-                        <input name="email" id="email" type="email" required className="w-full px-3 py-2 border rounded-md" />
+                        <label className="block text-sm font-medium text-text-secondary mb-1" htmlFor="email-auth">Email Address</label>
+                        <input name="email" id="email-auth" type="email" required className="w-full px-3 py-2 border rounded-md" />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1" htmlFor="password">Password</label>
-                        <input name="password" id="password" type="password" required className="w-full px-3 py-2 border rounded-md" />
+                        <label className="block text-sm font-medium text-text-secondary mb-1" htmlFor="password-auth">Password</label>
+                        <input name="password" id="password-auth" type="password" required className="w-full px-3 py-2 border rounded-md" />
                       </div>
                       <SubmitButton text="Sign In" pendingText="Signing In..." />
                     </form>
                     <p className="text-center text-sm text-text-secondary mt-6">
                       Don&apos;t have an account?{' '}
-                      <Link href="/signup" onClick={handleClose} className="font-semibold text-brand hover:underline">
+                      <Link href="/signup" onClick={closeModal} className="font-semibold text-brand hover:underline">
                           Sign Up
                       </Link>
                     </p>
@@ -161,29 +155,29 @@ export default function AuthModal() {
                 )}
 
                 {view === 'mfa' && (
-                   <div>
-                    <div className="text-center mb-6">
-                      <h2 className="text-2xl font-bold text-text-primary">Enter Verification Code</h2>
-                      <p className="text-text-secondary mt-1">Enter the 6-digit code from your authenticator app.</p>
+                    <div>
+                     <div className="text-center mb-6">
+                       <h2 className="text-2xl font-bold text-text-primary">Enter Verification Code</h2>
+                       <p className="text-text-secondary mt-1">Enter the 6-digit code from your authenticator app.</p>
+                     </div>
+                     <form onSubmit={handleMfaVerify} className="space-y-4">
+                         <input
+                             type="text"
+                             value={mfaCode}
+                             onChange={(e) => setMfaCode(e.target.value)}
+                             placeholder="123456"
+                             maxLength={6}
+                             required
+                             className="w-full text-center tracking-[0.5em] text-2xl p-2 border rounded-md"
+                         />
+                         <button type="submit" disabled={isVerifying} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400">
+                            {isVerifying ? "Verifying..." : "Verify"}
+                         </button>
+                     </form>
+                     <button onClick={() => setView('signIn')} className="text-center text-sm text-text-secondary mt-6 w-full hover:underline">
+                         Back to login
+                     </button>
                     </div>
-                    <form onSubmit={handleMfaVerify} className="space-y-4">
-                        <input
-                            type="text"
-                            value={mfaCode}
-                            onChange={(e) => setMfaCode(e.target.value)}
-                            placeholder="123456"
-                            maxLength={6}
-                            required
-                            className="w-full text-center tracking-[0.5em] text-2xl p-2 border rounded-md"
-                        />
-                        <button type="submit" disabled={isVerifying} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400">
-                           {isVerifying ? "Verifying..." : "Verify"}
-                        </button>
-                    </form>
-                    <button onClick={() => setView('signIn')} className="text-center text-sm text-text-secondary mt-6 w-full hover:underline">
-                        Back to login
-                    </button>
-                   </div>
                 )}
             </div>
           </motion.div>

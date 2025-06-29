@@ -1,25 +1,17 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { FaArrowLeft } from 'react-icons/fa';
-
 interface PageHeaderProps {
   title: string;
+  description?: string; // Made description optional
 }
 
-export default function PageHeader({ title }: PageHeaderProps) {
-  const router = useRouter();
-
+export default function PageHeader({ title, description }: PageHeaderProps) {
   return (
-    <div className="flex items-center gap-4 mb-6">
-      <button 
-        onClick={() => router.back()}
-        className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-        aria-label="Go back"
-      >
-        <FaArrowLeft className="h-5 w-5 text-text-secondary" />
-      </button>
-      <h1 className="text-3xl font-bold text-text-primary">{title}</h1>
+    <div className="mb-8">
+      <h1 className="text-3xl font-bold tracking-tight text-gray-900">{title}</h1>
+      {description && (
+        <p className="mt-2 text-lg text-gray-600">{description}</p>
+      )}
     </div>
   );
 }

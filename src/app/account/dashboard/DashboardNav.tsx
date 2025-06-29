@@ -2,16 +2,28 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FaBoxOpen, FaBell, FaUserCircle, FaGavel, FaThList, FaReceipt, FaHeart } from 'react-icons/fa';
+import { 
+  FaBoxOpen, 
+  FaBell, 
+  FaUserCircle, 
+  FaGavel, 
+  FaThList, 
+  FaReceipt, 
+  FaHeart, 
+  FaCheckCircle,
+  FaSearch // Import FaSearch
+} from 'react-icons/fa';
 
 const navLinks = [
   { name: 'My Orders', href: '/account/dashboard/orders', icon: FaBoxOpen },
   { name: 'My Listings', href: '/account/dashboard/my-listings', icon: FaThList },
   { name: 'Transactions', href: '/account/dashboard/transactions', icon: FaReceipt },
   { name: 'My Offers', href: '/account/dashboard/offers', icon: FaGavel },
-  { name: 'Liked Items', href: '/account/dashboard/liked', icon: FaHeart }, // New Link
+  { name: 'Liked Items', href: '/account/dashboard/liked', icon: FaHeart },
+  { name: 'Saved Searches', href: '/account/dashboard/saved-searches', icon: FaSearch }, // New Link
   { name: 'Notifications', href: '/account/dashboard/notifications', icon: FaBell },
   { name: 'Profile', href: '/account/dashboard/profile', icon: FaUserCircle },
+  { name: 'Verification', href: '/account/dashboard/verification', icon: FaCheckCircle },
 ];
 
 export default function DashboardNav() {

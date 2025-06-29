@@ -1,80 +1,92 @@
+// src/app/components/MobileMenu.tsx
+
 'use client';
 
 import Link from 'next/link';
-import { FaTimes, FaShoppingCart } from 'react-icons/fa';
 import { type User } from '@supabase/supabase-js';
-import SearchBar from './SearchBar';
+import { type Profile } from '@/types';
+import { Dialog, DialogPanel, DialogTitle, Transition } from '@headlessui/react';
+import { X } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
+import { usePathname } from 'next/navigation';
+import { useEffect, Fragment } from 'react';
 
 interface MobileMenuProps {
-  isOpen: boolean;
-  onClose: () => void;
-  user: User | null;
-  profile: { credit_balance: number; role: string | null; } | null;
+    isOpen: boolean;
+    onClose: () => void;
+    user: User | null;
+    profile: Profile | null;
 }
 
 export default function MobileMenu({ isOpen, onClose, user, profile }: MobileMenuProps) {
-  const { openModal } = useAuthModal();
+    const { openModal } = useAuthModal();
+    const pathname = usePathname();
 
-  if (!isOpen) {
-    return null;
-  }
+    useEffect(() => {
+        if (isOpen) {
+            onClose();
+        }
+    }, [pathname, isOpen, onClose]);
 
-  const handleSignIn = () => {
-    onClose();
-    openModal('sign_in');
-  };
+    return (
+        <Transition show={isOpen} as={Fragment}>
+            <Dialog onClose={onClose} className="relative z-50 md:hidden">
+                <Transition.Child
+                    as={Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in duration-200"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                >
+                    <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+                </Transition.Child>
 
-  // The handleSignUp function is no longer needed and has been removed.
-
-  return (
-    <div className="fixed inset-0 bg-surface z-50 p-4 flex flex-col lg:hidden">
-      <div className="flex justify-between items-center mb-8">
-        <Link href="/" onClick={onClose} className="flex items-center gap-2 text-brand">
-          <FaShoppingCart className="h-6 w-6" />
-          <span className="text-2xl font-extrabold tracking-tight">NOSKEM</span>
-        </Link>
-        <button onClick={onClose} className="p-2">
-          <FaTimes className="h-6 w-6 text-text-secondary" />
-        </button>
-      </div>
-
-      <div className="mb-6">
-        <SearchBar />
-      </div>
-
-      <nav className="flex flex-col gap-4 text-lg font-semibold text-text-primary">
-        <Link href="/about" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-md">About Us</Link>
-        <Link href="/how-it-works" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-md">How It Works</Link>
-        
-        {user && profile && (
-            <>
-                <hr/>
-                <Link href="/account/dashboard/orders" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-md">My Dashboard</Link>
-                <Link href="/credits/buy" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-md flex items-center gap-2">
-                    Credits <span className="font-bold text-brand">{profile.credit_balance}</span>
-                </Link>
-                {profile.role === 'admin' && <Link href="/admin/users" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-md">Admin</Link>}
-                {profile.role === 'agent' && <Link href="/agent/dashboard" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-md">Agent</Link>}
-            </>
-        )}
-      </nav>
-
-      <div className="mt-auto border-t pt-6">
-        {!user ? (
-            <div className="flex gap-4">
-                <button onClick={handleSignIn} className="flex-1 px-4 py-3 text-sm font-semibold text-brand border border-brand rounded-lg">Sign In</button>
-                {/* FIX: Replaced button with a Link to the new /signup page */}
-                <Link href="/signup" onClick={onClose} className="flex-1 text-center px-4 py-3 text-sm font-semibold text-white bg-brand rounded-lg">
-                    Sign Up
-                </Link>
-            </div>
-        ) : (
-             <Link href="/items/new" onClick={onClose} className="w-full block text-center px-6 py-3 bg-brand text-white font-semibold rounded-lg">
-                Sell an Item
-            </Link>
-        )}
-      </div>
-    </div>
-  );
+                <Transition.Child
+                    as={Fragment}
+                    enter="ease-out duration-300"
+                    enterFrom="-translate-x-full"
+                    enterTo="translate-x-0"
+                    leave="ease-in duration-200"
+                    leaveFrom="translate-x-0"
+                    leaveTo="-translate-x-full"
+                >
+                    <DialogPanel className="fixed inset-y-0 left-0 w-full max-w-sm bg-white p-6">
+                        <div className="flex items-center justify-between">
+                            <DialogTitle className="text-xl font-bold text-brand">Noskem</DialogTitle>
+                            <button onClick={onClose} aria-label="Close menu"><X /></button>
+                        </div>
+                        <div className="mt-8 flow-root">
+                            <div className="-my-6 divide-y divide-gray-100">
+                                <div className="space-y-2 py-6">
+                                    <Link href="/marketplace" className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">Marketplace</Link>
+                                    <Link href="/how-it-works" className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">How It Works</Link>
+                                    <Link href="/credits/buy" className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">Buy Credits</Link>
+                                    <Link href="/about" className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">About Us</Link>
+                                </div>
+                                <div className="py-6">
+                                    {user ? (
+                                        <Link href="/account/dashboard" className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
+                                            My Dashboard
+                                        </Link>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                onClose();
+                                                openModal('sign_in');
+                                            }}
+                                            className="-mx-3 block w-full text-left rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                                        >
+                                            Log in
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </DialogPanel>
+                </Transition.Child>
+            </Dialog>
+        </Transition>
+    );
 }

@@ -1,16 +1,18 @@
+// src/app/components/AuthButton.tsx
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthModal } from '@/context/AuthModalContext';
-import { type User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
-import Avatar from './Avatar';
-import { FaChevronDown } from 'react-icons/fa';
+import { useAuthModal } from '@/context/AuthModalContext';
 import { useToast } from '@/context/ToastContext';
 import { signOutAction } from '@/app/auth/actions';
+import { type User } from '@supabase/supabase-js';
 import { type Profile } from '@/types';
+import Avatar from './Avatar';
+import { FaChevronDown } from 'react-icons/fa';
 
 interface AuthButtonProps {
   user: User | null;
@@ -22,23 +24,27 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
   const { openModal } = useAuthModal();
   const { showConfirmation } = useConfirmationModal();
   const { showToast } = useToast();
-  
+
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleSignOut = () => {
     showConfirmation({
-        title: 'Confirm Sign Out',
-        message: 'Are you sure you want to sign out?',
-        onConfirm: async () => {
-            const result = await signOutAction();
-            if (result.success) {
-                showToast("You have been signed out successfully.", 'success');
-                router.push('/');
-            } else if (result.error) {
-                showToast(result.error, 'error');
-            }
+      title: 'Confirm Sign Out',
+      message: 'Are you sure you want to sign out?',
+      confirmText: 'Sign Out',
+      onConfirm: async () => {
+        const result = await signOutAction();
+        if (result.success) {
+          // --- DEBUGGING LOG ---
+          console.log("1. AuthButton: handleSignOut confirmed. Attempting to show toast...");
+          showToast("You have been signed out successfully.", 'success');
+          setIsOpen(false);
+          router.refresh();
+        } else if (result.error) {
+          showToast(result.error, 'error');
         }
+      }
     });
   };
 
@@ -52,11 +58,26 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  return user ? (
+  if (!user) {
+    return (
+      <div className="flex items-center gap-2">
+        <button onClick={() => openModal('sign_in')} className="px-4 py-2 text-sm font-semibold text-text-primary hover:bg-gray-100 rounded-md">
+          Sign In
+        </button>
+        <Link href="/signup" className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark">
+          Sign Up
+        </Link>
+      </div>
+    );
+  }
+
+  return (
     <div className="relative" ref={dropdownRef}>
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 transition-opacity hover:opacity-80"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
       >
         <Avatar src={profile?.avatar_url} alt={profile?.username || 'User'} size={32} />
         <FaChevronDown size={12} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -73,9 +94,6 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
               <Link href="/account/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
                 My Dashboard
               </Link>
-              <Link href="/account/dashboard/profile" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
-                Edit Profile
-              </Link>
               {profile?.role === 'admin' && (
                 <Link href="/admin/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
                   Admin Panel
@@ -87,9 +105,6 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
                 </Link>
               )}
             </div>
-            
-            {/* FIX: Old Credit Balance Link Removed From Dropdown */}
-            
             <div className="py-1 border-t border-gray-200">
               <button onClick={handleSignOut} className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
                 Sign Out
@@ -98,15 +113,6 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
           </div>
         </div>
       )}
-    </div>
-  ) : (
-    <div className="flex items-center gap-2">
-      <button onClick={() => openModal('sign_in')} className="px-4 py-2 text-sm font-semibold text-text-primary hover:bg-gray-100 rounded-md">
-        Sign In
-      </button>
-      <Link href="/signup" className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark">
-        Sign Up
-      </Link>
     </div>
   );
 }

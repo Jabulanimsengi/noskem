@@ -1,3 +1,5 @@
+// src/app/components/ItemCard.tsx
+
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
@@ -8,7 +10,7 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
 import { type ItemWithProfile } from '@/types';
 import { FaCheckCircle, FaEye, FaHeart } from 'react-icons/fa';
-import { MessageSquare, ShoppingCart, Tag } from 'lucide-react';
+import { MessageSquare, Tag } from 'lucide-react';
 import { useChat, type ChatSession } from '@/context/ChatContext';
 import { Button } from './Button';
 import { useToast } from '@/context/ToastContext';
@@ -48,7 +50,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
 
   const handleAction = (callback: () => void) => {
     if (!user) {
-      openModal('sign_in');
+      openModal('sign_in'); // Corrected: This call is now valid
     } else {
       callback();
     }
@@ -59,7 +61,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
           startLikeTransition(async () => {
               const result = await toggleLikeAction(item.id);
               if(result.success) {
-                  setHasLiked(result.liked);
+                  setHasLiked(!!result.liked);
                   showToast(result.liked ? 'Added to your liked items!' : 'Removed from liked items.', 'success');
               } else if (result.error) {
                   showToast(result.error, 'error');
@@ -77,7 +79,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
           }
       }
   };
-  
+
   const handleStartChat = () => {
     handleAction(() => {
         if (!user || user.id === item.seller_id) return;
@@ -142,7 +144,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
           </div>
           <div className="p-4 flex flex-col flex-grow">
               <h3 className="text-lg font-bold text-text-primary truncate">{item.title}</h3>
-              
+
               {sellerProfile && (
                   <div className="flex items-center justify-between mt-2">
                     <Link href={`/sellers/${sellerUsername}`} className="flex items-center gap-2 group/seller">
@@ -166,10 +168,10 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                                 <MessageSquare className="h-4 w-4" />
                             </Button>
                             <Button size="sm" variant="secondary" onClick={() => handleAction(() => setIsOfferModalOpen(true))}>
-                                <Tag className="h-4 w-4 mr-1"/>
-                                Offer
+                                <Tag className="h-4 w-4" />
+                                <span className="ml-1">Offer</span>
                             </Button>
-                            <Button size="sm" onClick={handleBuyNow}>
+                            <Button size="sm" variant="primary" onClick={handleBuyNow}>
                                 Buy
                             </Button>
                         </div>

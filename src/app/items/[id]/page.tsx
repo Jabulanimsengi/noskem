@@ -59,6 +59,13 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   
   const similarItems = (similarItemsData || []) as ItemWithProfile[];
 
+  const { data: likedItems } = user ? await supabase
+    .from('likes')
+    .select('item_id')
+    .eq('user_id', user.id) : { data: [] };
+
+  const likedItemIds = Array.from(new Set(likedItems?.map(like => like.item_id) || []));
+
   return (
     <>
       <Suspense fallback={null}>
@@ -93,7 +100,7 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
         </div>
         {similarItems.length > 0 && (
           <div className='border-t pt-12 mt-12'>
-            <ItemCarousel title="Similar Items" items={similarItems} user={user} />
+            <ItemCarousel title="Similar Items" items={similarItems} user={user} likedItemIds={likedItemIds} />
           </div>
         )}
       </div>
