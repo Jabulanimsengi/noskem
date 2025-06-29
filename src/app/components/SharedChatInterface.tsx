@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useTransition } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { type User } from '@supabase/supabase-js';
-import { FaCheck, FaCheckDouble, FaSpinner } from 'react-icons/fa';
 import { useToast } from '@/context/ToastContext';
+import { Send } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { createNotification } from '@/app/actions'; // Import the new server action
 
 interface Message {
   id: number;
   sender_id: string;
   message: string;
   created_at: string;
-  is_read: boolean;
 }
 
 interface SharedChatInterfaceProps {
@@ -24,42 +25,34 @@ export default function SharedChatInterface({ roomId, recipientId, currentUser }
   const supabase = createClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const { showToast } = useToast();
+  const [isPending, startTransition] = useTransition();
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
-  const markAsReadOnClient = useCallback(async () => {
-    await supabase
-        .from('chat_messages')
-        .update({ is_read: true })
-        .eq('room_id', roomId)
-        .eq('recipient_id', currentUser.id)
-        .eq('is_read', false);
-  }, [supabase, roomId, currentUser.id]);
+  // Fetch initial messages when the component mounts
+  useEffect(() => {
+    const fetchMessages = async () => {
+      const { data } = await supabase.from('chat_messages').select('*').eq('room_id', roomId).order('created_at', { ascending: true });
+      if (data) {
+        setMessages(data as Message[]);
+      }
+    };
+    fetchMessages();
+  }, [roomId, supabase]);
 
+  // Set up the real-time subscription for new messages
   useEffect(() => {
     const channel = supabase.channel(`chat_${roomId}`)
       .on<Message>( 'postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
         (payload) => {
-          setMessages(currentMessages => {
-            if (currentMessages.find(m => m.id === payload.new.id)) {
-              return currentMessages;
-            }
-            return [...currentMessages.filter(m => m.message !== payload.new.message), payload.new];
-          });
-
+          // Add the new message to the state if it's not from the current user
           if (payload.new.sender_id !== currentUser.id) {
-            markAsReadOnClient();
+            setMessages(currentMessages => [...currentMessages, payload.new]);
           }
-        }
-      )
-      .on<Message>( 'postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
-        (payload) => {
-            setMessages(current => current.map(msg => msg.id === payload.new.id ? payload.new : msg));
         }
       )
       .subscribe();
@@ -67,19 +60,9 @@ export default function SharedChatInterface({ roomId, recipientId, currentUser }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, roomId, currentUser.id, markAsReadOnClient]);
-
-  useEffect(() => {
-    const fetchMessages = async () => {
-      const { data } = await supabase.from('chat_messages').select('*').eq('room_id', roomId).order('created_at', { ascending: true });
-      if (data) {
-        setMessages(data as Message[]);
-        markAsReadOnClient();
-      }
-    };
-    fetchMessages();
-  }, [roomId, supabase, markAsReadOnClient]);
+  }, [supabase, roomId, currentUser.id]);
   
+  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
@@ -87,66 +70,68 @@ export default function SharedChatInterface({ roomId, recipientId, currentUser }
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const messageText = newMessage.trim();
-    if (messageText === '') return;
+    if (messageText === '' || !currentUser) return;
 
+    // --- FIX 1: Optimistic UI Update ---
+    // Create a temporary message object to display immediately.
     const optimisticMessage: Message = {
-      id: Date.now(),
+      id: Date.now(), // Temporary ID
       sender_id: currentUser.id,
       message: messageText,
       created_at: new Date().toISOString(),
-      is_read: false,
     };
-
-    setMessages(currentMessages => [...currentMessages, optimisticMessage]);
+    
+    // Add the message to our local state right away.
+    setMessages(current => [...current, optimisticMessage]);
     setNewMessage('');
-    setIsSending(true);
 
-    const { error: insertError } = await supabase.from('chat_messages').insert({
-        room_id: roomId,
-        sender_id: currentUser.id,
-        recipient_id: recipientId,
-        message: messageText,
+    startTransition(async () => {
+        // --- FIX 2: Trigger Notification ---
+        // Send the message to the database in the background.
+        const { error } = await supabase.from('chat_messages').insert({
+            room_id: roomId,
+            sender_id: currentUser.id,
+            recipient_id: recipientId,
+            message: messageText,
+        });
+
+        if (error) {
+          showToast(`Error: ${error.message}`, 'error');
+          // If there's an error, remove the optimistic message
+          setMessages(current => current.filter(m => m.id !== optimisticMessage.id));
+          setNewMessage(messageText); // Restore the input
+        } else {
+          // If successful, also create a notification for the recipient.
+          await createNotification(
+              recipientId, 
+              `You have a new message from ${currentUser.user_metadata.username || 'a user'}.`,
+              '/chat' // Link to the main chat page
+          );
+        }
     });
-
-    if (insertError) {
-      showToast(`Error: Message not sent. ${insertError.message}`, 'error');
-      setMessages(currentMessages => currentMessages.filter(m => m.id !== optimisticMessage.id));
-      setIsSending(false);
-      return;
-    }
-
-    const { error: rpcError } = await supabase.rpc('create_new_notification', {
-      p_profile_id: recipientId,
-      p_message: `New message from ${currentUser.user_metadata?.username || 'a user'}`,
-      p_link_url: '/chat' 
-    });
-
-    if (rpcError) {
-      console.error("Failed to create notification:", rpcError);
-      showToast("Message sent, but failed to create a notification.", "error");
-    }
-
-    setIsSending(false);
   };
 
   return (
-    <div className="flex flex-col flex-grow bg-background overflow-hidden">
-      <div className="flex-grow p-4 space-y-4 overflow-y-auto">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex items-end gap-2 text-sm ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] px-3 py-2 rounded-xl ${msg.sender_id === currentUser.id ? 'bg-brand text-white rounded-br-none' : 'bg-surface text-text-primary rounded-bl-none shadow-sm'}`}>
-              <p className="break-words">{msg.message}</p>
-            </div>
-            {msg.sender_id === currentUser.id && (
-                <div className="text-xs text-gray-400 mb-1 flex-shrink-0">
-                    {msg.is_read ? <FaCheckDouble className="text-blue-500" /> : <FaCheck />}
-                </div>
-            )}
-          </div>
-        ))}
+    <div className="flex flex-col flex-grow bg-gray-50 overflow-hidden">
+      <div className="flex-grow p-4 space-y-2 overflow-y-auto">
+        <AnimatePresence>
+          {messages.map((msg) => (
+            <motion.div
+              key={msg.id}
+              layout
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`flex items-end gap-2 text-sm ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`max-w-[85%] px-3 py-2 rounded-xl ${msg.sender_id === currentUser.id ? 'bg-brand text-white rounded-br-none' : 'bg-white text-text-primary rounded-bl-none shadow-sm'}`}>
+                <p className="break-words">{msg.message}</p>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
-      <div className="p-2 bg-surface border-t flex-shrink-0">
+      <div className="p-2 bg-white border-t flex-shrink-0">
         <form onSubmit={handleSendMessage} className="flex gap-2 items-center">
           <input 
             type="text" 
@@ -154,14 +139,16 @@ export default function SharedChatInterface({ roomId, recipientId, currentUser }
             onChange={(e) => setNewMessage(e.target.value)} 
             placeholder="Type a message..." 
             className="flex-grow px-3 py-1.5 text-sm bg-gray-100 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-brand"
-            disabled={isSending}
+            autoComplete="off"
+            disabled={isPending}
           />
           <button 
             type="submit" 
-            disabled={isSending || !newMessage} 
-            className="px-5 py-1.5 font-semibold text-white bg-brand rounded-full hover:bg-brand-dark text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+            disabled={!newMessage || isPending}
+            className="p-3 bg-brand text-white rounded-full hover:bg-brand-dark text-sm disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            aria-label="Send"
           >
-            {isSending ? <FaSpinner className="animate-spin" /> : 'Send'}
+            <Send className="h-4 w-4" />
           </button>
         </form>
       </div>

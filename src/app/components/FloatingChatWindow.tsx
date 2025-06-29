@@ -1,3 +1,5 @@
+// src/app/components/FloatingChatWindow.tsx
+
 'use client';
 
 import { useState } from 'react';
@@ -9,15 +11,12 @@ import { type User } from '@supabase/supabase-js';
 
 interface FloatingChatWindowProps {
   chat: ChatSession;
-  // This prop is guaranteed to be a valid User object by the parent component.
   currentUser: User; 
 }
 
 export default function FloatingChatWindow({ chat, currentUser }: FloatingChatWindowProps) {
   const [isMinimized, setIsMinimized] = useState(false);
   const { closeChat } = useChat();
-
-  // FIX: The redundant 'if (!currentUser)' check has been removed for simplicity and reliability.
   
   const header = (
     <div 
@@ -65,8 +64,8 @@ export default function FloatingChatWindow({ chat, currentUser }: FloatingChatWi
       {header}
       <SharedChatInterface
         roomId={chat.roomId}
-        recipientId={chat.recipientId}
-        currentUser={currentUser}
+        recipientId={chat.recipientId} // Pass recipientId directly
+        currentUser={currentUser} // Pass the user object as `currentUser`
       />
     </div>
   );
