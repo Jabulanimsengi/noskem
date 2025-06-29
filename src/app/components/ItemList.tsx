@@ -10,19 +10,18 @@ import { FaSpinner } from 'react-icons/fa';
 
 interface ItemListProps {
   user: User | null;
+  initialLikedItemIds: number[]; // Add this prop
 }
 
-function ItemListComponent({ user }: ItemListProps) {
+function ItemListComponent({ user, initialLikedItemIds }: ItemListProps) {
   const searchParams = useSearchParams();
   
-  // State to hold the items, the current page, and whether more items are available
   const [items, setItems] = useState<ItemWithProfile[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
 
-  // This function fetches a specific page of items from our API
   const fetchItems = useCallback(async (pageNum: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', pageNum.toString());
@@ -33,10 +32,9 @@ function ItemListComponent({ user }: ItemListProps) {
     return response.json();
   }, [searchParams]);
 
-  // This effect runs on the initial load or when filters change
   useEffect(() => {
     setIsLoading(true);
-    setPage(1); // Reset to page 1
+    setPage(1);
     fetchItems(1).then(data => {
       setItems(data.items || []);
       setHasMore(data.hasMore || false);
@@ -47,7 +45,6 @@ function ItemListComponent({ user }: ItemListProps) {
     });
   }, [searchParams, fetchItems]);
 
-  // This function is called when the "Load More" button is clicked
   const loadMoreItems = async () => {
     if (isFetchingMore || !hasMore) return;
 
@@ -55,7 +52,6 @@ function ItemListComponent({ user }: ItemListProps) {
     const nextPage = page + 1;
     
     fetchItems(nextPage).then(data => {
-      // Append the new items to the existing list
       setItems(prevItems => [...prevItems, ...(data.items || [])]);
       setPage(nextPage);
       setHasMore(data.hasMore || false);
@@ -75,14 +71,18 @@ function ItemListComponent({ user }: ItemListProps) {
       {items.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {items.map((item) => (
-            <ItemCard key={`${item.id}-${item.created_at}`} item={item as ItemWithProfile} user={user} />
+            <ItemCard 
+              key={`${item.id}-${item.created_at}`} 
+              item={item as ItemWithProfile} 
+              user={user}
+              initialHasLiked={initialLikedItemIds.includes(item.id)} // Pass down the like status
+            />
           ))}
         </div>
       ) : (
         <p className="text-center text-text-secondary py-10">No items found matching your criteria.</p>
       )}
 
-      {/* The "Load More" button, which only appears if more items are available */}
       {hasMore && (
         <div className="text-center mt-12">
           <button

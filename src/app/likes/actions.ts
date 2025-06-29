@@ -11,10 +11,9 @@ export async function toggleLikeAction(itemId: number) {
         return { error: "You must be logged in to like items." };
     }
 
-    // Check if the user has already liked the item
     const { data: existingLike } = await supabase
         .from('likes')
-        .select('user_id, item_id')
+        .select('item_id')
         .eq('user_id', user.id)
         .eq('item_id', itemId)
         .single();
@@ -22,40 +21,30 @@ export async function toggleLikeAction(itemId: number) {
     let newLikeStatus: boolean;
 
     if (existingLike) {
-        // User has already liked it, so unlike it
         const { error } = await supabase
             .from('likes')
             .delete()
             .eq('user_id', user.id)
             .eq('item_id', itemId);
         
-        if (error) {
-            return { error: `Could not remove like: ${error.message}` };
-        }
+        if (error) { return { error: `Could not remove like: ${error.message}` }; }
         newLikeStatus = false;
     } else {
-        // User has not liked it, so add a like
         const { error } = await supabase
             .from('likes')
             .insert({ user_id: user.id, item_id: itemId });
 
-        if (error) {
-            return { error: `Could not like item: ${error.message}` };
-        }
+        if (error) { return { error: `Could not like item: ${error.message}` }; }
         newLikeStatus = true;
     }
 
-    // --- START OF FIX ---
-    // Revalidate the layout to ensure the header refetches the new like count.
     revalidatePath('/', 'layout');
-    // --- END OF FIX ---
-
-    revalidatePath(`/items/${itemId}`);
     revalidatePath('/account/dashboard/liked');
     
     return { success: true, liked: newLikeStatus };
 }
 
+// This function was missing and is now added and exported.
 export async function clearAllLikesAction() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -74,6 +63,6 @@ export async function clearAllLikesAction() {
     }
 
     revalidatePath('/account/dashboard/liked');
-    revalidatePath('/', 'layout');
+    revalidatePath('/', 'layout'); // Revalidate layout to update header count
     return { success: true };
 }

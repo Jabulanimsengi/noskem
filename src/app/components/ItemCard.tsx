@@ -6,7 +6,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
-import { type ItemWithProfile, Like } from '@/types';
+import { type ItemWithProfile } from '@/types';
 import { FaCheckCircle, FaEye, FaHeart } from 'react-icons/fa';
 import { MessageSquare, ShoppingCart } from 'lucide-react';
 import { useChat, type ChatSession } from '@/context/ChatContext';
@@ -26,32 +26,20 @@ const createCanonicalRoomId = (userId1: string, userId2: string): string => {
 interface ItemCardProps {
     item: ItemWithProfile;
     user: User | null;
+    initialHasLiked?: boolean;
 }
 
-export default function ItemCard({ item, user }: ItemCardProps) {
+export default function ItemCard({ item, user, initialHasLiked = false }: ItemCardProps) {
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
-  const [hasLiked, setHasLiked] = useState(false);
+  const [hasLiked, setHasLiked] = useState(initialHasLiked);
   const [isLiking, startLikeTransition] = useTransition();
   const { openModal } = useAuthModal();
   const { openChat } = useChat();
   const { showToast } = useToast();
 
   useEffect(() => {
-    // Check initial like status when the component mounts if a user is logged in
-    const checkInitialLike = async () => {
-        if (user) {
-            const supabase = createClient();
-            const { data } = await supabase
-                .from('likes')
-                .select('item_id')
-                .eq('user_id', user.id)
-                .eq('item_id', item.id)
-                .single();
-            setHasLiked(!!data);
-        }
-    };
-    checkInitialLike();
-  }, [user, item.id]);
+    setHasLiked(initialHasLiked);
+  }, [initialHasLiked]);
 
   const handleAction = (callback: () => void) => {
     if (!user) {
@@ -74,7 +62,7 @@ export default function ItemCard({ item, user }: ItemCardProps) {
           });
       });
   };
-  
+
   const handleStartChat = () => {
     handleAction(() => {
         if (!user || user.id === item.seller_id) return;
@@ -119,12 +107,12 @@ export default function ItemCard({ item, user }: ItemCardProps) {
       <div className="bg-surface rounded-xl shadow-lg overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 h-full">
           <div className="relative w-full h-48">
             <Link href={`/items/${item.id}`} className="block h-full">
-                <Image 
-                  src={finalImageUrl} 
-                  alt={item.title} 
-                  fill={true} 
+                <Image
+                  src={finalImageUrl}
+                  alt={item.title}
+                  fill={true}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  style={{ objectFit: "cover" }} 
+                  style={{ objectFit: "cover" }}
                   className="transition-transform duration-300 ease-in-out group-hover:scale-105"
                 />
             </Link>

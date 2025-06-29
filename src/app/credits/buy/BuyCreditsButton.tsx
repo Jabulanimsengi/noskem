@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { purchaseCredits } from './actions';
 import { useToast } from '@/context/ToastContext';
 
-// Define a more specific type for the Paystack callback response
 interface PaystackResponse {
   reference: string;
 }

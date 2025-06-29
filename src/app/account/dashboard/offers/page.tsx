@@ -8,14 +8,14 @@ export default async function MyOffersPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-        redirect('/auth');
+        redirect('/?authModal=true');
     }
 
     const { data: offersData, error } = await supabase
         .from('offers')
         .select(`
             *,
-            item:item_id (*, profiles (id, username)),
+            item:item_id (*, profiles:profiles!items_seller_id_fkey(id, username, avatar_url)),
             buyer:buyer_id (*),
             seller:seller_id (*)
         `)
@@ -23,17 +23,14 @@ export default async function MyOffersPage() {
         .order('created_at', { ascending: false });
 
     if (error) {
-        return <p className="text-red-500">Error fetching offers: {error.message}</p>;
+        console.error("Error fetching offers:", error);
+        return <div className="p-4 text-center text-red-500">Error fetching offers: {error.message}</div>;
     }
 
     const offers = (offersData || []) as OfferWithDetails[];
 
-    // --- FIX: Correctly categorize offers based on who made the last move ---
-    // An offer is "received" if the user is a participant AND the last offer was NOT made by them.
-    const receivedOffers = offers.filter(o => o.last_offer_by !== user.id);
-    // An offer is "sent" if the last offer WAS made by them.
-    const sentOffers = offers.filter(o => o.last_offer_by === user.id);
-    // --- END OF FIX ---
+    const receivedOffers = offers.filter(o => o.last_offer_by !== user.id && o.status.startsWith('pending'));
+    const sentOffers = offers.filter(o => o.last_offer_by === user.id && o.status.startsWith('pending'));
     
     return (
         <OffersClient 

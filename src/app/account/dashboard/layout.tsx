@@ -1,21 +1,21 @@
-'use client'; // This needs to be a client component to use hooks
+'use client';
 
 import { type ReactNode } from 'react';
 import DashboardNav from './DashboardNav';
 import { usePathname } from 'next/navigation';
-import PageHeader from '@/app/components/PageHeader'; // Import the new component
+import PageHeader from '@/app/components/PageHeader';
 
-// Helper function to get a title from the current URL path
+// This helper function correctly gets the title for each page.
 const getTitleFromPathname = (pathname: string): string => {
     if (pathname.endsWith('/orders')) return 'My Orders';
     if (pathname.endsWith('/my-listings')) return 'My Listings';
     if (pathname.endsWith('/transactions')) return 'My Transactions';
     if (pathname.endsWith('/offers')) return 'My Offers';
+    if (pathname.endsWith('/liked')) return 'My Liked Items';
     if (pathname.endsWith('/notifications')) return 'Notifications';
     if (pathname.endsWith('/profile')) return 'Edit Profile';
     return 'Dashboard';
 };
-
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -28,7 +28,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <DashboardNav />
         </div>
         <div className="md:col-span-3">
-          {/* FIX: Add the new PageHeader component */}
+          {/* This single PageHeader will now correctly display the title for every page */}
           <PageHeader title={title} />
           <div className="bg-surface p-6 rounded-lg shadow-sm">
             {children}

@@ -1,6 +1,6 @@
 import { createClient } from './utils/supabase/server';
 import { Suspense } from 'react';
-import { Category, ItemWithProfile } from '@/types';
+import { Category, ItemWithProfile, Like } from '@/types';
 import CategoryFilter from './components/CategoryFilter';
 import CreditPackagesSection from './components/CreditPackagesSection';
 import ItemCarousel from './components/ItemCarousel';
@@ -9,7 +9,6 @@ import ItemList from './components/ItemList';
 import HomepageSkeleton from './components/skeletons/HomepageSkeleton';
 import HomepageFilters from './components/HomepageFilters';
 
-// FIX: Add this line to enable caching and revalidate every 60 seconds.
 export const revalidate = 60; 
 
 type CreditPackage = {
@@ -24,6 +23,14 @@ type CreditPackage = {
 async function HomepageContent() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+
+  let likedItemIds: number[] = [];
+  if (user) {
+      const { data: likes } = await supabase.from('likes').select('item_id').eq('user_id', user.id);
+      if (likes) {
+          likedItemIds = likes.map(like => like.item_id);
+      }
+  }
 
   const [
     categoriesRes,
@@ -55,25 +62,25 @@ async function HomepageContent() {
         
         {featuredItems.length > 0 && (
           <div className='pt-8 mt-8'>
-            <ItemCarousel title="⭐ Featured Items" items={featuredItems} user={user} />
+            <ItemCarousel title="⭐ Featured Items" items={featuredItems} user={user} likedItemIds={likedItemIds} />
           </div>
         )}
 
         {popularItems.length > 0 && (
           <div className='border-t pt-8 mt-8'>
-            <ItemCarousel title="Popular Now" items={popularItems} user={user} />
+            <ItemCarousel title="Popular Now" items={popularItems} user={user} likedItemIds={likedItemIds} />
           </div>
         )}
         
         {recentlyListedItems.length > 0 && (
           <div className='border-t pt-8 mt-8'>
-            <ItemCarousel title="Recently Listed" items={recentlyListedItems} user={user} />
+            <ItemCarousel title="Recently Listed" items={recentlyListedItems} user={user} likedItemIds={likedItemIds} />
           </div>
         )}
         
         {recentlySoldItems.length > 0 && (
            <div className='border-t pt-8 mt-8'>
-             <ItemCarousel title="Recently Sold" items={recentlySoldItems} user={user} />
+             <ItemCarousel title="Recently Sold" items={recentlySoldItems} user={user} likedItemIds={likedItemIds} />
            </div>
         )}
         
@@ -86,7 +93,7 @@ async function HomepageContent() {
           <CategoryFilter categories={categories} />
           <HomepageFilters />
           
-          <ItemList user={user} />
+          <ItemList user={user} initialLikedItemIds={likedItemIds} />
         </div>
       </div>
       <CreditPackagesSection user={user} packages={creditPackages} />

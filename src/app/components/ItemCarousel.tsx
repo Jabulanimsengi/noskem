@@ -4,17 +4,16 @@ import { useRef } from 'react';
 import ItemCard from './ItemCard';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { type User } from '@supabase/supabase-js';
-import { type ItemWithProfile } from '@/types'; // FIX: Import the global, consistent type
-
-// FIX: Removed the local, conflicting 'CarouselItem' type definition
+import { type ItemWithProfile } from '@/types';
 
 interface ItemCarouselProps {
   title: string;
-  items: ItemWithProfile[]; // FIX: Use the consistent type for the items prop
+  items: ItemWithProfile[];
   user: User | null;
+  likedItemIds: number[]; // Add this prop
 }
 
-export default function ItemCarousel({ title, items, user }: ItemCarouselProps) {
+export default function ItemCarousel({ title, items, user, likedItemIds }: ItemCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: 'left' | 'right') => {
@@ -48,8 +47,11 @@ export default function ItemCarousel({ title, items, user }: ItemCarouselProps) 
         >
           {items.map((item) => (
             <div key={item.id} className="w-64 flex-shrink-0 snap-start">
-              {/* This now works without type errors */}
-              <ItemCard item={item} user={user} />
+              <ItemCard 
+                item={item} 
+                user={user} 
+                initialHasLiked={likedItemIds.includes(item.id)} // Pass down the like status
+              />
             </div>
           ))}
         </div>
