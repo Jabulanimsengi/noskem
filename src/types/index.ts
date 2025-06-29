@@ -1,46 +1,18 @@
-import { type Database } from "../database.types"; // This path is crucial
+import { type Database } from "../database.types";
 
 // Base types from the database
 export type Item = Database['public']['Tables']['items']['Row'];
-export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type Profile = Database['public']['Tables']['profiles']['Row'] & {
+  email?: string; // Corrected: Added optional email property
+};
 export type Order = Database['public']['Tables']['orders']['Row'];
 export type Category = Database['public']['Tables']['categories']['Row'];
-export type Review = Database['public']['Tables']['reviews']['Row'];
+export type Like = Database['public']['Tables']['likes']['Row'];
 export type UserBadge = Database['public']['Tables']['user_badges']['Row'];
-export type CreditPackage = Database['public']['Tables']['credit_packages']['Row'];
-
-// Custom, more detailed types for use in components
-
-// **This is the type that is currently causing errors**
+export type OrderStatus = Database['public']['Enums']['order_status'] | 'funds_paid_out';
 export type ItemWithProfile = Item & {
   profiles: Profile | null;
 };
-
-// **This is the type that was causing errors previously**
-export type OrderWithItemAndProfile = Order & {
-  item: Item;
-  seller_profile: Profile;
-  buyer_profile: Profile;
-};
-
-// **This is the other missing type**
-export type Perspective = 'buying' | 'selling';
-
-export type ReviewWithReviewer = Review & {
-  profiles: Profile | null;
-};
-
-export type ProfileWithBadges = Profile & {
-    user_badges: UserBadge[];
-};
-
-export type OfferWithDetails = Database['public']['Tables']['offers']['Row'] & {
-    item: Item | null;
-    buyer: Profile | null;
-    seller: Profile | null;
-    order_id?: number | null;
-};
-
 export type Conversation = {
     room_id: string;
     last_message: string;
@@ -54,4 +26,18 @@ export type Conversation = {
     item: {
         title: string;
     } | null;
+};
+export type OfferWithDetails = Database['public']['Tables']['offers']['Row'] & {
+    item: Item | null;
+    buyer: Profile | null;
+    seller: Profile | null;
+    order_id?: number | null;
+};
+
+// Corrected and clarified OrderWithDetails type
+export type OrderWithDetails = Order & {
+    item: Item | null;
+    seller: Profile | null;
+    buyer: Profile | null;
+    reviews: { id: number }[] | null;
 };

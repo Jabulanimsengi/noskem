@@ -1,81 +1,58 @@
 'use server';
 
-import { createClient } from '../../utils/supabase/server';
+import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
-import { INSPECTION_FEE, COLLECTION_FEE, DELIVERY_FEE, PURCHASE_FEE } from '@/lib/constants';
+import { createPaystackCheckout } from '@/lib/paystack';
+import { type Profile } from '@/types';
 
+// Define the state for the form action
 export interface FormState {
-  error: string | null;
+  error?: string | null;
+  sessionId?: string | null;
 }
 
-export async function createCheckoutSession(
-  prevState: FormState,
-  formData: FormData
-) {
-  const supabase = await createClient();
+export async function createCheckoutSession(prevState: FormState, formData: FormData): Promise<FormState> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return redirect('/?authModal=true');
-  }
-  
-  const itemId = formData.get('itemId') as string;
-  const sellerId = formData.get('sellerId') as string;
-  const itemPrice = parseFloat(formData.get('itemPrice') as string);
+    if (!user) {
+        return { error: 'You must be logged in to make a purchase.' };
+    }
 
-  const includeInspection = formData.get('includeInspection') === 'true';
-  const includeCollection = formData.get('includeCollection') === 'true';
-  const includeDelivery = formData.get('includeDelivery') === 'true';
+    const itemId = formData.get('itemId');
+    const sellerId = formData.get('sellerId');
+    const itemPrice = formData.get('itemPrice');
 
-  if (!itemId || !sellerId || isNaN(itemPrice)) {
-    return { error: "Missing required item information." };
-  }
-  if (user.id === sellerId) {
-    return { error: "You cannot buy your own item." };
-  }
-  
-  // 1. Deduct purchase fee
-  const { data: feeDeducted, error: rpcError } = await supabase.rpc('deduct_purchase_fee', { p_user_id: user.id });
-  if (rpcError || !feeDeducted) {
-    return { error: `Could not process purchase fee. You may not have enough credits (${PURCHASE_FEE} required).` };
-  }
-  
-  // 2. Log the purchase fee transaction
-  await supabase.from('financial_transactions').insert({
-      user_id: user.id,
-      order_id: null, 
-      type: 'purchase_fee',
-      status: 'completed',
-      amount: -PURCHASE_FEE,
-      description: `Fee for initiating purchase of item #${itemId}`
-  });
+    if (!itemId || !sellerId || !itemPrice) {
+        return { error: 'Missing item information.' };
+    }
+    
+    // The cast to Profile is now valid because the type includes the email property
+    const { data: sellerProfile } = await supabase.from('profiles').select('email').eq('id', sellerId).single() as { data: Profile | null };
 
-  // 3. Calculate the final amount based on selected fees
-  let finalAmount = itemPrice;
-  if (includeInspection) finalAmount += INSPECTION_FEE;
-  if (includeCollection) finalAmount += COLLECTION_FEE;
-  if (includeDelivery) finalAmount += DELIVERY_FEE;
+    if (!sellerProfile || !sellerProfile.email) {
+        return { error: 'Could not find seller information.' };
+    }
 
-  // 4. Create the order record
-  const { data: orderData, error: insertError } = await supabase
-    .from('orders').insert({
-      item_id: parseInt(itemId),
-      buyer_id: user.id,
-      seller_id: sellerId,
-      final_amount: finalAmount,
-      status: 'pending_payment',
-      inspection_fee_paid: includeInspection ? INSPECTION_FEE : 0,
-      collection_fee_paid: includeCollection ? COLLECTION_FEE : 0,
-      delivery_fee_paid: includeDelivery ? DELIVERY_FEE : 0,
-    }).select().single();
+    try {
+        const checkoutUrl = await createPaystackCheckout({
+            email: user.email!,
+            amount: parseFloat(itemPrice as string) * 100, // Paystack expects amount in kobo/cents
+            metadata: {
+                user_id: user.id,
+                item_id: itemId,
+                seller_id: sellerId,
+                cancel_action: `${process.env.NEXT_PUBLIC_BASE_URL}/items/${itemId}`,
+            }
+        });
 
-  if (insertError) {
-      return { error: `Could not create order: ${insertError.message}` };
-  }
-  
-  // 5. Revalidate paths and redirect
-  revalidatePath('/');
-  revalidatePath('/account/orders');
-  redirect(`/orders/${orderData.id}`);
+        if (checkoutUrl) {
+            redirect(checkoutUrl);
+        } else {
+            return { error: 'Could not create a checkout session.' };
+        }
+    } catch (e) {
+        const err = e as Error;
+        return { error: err.message };
+    }
 }

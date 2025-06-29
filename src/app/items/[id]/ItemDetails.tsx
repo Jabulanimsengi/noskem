@@ -1,73 +1,97 @@
-// src/context/AuthModalContext.tsx
-
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, Suspense, useEffect } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { type ItemData } from './page'; // This type will be defined in the page.tsx
+import Avatar from '@/app/components/Avatar';
+import { FaMapMarkerAlt, FaTag } from 'react-icons/fa';
 
-type AuthView = 'sign_in' | 'sign_up';
-
-// Define the shape of the context
-type AuthModalContextType = {
-  isOpen: boolean;
-  view: AuthView;
-  openModal: (view: AuthView) => void;
-  closeModal: () => void;
-};
-
-const AuthModalContext = createContext<AuthModalContextType | undefined>(undefined);
-
-// Internal component to handle URL-based triggers
-function AuthModalURLHandler() {
-    const { openModal } = useAuthModal();
-    const searchParams = useSearchParams();
-
-    useEffect(() => {
-        if (searchParams.get('authModal') === 'true') {
-            openModal('sign_in');
-        }
-    }, [searchParams, openModal]);
-
-    return null;
+interface ItemDetailsProps {
+    item: ItemData & {
+        location_description: string | null;
+    };
 }
 
-export const AuthModalProvider = ({ children }: { children: React.ReactNode }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [view, setView] = useState<AuthView>('sign_in');
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const openModal = useCallback((viewToShow: AuthView) => {
-    setView(viewToShow);
-    const params = new URLSearchParams(window.location.search);
-    params.set('authModal', 'true');
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    setIsOpen(true);
-  }, [router, pathname]);
-
-  const closeModal = useCallback(() => {
-    const params = new URLSearchParams(window.location.search);
-    params.delete('authModal');
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    setIsOpen(false);
-  }, [router, pathname]);
-
-  const value = { isOpen, view, openModal, closeModal };
-
-  return (
-    <AuthModalContext.Provider value={value}>
-      <Suspense fallback={null}>
-          <AuthModalURLHandler />
-      </Suspense>
-      {children}
-    </AuthModalContext.Provider>
-  );
+const formatCondition = (condition: string) => {
+    return condition.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
-export const useAuthModal = () => {
-  const context = useContext(AuthModalContext);
-  if (context === undefined) {
-    throw new Error('useAuthModal must be used within an AuthModalProvider');
-  }
-  return context;
-};
+// Note the `export default`
+export default function ItemDetails({ item }: ItemDetailsProps) {
+    const images = (item.images as string[] || []).filter(Boolean);
+    const [selectedImage, setSelectedImage] = useState(images[0] || 'https://placehold.co/600x400?text=No+Image');
+
+    return (
+        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+            <div className="relative w-full aspect-video bg-gray-200">
+                <Image
+                    src={selectedImage}
+                    alt={item.title || 'Item Image'}
+                    fill={true}
+                    priority={true}
+                    className="object-cover"
+                />
+            </div>
+            {images.length > 1 && (
+                <div className="p-2 bg-gray-50 flex space-x-2 overflow-x-auto">
+                    {images.map((img: string, index: number) => (
+                        <div
+                            key={index}
+                            onClick={() => setSelectedImage(img)}
+                            className={`relative w-20 h-20 rounded-md overflow-hidden cursor-pointer flex-shrink-0 border-2 ${selectedImage === img ? 'border-brand' : 'border-transparent'}`}
+                        >
+                            <Image
+                                src={img}
+                                alt={`Thumbnail ${index + 1}`}
+                                fill={true}
+                                className="object-cover"
+                                sizes="80px"
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <div className="p-6">
+                <div className="mb-4">
+                    <Link href={`/category/${item.categories?.name.toLowerCase() || 'uncategorized'}`}>
+                        <span className="text-sm font-semibold text-brand hover:underline">{item.categories?.name || 'Uncategorized'}</span>
+                    </Link>
+                    <h1 className="text-3xl font-bold text-gray-900 mt-1">{item.title}</h1>
+                </div>
+
+                <div className="mb-6">
+                    <p className="text-4xl font-extrabold text-brand-dark">
+                        R{item.buy_now_price?.toFixed(2)}
+                    </p>
+                </div>
+
+                <div className="prose max-w-none text-gray-600 mb-6">
+                    <h3 className="text-lg font-bold text-gray-800">Description</h3>
+                    <p>{item.description}</p>
+                </div>
+
+                <div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-3">Details</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div className="bg-gray-50 p-3 rounded-lg flex items-center gap-3">
+                            <FaTag className="text-gray-400 h-5 w-5" />
+                            <div>
+                                <p className="text-gray-500">Condition</p>
+                                <p className="font-semibold text-gray-800">{formatCondition(item.condition)}</p>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg flex items-center gap-3">
+                            <FaMapMarkerAlt className="text-gray-400 h-5 w-5" />
+                            <div>
+                                <p className="text-gray-500">Location</p>
+                                <p className="font-semibold text-gray-800">{item.location_description || 'Not specified'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

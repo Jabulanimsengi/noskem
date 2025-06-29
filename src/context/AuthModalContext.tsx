@@ -1,5 +1,3 @@
-// src/context/AuthModalContext.tsx
-
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, Suspense, useEffect } from 'react';
@@ -35,10 +33,8 @@ export const AuthModalProvider = ({ children }: { children: React.ReactNode }) =
   const router = useRouter();
   const pathname = usePathname();
 
+  // Corrected: Now properly accepts and sets the view
   const openModal = useCallback((viewToShow: AuthView) => {
-    // --- DEBUGGING LOG ---
-    console.log(`2. AuthModalContext: openModal function called. Setting view to "${viewToShow}" and isOpen to true.`);
-    
     setView(viewToShow);
     const params = new URLSearchParams(window.location.search);
     params.set('authModal', 'true');

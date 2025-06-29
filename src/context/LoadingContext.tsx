@@ -2,11 +2,10 @@
 
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 
-// FIX: Expose the 'isLoading' state in the context type
+// Define the shape of the context value
 interface LoadingContextType {
   isLoading: boolean;
-  showLoader: () => void;
-  hideLoader: () => void;
+  setIsLoading: (isLoading: boolean) => void;
 }
 
 const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
@@ -22,12 +21,9 @@ export const useLoading = () => {
 export const LoadingProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  const showLoader = () => setIsLoading(true);
-  const hideLoader = () => setIsLoading(false);
-
-  // The Provider now provides the isLoading state along with the functions
   return (
-    <LoadingContext.Provider value={{ isLoading, showLoader, hideLoader }}>
+    // The value now provides both isLoading and setIsLoading
+    <LoadingContext.Provider value={{ isLoading, setIsLoading }}>
       {children}
     </LoadingContext.Provider>
   );
