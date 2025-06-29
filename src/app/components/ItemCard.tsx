@@ -8,13 +8,13 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
 import { type ItemWithProfile } from '@/types';
 import { FaCheckCircle, FaEye, FaHeart } from 'react-icons/fa';
-import { MessageSquare, ShoppingCart } from 'lucide-react';
+import { MessageSquare, ShoppingCart, Tag } from 'lucide-react';
 import { useChat, type ChatSession } from '@/context/ChatContext';
 import { Button } from './Button';
 import { useToast } from '@/context/ToastContext';
 import { createCheckoutSession } from '@/app/items/[id]/actions';
 import { toggleLikeAction } from '@/app/likes/actions';
-import { createClient } from '@/app/utils/supabase/client';
+import { getGuestLikes, addGuestLike, removeGuestLike } from '@/utils/guestLikes';
 
 const OfferModal = dynamic(() => import('./OfferModal'));
 
@@ -38,8 +38,13 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
   const { showToast } = useToast();
 
   useEffect(() => {
-    setHasLiked(initialHasLiked);
-  }, [initialHasLiked]);
+    if (user) {
+        setHasLiked(initialHasLiked);
+    } else {
+        const guestLikes = getGuestLikes();
+        setHasLiked(guestLikes.includes(item.id));
+    }
+  }, [initialHasLiked, user, item.id]);
 
   const handleAction = (callback: () => void) => {
     if (!user) {
@@ -50,7 +55,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
   };
 
   const handleToggleLike = () => {
-      handleAction(() => {
+      if (user) {
           startLikeTransition(async () => {
               const result = await toggleLikeAction(item.id);
               if(result.success) {
@@ -60,9 +65,19 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                   showToast(result.error, 'error');
               }
           });
-      });
+      } else {
+          if (hasLiked) {
+              removeGuestLike(item.id);
+              setHasLiked(false);
+              showToast('Removed from liked items.', 'success');
+          } else {
+              addGuestLike(item.id);
+              setHasLiked(true);
+              showToast('Added to your liked items!', 'success');
+          }
+      }
   };
-
+  
   const handleStartChat = () => {
     handleAction(() => {
         if (!user || user.id === item.seller_id) return;
@@ -151,10 +166,11 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                                 <MessageSquare className="h-4 w-4" />
                             </Button>
                             <Button size="sm" variant="secondary" onClick={() => handleAction(() => setIsOfferModalOpen(true))}>
+                                <Tag className="h-4 w-4 mr-1"/>
                                 Offer
                             </Button>
-                            <Button size="sm" onClick={handleBuyNow} className="col-span-1">
-                                <ShoppingCart className="h-4 w-4" />
+                            <Button size="sm" onClick={handleBuyNow}>
+                                Buy
                             </Button>
                         </div>
                     ) : (

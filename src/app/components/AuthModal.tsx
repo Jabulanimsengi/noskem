@@ -1,6 +1,5 @@
 'use client';
 
-// FIX: Import hooks from 'react' and 'react-dom' correctly.
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
@@ -11,6 +10,8 @@ import { FaTimes } from 'react-icons/fa';
 import Link from 'next/link';
 import { signInAction, type SignInState } from '../auth/actions';
 import { useToast } from '@/context/ToastContext';
+import { getGuestLikes, clearGuestLikes } from '@/utils/guestLikes';
+import { mergeGuestLikesAction } from '@/app/likes/actions';
 
 const initialSignInState: SignInState = {};
 
@@ -33,7 +34,6 @@ export default function AuthModal() {
   const searchParams = useSearchParams();
 
   const [view, setView] = useState<'signIn' | 'mfa'>('signIn');
-  // FIX: The hook is correctly named useFormState.
   const [signInState, signInFormAction] = useFormState(signInAction, initialSignInState);
   
   const processedActionId = useRef<string | null>(null);
@@ -44,8 +44,22 @@ export default function AuthModal() {
   const handleClose = useCallback(() => {
     setView('signIn');
     closeModal();
-    router.replace(pathname, { scroll: false });
-  }, [closeModal, router, pathname]);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('authModal');
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [closeModal, router, pathname, searchParams]);
+
+  const handleSuccessfulSignIn = useCallback(async () => {
+    const guestLikes = getGuestLikes();
+    if (guestLikes.length > 0) {
+      await mergeGuestLikesAction(guestLikes);
+      clearGuestLikes();
+    }
+    showToast('Signed in successfully!', 'success');
+    handleClose();
+    // Use router.refresh() to force a re-render of server components with new auth state
+    router.refresh();
+  }, [showToast, handleClose, router]);
 
   useEffect(() => {
     if (signInState.mfaRequired) {
@@ -56,12 +70,9 @@ export default function AuthModal() {
     }
     if (signInState.success && signInState.actionId !== processedActionId.current) {
       processedActionId.current = signInState.actionId!;
-      
-      showToast('Signed in successfully!', 'success');
-      handleClose();
-      router.push('/'); 
+      handleSuccessfulSignIn();
     }
-  }, [signInState, showToast, router, handleClose]);
+  }, [signInState, showToast, handleSuccessfulSignIn]);
   
   useEffect(() => {
     if (searchParams.get('authModal')) {
@@ -86,9 +97,8 @@ export default function AuthModal() {
         
         if (error) throw error;
         
-        showToast('Signed in successfully!', 'success');
-        handleClose();
-        router.push('/');
+        await handleSuccessfulSignIn();
+
     } catch (error) {
         const err = error as Error;
         showToast(err.message, 'error');

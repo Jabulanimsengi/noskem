@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { FaShoppingCart, FaBars, FaPlusCircle, FaCoins, FaHeart } from 'react-icons/fa';
 import { MessageSquare } from 'lucide-react';
@@ -10,15 +10,36 @@ import AuthButton from './AuthButton';
 import MobileMenu from './MobileMenu';
 import NotificationBell from './NotificationBell';
 import { type Profile } from '@/types';
+import { getGuestLikes } from '@/utils/guestLikes';
 
 interface HeaderLayoutProps {
     user: User | null;
     profile: Profile | null;
-    likesCount: number;
+    likesCount: number; // This is for authenticated users, passed from server
 }
 
-export default function HeaderLayout({ user, profile, likesCount }: HeaderLayoutProps) {
+export default function HeaderLayout({ user, profile, likesCount: initialLikesCount }: HeaderLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [likesCount, setLikesCount] = useState(initialLikesCount);
+
+  // This effect manages the like count for guest users by listening to localStorage changes
+  useEffect(() => {
+    if (user) {
+        setLikesCount(initialLikesCount);
+    } else {
+        const updateGuestLikeCount = () => {
+            setLikesCount(getGuestLikes().length);
+        };
+        updateGuestLikeCount();
+        window.addEventListener('storage', updateGuestLikeCount);
+        return () => {
+            window.removeEventListener('storage', updateGuestLikeCount);
+        }
+    }
+  }, [user, initialLikesCount]);
+
+  // Determine the correct link for the "likes" icon
+  const likesHref = user ? "/account/dashboard/liked" : "/likes";
 
   return (
     <header className="bg-surface shadow-md sticky top-0 z-40">
@@ -60,7 +81,7 @@ export default function HeaderLayout({ user, profile, likesCount }: HeaderLayout
                     <span>{profile?.credit_balance ?? 0}</span>
                 </Link>
 
-                <Link href="/account/dashboard/liked" title="My Liked Items" className="relative text-gray-500 hover:text-brand">
+                <Link href={likesHref} title="My Liked Items" className="relative text-gray-500 hover:text-brand">
                     <FaHeart size={22} />
                     {likesCount > 0 && (
                         <span className="absolute -top-2 -right-2 h-5 w-5 text-xs flex items-center justify-center rounded-full bg-red-600 text-white">
@@ -78,8 +99,13 @@ export default function HeaderLayout({ user, profile, likesCount }: HeaderLayout
               </div>
             ) : (
                 <div className="flex items-center gap-5 ml-6">
-                    <Link href="/account/dashboard/liked" title="My Liked Items" className="text-gray-500 hover:text-brand">
+                    <Link href={likesHref} title="My Liked Items" className="relative text-gray-500 hover:text-brand">
                         <FaHeart size={22} />
+                         {likesCount > 0 && (
+                            <span className="absolute -top-2 -right-2 h-5 w-5 text-xs flex items-center justify-center rounded-full bg-red-600 text-white">
+                                {likesCount}
+                            </span>
+                        )}
                     </Link>
                     <div className="ml-4">
                         <AuthButton user={user} profile={profile} />

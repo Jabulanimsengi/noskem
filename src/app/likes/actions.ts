@@ -2,6 +2,43 @@
 
 import { createClient } from "@/app/utils/supabase/server";
 import { revalidatePath } from 'next/cache';
+import { createNotification } from "@/app/actions";
+
+export async function mergeGuestLikesAction(itemIds: number[]) {
+    if (!itemIds || itemIds.length === 0) {
+        return { success: true };
+    }
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: "You must be logged in." };
+    }
+
+    const likesToInsert = itemIds.map(id => ({
+        user_id: user.id,
+        item_id: id
+    }));
+
+    // --- START OF FIX ---
+    // Use .upsert() with ignoreDuplicates set to true.
+    // This will insert new likes and silently ignore any that already exist,
+    // which is the correct behavior for merging guest likes.
+    const { error } = await supabase
+        .from('likes')
+        .upsert(likesToInsert, { ignoreDuplicates: true });
+    // --- END OF FIX ---
+
+    if (error) {
+        return { error: `Could not merge likes: ${error.message}` };
+    }
+
+    revalidatePath('/', 'layout');
+    revalidatePath('/account/dashboard/liked');
+    return { success: true };
+}
+
 
 export async function toggleLikeAction(itemId: number) {
     const supabase = await createClient();
@@ -44,7 +81,6 @@ export async function toggleLikeAction(itemId: number) {
     return { success: true, liked: newLikeStatus };
 }
 
-// This function was missing and is now added and exported.
 export async function clearAllLikesAction() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -63,6 +99,6 @@ export async function clearAllLikesAction() {
     }
 
     revalidatePath('/account/dashboard/liked');
-    revalidatePath('/', 'layout'); // Revalidate layout to update header count
+    revalidatePath('/', 'layout');
     return { success: true };
 }
