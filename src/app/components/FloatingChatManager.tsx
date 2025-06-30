@@ -1,5 +1,3 @@
-// src/app/components/FloatingChatManager.tsx
-
 'use client';
 
 import { useChat } from '@/context/ChatContext';
@@ -33,7 +31,7 @@ export default function FloatingChatManager() {
                 <FloatingChatWindow
                     key={chat.roomId}
                     chat={chat}
-                    currentUser={user} // The user object is passed as `currentUser`
+                    currentUser={user}
                 />
             ))}
         </div>

@@ -1,10 +1,12 @@
-import { createClient } from '../utils/supabase/server';
+import { createClient } from '../../utils/supabase/server';
 import { redirect } from 'next/navigation';
-import ConversationItem from './ConversationItem';
-// FIX: This import should now work correctly.
+import ConversationItem from '../ConversationItem';
 import { type Conversation } from '@/types';
 import Link from 'next/link';
 import { MessageSquare } from 'lucide-react';
+import { FaHome } from 'react-icons/fa'; // Corrected import
+import BackButton from '@/app/components/BackButton';
+
 
 export default async function ChatHistoryPage() {
     const supabase = await createClient();
@@ -26,10 +28,10 @@ export default async function ChatHistoryPage() {
     return (
         <div className="container mx-auto max-w-2xl py-8 px-4">
             <div className="flex justify-between items-center mb-6">
+                <BackButton />
                 <h1 className="text-3xl font-bold text-text-primary">My Chats</h1>
-                <Link href="/chat/new" className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark flex items-center gap-2">
-                    <MessageSquare size={16} />
-                    New Message
+                <Link href="/" className="text-text-secondary hover:text-brand transition-colors">
+                    <FaHome className="h-6 w-6" />
                 </Link>
             </div>
             <div className="bg-surface rounded-xl shadow-lg">
@@ -42,7 +44,7 @@ export default async function ChatHistoryPage() {
                         <div className="text-center py-16 text-text-secondary">
                             <MessageSquare className="mx-auto text-4xl mb-4 text-gray-300" />
                             <h3 className="font-semibold text-lg text-text-primary">No conversations yet</h3>
-                            <p className="mt-1">Click &quot;New Message&quot; to start a chat with another user.</p>
+                            <p className="mt-1">Click "New Message" to start a chat with another user.</p>
                         </div>
                     )}
                 </div>

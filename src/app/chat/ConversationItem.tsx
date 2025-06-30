@@ -1,24 +1,26 @@
 'use client';
 
-import { useChat, type ChatSession } from '@/context/ChatContext';
+import { useChat } from '@/context/ChatContext';
 import { type Conversation } from '@/types';
 import Avatar from '../components/Avatar';
+import { type ChatSession } from '@/context/ChatContext';
+// FIX: Import useState and useEffect
 import { useState, useEffect } from 'react';
 
 export default function ConversationItem({ convo }: { convo: Conversation }) {
     const { openChat } = useChat();
-    // This state ensures the time is rendered on the client to avoid hydration mismatches
+    // FIX: Create a state to hold the client-side rendered time
     const [clientTime, setClientTime] = useState('');
 
+    // FIX: This effect runs only on the client, after the initial render
     useEffect(() => {
-      if (convo.last_message_at) {
-        setClientTime(
-          new Date(convo.last_message_at).toLocaleTimeString([], {
-            hour: '2-digit', 
-            minute:'2-digit'
-          })
-        );
-      }
+      // Format the time here and store it in state
+      setClientTime(
+        new Date(convo.last_message_at).toLocaleTimeString([], {
+          hour: '2-digit', 
+          minute:'2-digit'
+        })
+      );
     }, [convo.last_message_at]);
 
 
@@ -27,19 +29,14 @@ export default function ConversationItem({ convo }: { convo: Conversation }) {
     }
 
     const handleOpenChat = () => {
-        const chatSessionData: ChatSession = {
+        const chatSession: ChatSession = {
             roomId: convo.room_id,
             recipientId: convo.other_user.id,
             recipientUsername: convo.other_user.username,
             recipientAvatar: convo.other_user.avatar_url,
             itemTitle: convo.item?.title ? `About: ${convo.item.title}` : 'Direct Message'
         };
-        
-        // --- DEBUGGING LOG ---
-        // This will show in your browser console when you click a conversation.
-        console.log("ConversationItem clicked. Attempting to open chat with data:", chatSessionData);
-
-        openChat(chatSessionData);
+        openChat(chatSession);
     };
 
     const isUnread = !convo.is_last_message_read;
@@ -47,30 +44,27 @@ export default function ConversationItem({ convo }: { convo: Conversation }) {
     return (
         <button 
             onClick={handleOpenChat}
-            className="w-full text-left p-4 hover:bg-gray-50 transition-colors border-b last:border-b-0"
+            className="w-full text-left p-4 hover:bg-gray-50 transition-colors"
         >
             <div className="flex items-center gap-4">
-                <div className="relative flex-shrink-0">
-                    <Avatar src={convo.other_user.avatar_url} alt={convo.other_user.username || 'U'} size={56} />
-                    {isUnread && (
-                        <span className="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full bg-brand ring-2 ring-white" />
-                    )}
-                </div>
+                <Avatar src={convo.other_user.avatar_url} alt={convo.other_user.username || 'U'} size={56} />
                 
                 <div className="flex-grow overflow-hidden">
                     <div className="flex justify-between items-start">
-                        <p className={`font-bold truncate ${isUnread ? 'text-gray-900' : 'text-gray-700'}`}>
-                            {convo.other_user.username}
-                        </p>
-                        <p className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                        <p className="font-bold text-text-primary">{convo.other_user.username}</p>
+                        {/* FIX: Render the client-side time. It will be empty on the server, preventing a mismatch. */}
+                        <p className="text-xs text-text-secondary flex-shrink-0 ml-2">
                             {clientTime}
                         </p>
                     </div>
                     
-                    <p className={`text-sm truncate ${isUnread ? 'text-gray-700' : 'text-gray-500'}`}>
+                    <p className={`text-sm truncate ${isUnread ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}>
                         {convo.last_message}
                     </p>
                 </div>
+                {isUnread && (
+                    <div className="w-3 h-3 bg-brand rounded-full flex-shrink-0 ml-2 self-center animate-pulse"></div>
+                )}
             </div>
         </button>
     );
