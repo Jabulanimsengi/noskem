@@ -1,97 +1,65 @@
-'use client';
-
-import { useState } from 'react';
+// src/app/items/[id]/ItemDetails.tsx
 import Image from 'next/image';
 import Link from 'next/link';
-import { type ItemData } from './page'; // This type will be defined in the page.tsx
+// FIX: Changed import from './page' to '@/types' and imported ItemWithProfile
+import { type ItemWithProfile } from '@/types';
 import Avatar from '@/app/components/Avatar';
 import { FaMapMarkerAlt, FaTag } from 'react-icons/fa';
 
 interface ItemDetailsProps {
-    item: ItemData & {
-        location_description: string | null;
-    };
+  // FIX: Use ItemWithProfile type for item
+  item: ItemWithProfile;
 }
 
-const formatCondition = (condition: string) => {
-    return condition.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-};
-
-// Note the `export default`
 export default function ItemDetails({ item }: ItemDetailsProps) {
-    const images = (item.images as string[] || []).filter(Boolean);
-    const [selectedImage, setSelectedImage] = useState(images[0] || 'https://placehold.co/600x400?text=No+Image');
+  const imageUrl = (Array.isArray(item.images) && item.images.length > 0 && typeof item.images[0] === 'string')
+    ? item.images[0]
+    : 'https://placehold.co/600x400';
 
-    return (
-        <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="relative w-full aspect-video bg-gray-200">
-                <Image
-                    src={selectedImage}
-                    alt={item.title || 'Item Image'}
-                    fill={true}
-                    priority={true}
-                    className="object-cover"
-                />
-            </div>
-            {images.length > 1 && (
-                <div className="p-2 bg-gray-50 flex space-x-2 overflow-x-auto">
-                    {images.map((img: string, index: number) => (
-                        <div
-                            key={index}
-                            onClick={() => setSelectedImage(img)}
-                            className={`relative w-20 h-20 rounded-md overflow-hidden cursor-pointer flex-shrink-0 border-2 ${selectedImage === img ? 'border-brand' : 'border-transparent'}`}
-                        >
-                            <Image
-                                src={img}
-                                alt={`Thumbnail ${index + 1}`}
-                                fill={true}
-                                className="object-cover"
-                                sizes="80px"
-                            />
-                        </div>
-                    ))}
-                </div>
-            )}
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 lg:p-8">
+      <div className="relative w-full h-80 rounded-lg overflow-hidden mb-6">
+        <Image src={imageUrl} alt={item.title} fill style={{ objectFit: 'cover' }} priority />
+      </div>
 
-            <div className="p-6">
-                <div className="mb-4">
-                    <Link href={`/category/${item.categories?.name.toLowerCase() || 'uncategorized'}`}>
-                        <span className="text-sm font-semibold text-brand hover:underline">{item.categories?.name || 'Uncategorized'}</span>
-                    </Link>
-                    <h1 className="text-3xl font-bold text-gray-900 mt-1">{item.title}</h1>
-                </div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-3">{item.title}</h1>
 
-                <div className="mb-6">
-                    <p className="text-4xl font-extrabold text-brand-dark">
-                        R{item.buy_now_price?.toFixed(2)}
-                    </p>
-                </div>
+      <div className="flex items-center text-sm text-gray-600 mb-4">
+        <FaTag className="mr-2 text-brand" />
+        <span>{item.category || 'Uncategorized'}</span>
+      </div>
 
-                <div className="prose max-w-none text-gray-600 mb-6">
-                    <h3 className="text-lg font-bold text-gray-800">Description</h3>
-                    <p>{item.description}</p>
-                </div>
+      <div className="flex items-center space-x-4 mb-6">
+        <Avatar src={item.profiles?.avatar_url} alt={item.profiles?.username || 'Seller Avatar'} />
+        <Link href={`/sellers/${item.profiles?.username}`} className="font-semibold text-brand hover:underline">
+          {item.profiles?.username || 'Unknown Seller'}
+        </Link>
+      </div>
 
-                <div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-3">Details</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                        <div className="bg-gray-50 p-3 rounded-lg flex items-center gap-3">
-                            <FaTag className="text-gray-400 h-5 w-5" />
-                            <div>
-                                <p className="text-gray-500">Condition</p>
-                                <p className="font-semibold text-gray-800">{formatCondition(item.condition)}</p>
-                            </div>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded-lg flex items-center gap-3">
-                            <FaMapMarkerAlt className="text-gray-400 h-5 w-5" />
-                            <div>
-                                <p className="text-gray-500">Location</p>
-                                <p className="font-semibold text-gray-800">{item.location_description || 'Not specified'}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <p className="text-lg text-gray-800 mb-6">{item.description}</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <h3 className="font-semibold text-gray-700">Condition:</h3>
+          <p className="text-gray-600">{item.condition.replace(/_/g, ' ')}</p>
         </div>
-    );
+        {item.buy_now_price && (
+          <div>
+            <h3 className="font-semibold text-gray-700">Price:</h3>
+            <p className="text-2xl font-bold text-brand">R{item.buy_now_price.toFixed(2)}</p>
+          </div>
+        )}
+      </div>
+
+      {(item.location_description || item.latitude || item.longitude) && (
+        <div className="mb-6">
+          <h3 className="font-semibold text-gray-700 mb-2">Location:</h3>
+          <div className="flex items-center text-gray-600">
+            <FaMapMarkerAlt className="mr-2 text-brand" />
+            <p>{item.location_description || 'Location data available'}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

@@ -1,3 +1,4 @@
+// src/app/components/LocationInput.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,9 +18,13 @@ interface LocationSuggestion {
 // The props the component accepts
 interface LocationInputProps {
   onLocationSelect: (location: { description: string; lat: number; lng: number } | null) => void;
+  // FIX: Added initial props
+  initialLatitude?: number;
+  initialLongitude?: number;
+  initialLocationDescription?: string;
 }
 
-export default function LocationInput({ onLocationSelect }: LocationInputProps) {
+export default function LocationInput({ onLocationSelect, initialLatitude, initialLongitude, initialLocationDescription }: LocationInputProps) {
   // State for the selected location object
   const [selected, setSelected] = useState<LocationSuggestion | null>(null);
   // State for the text the user is typing
@@ -27,6 +32,27 @@ export default function LocationInput({ onLocationSelect }: LocationInputProps) 
   
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const debouncedQuery = useDebounce(query, 500);
+
+  // FIX: useEffect to set initial values
+  useEffect(() => {
+    if (initialLatitude && initialLongitude && initialLocationDescription) {
+      const initialLocation: LocationSuggestion = {
+        place_id: -1, // Dummy ID for initial value
+        display_name: initialLocationDescription,
+        lat: initialLatitude.toString(),
+        lon: initialLongitude.toString(),
+      };
+      setSelected(initialLocation);
+      setQuery(initialLocationDescription);
+      // Also call onLocationSelect to set the initial value in the parent form
+      onLocationSelect({
+        description: initialLocationDescription,
+        lat: initialLatitude,
+        lng: initialLongitude,
+      });
+    }
+  }, [initialLatitude, initialLongitude, initialLocationDescription, onLocationSelect]);
+
 
   useEffect(() => {
     if (debouncedQuery.length < 3) {

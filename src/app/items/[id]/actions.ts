@@ -1,3 +1,4 @@
+// src/app/items/[id]/actions.ts
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
@@ -5,6 +6,8 @@ import { initializeTransaction } from '@/lib/paystack';
 import { type Item } from '@/types';
 
 export type FormState = {
+    // FIX: Changed 'error: string | undefined;' back to 'error?: string;'
+    // This makes the 'error' property optional, allowing it to be omitted when not applicable.
     error?: string;
     success?: boolean;
     url?: string;
@@ -14,7 +17,7 @@ export async function createCheckoutSession(prevState: FormState, formData: Form
     console.log("-----------------------------------------");
     console.log("--- 1. SERVER: createCheckoutSession started ---");
 
-    const supabase = await createClient(); // FIX: Added await
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -80,7 +83,6 @@ export async function createCheckoutSession(prevState: FormState, formData: Form
         const paymentData = await initializeTransaction({
             email: user.email!,
             amount: amount * 100, // Paystack expects amount in kobo
-            // FIX: Ensure callback_url is included for redirection
             callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/orders/payment-callback`,
             metadata: {
                 order_id: newOrder.id,
@@ -103,13 +105,12 @@ export async function createCheckoutSession(prevState: FormState, formData: Form
         }
     } catch (error) {
         console.error("--- FATAL ERROR during Paystack initialization:", error, "---");
-        console.log("--- CRITICAL: Order created but Paystack failed. Fee should be refunded and order cancelled. ---");
         return { error: 'There was a critical issue contacting the payment provider.' };
     }
 }
 
 export async function incrementItemView(itemId: number) {
-    const supabase = await createClient(); // FIX: Added await
+    const supabase = await createClient();
     const { error } = await supabase.rpc('increment_view_count', {
         item_id_to_increment: itemId
     });

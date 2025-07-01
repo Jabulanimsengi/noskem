@@ -1,23 +1,18 @@
+// src/app/components/ItemForm.tsx
+
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/utils/supabase/client';
-import { type Category } from '@/types';
-import ImageUploader from './ImageUploader';
-import LocationInput from './LocationInput';
+import React, { useState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from './Button';
-import { DollarSign, Package, MapPin, Tag as CategoryIcon, Pencil, Calendar } from 'lucide-react';
+import ImageUploader from './ImageUploader';
+import LocationInput from './LocationInput';
+import { DollarSign, Package, MapPin, Tag as CategoryIcon, Pencil } from 'lucide-react';
+import { useToast } from '@/context/ToastContext';
+import { type Category, type Item, type Profile } from '@/types'; // Import necessary types
 
-function SubmitButton() {
-    const { pending } = useFormStatus();
-    return (
-        <Button type="submit" disabled={pending} size="lg" className="w-full !py-3 !text-base">
-            {pending ? 'Submitting...' : 'Submit Listing (25 Credits)'}
-        </Button>
-    );
-}
-
+// FIX: FormSection component definition should be here if it's not imported from elsewhere.
+// Assuming it's defined in this file to resolve "Cannot find module './FormSection'" error.
 const FormSection = ({ title, icon: Icon, children }: { title: string, icon: React.ElementType, children: React.ReactNode }) => (
     <div className="space-y-4 pt-8 border-t first:border-t-0 first:pt-0">
         <div className="flex items-center gap-3">
@@ -28,100 +23,242 @@ const FormSection = ({ title, icon: Icon, children }: { title: string, icon: Rea
     </div>
 );
 
-export default function ItemForm() {
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [imageUrls, setImageUrls] = useState<string[]>([]);
-    const [location, setLocation] = useState<{
-        description: string;
-        lat: number;
-        lng: number;
-    } | null>(null);
 
-    useEffect(() => {
-        const fetchCategories = async () => {
-            const supabase = createClient();
-            const { data } = await supabase.from('categories').select('*').order('name', { ascending: true });
-            if (data) setCategories(data);
-        };
-        fetchCategories();
-    }, []);
+// Helper component for the submit button
+function SubmitButton({ isExternalPending }: { isExternalPending?: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending || isExternalPending} className="w-full">
+      {pending || isExternalPending ? 'Processing...' : 'Save Listing'}
+    </Button>
+  );
+}
 
-    const inputClass = "block w-full rounded-lg border-gray-300 shadow-sm focus:border-brand focus:ring-1 focus:ring-brand sm:text-base p-3";
+// Define props for ItemForm
+interface ItemFormProps {
+  item?: Item | null; // Optional item for editing
+  profile?: Profile | null; // Optional profile for location
+  categories: Category[]; // Categories are required
+  onSubmit: (formData: FormData) => Promise<any>; // onSubmit is required
+  isSubmitting?: boolean; // Optional prop to control submission state from parent
+}
 
-    return (
-        <div className="space-y-12">
-            {/* This is the single, correct header inside the form card */}
-            <div className="bg-brand text-white p-6 rounded-lg text-center">
-                <h1 className="text-3xl font-bold">List a New Item</h1>
-                <p className="text-brand-light mt-1">Fill out the details below to put your item up for sale.</p>
-            </div>
 
-            <input type="hidden" name="imageUrls" value={JSON.stringify(imageUrls)} />
-            <input type="hidden" name="latitude" value={location?.lat || ''} />
-            <input type="hidden" name="longitude" value={location?.lng || ''} />
-            <input type="hidden" name="location" value={location?.description || ''} />
+export default function ItemForm({ item, profile, categories, onSubmit, isSubmitting: isExternalPending = false }: ItemFormProps) {
+  const { showToast } = useToast();
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // State to hold newly uploaded files
+  const [initialImageUrls, setInitialImageUrls] = useState<string[]>([]); // State to hold existing image URLs
 
-            <FormSection title="What are you selling?" icon={Pencil}>
-                 <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                    <input type="text" name="title" id="title" required className={inputClass} placeholder="e.g., Vintage Leather Sofa" />
-                </div>
-                <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea name="description" id="description" rows={5} className={inputClass} placeholder="Describe the item's condition, features, and any flaws."></textarea>
-                </div>
-            </FormSection>
+  // Pre-fill form fields for editing
+  const [formData, setFormData] = useState({
+    title: item?.title || '',
+    description: item?.description || '',
+    categoryId: item?.category_id?.toString() || '',
+    condition: item?.condition || '',
+    buyNowPrice: item?.buy_now_price?.toString() || '',
+    locationDescription: item?.location_description || '',
+    latitude: item?.latitude?.toString() || '',
+    longitude: item?.longitude?.toString() || '',
+    newItemPrice: item?.new_item_price?.toString() || '', // Added
+    purchaseDate: item?.purchase_date || '', // Added
+  });
 
-            <FormSection title="Upload Photos" icon={Package}>
-                <ImageUploader />
-            </FormSection>
 
-            <FormSection title="Pricing & Details" icon={DollarSign}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
-                    <div>
-                        <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">Your Selling Price (R)</label>
-                        <input type="number" name="price" id="price" required min="0" step="0.01" className={inputClass} placeholder="e.g., 4500.00" />
-                    </div>
-                    <div>
-                        <label htmlFor="new_item_price" className="block text-sm font-medium text-gray-700 mb-1">Original Price (R) (Optional)</label>
-                        <input type="number" name="new_item_price" id="new_item_price" min="0" step="0.01" className={inputClass} placeholder="e.g., 9000.00" />
-                    </div>
-                    <div>
-                        <label htmlFor="condition" className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
-                        <select name="condition" id="condition" required className={inputClass}>
-                            <option value="new">New</option>
-                            <option value="like_new">Like New</option>
-                            <option value="used_good">Used - Good</option>
-                            <option value="used_fair">Used - Fair</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="purchase_date" className="block text-sm font-medium text-gray-700 mb-1">Date of Purchase (Optional)</label>
-                        <input type="date" name="purchase_date" id="purchase_date" className={inputClass} />
-                    </div>
-                </div>
-            </FormSection>
+  useEffect(() => {
+    if (item) {
+      setFormData({
+        title: item.title || '',
+        description: item.description || '',
+        categoryId: item.category_id?.toString() || '',
+        condition: item.condition || '',
+        buyNowPrice: item.buy_now_price?.toString() || '',
+        locationDescription: item.location_description || '',
+        latitude: item.latitude?.toString() || '',
+        longitude: item.longitude?.toString() || '',
+        newItemPrice: item.new_item_price?.toString() || '',
+        purchaseDate: item.purchase_date || '',
+      });
+      // Ensure existing images are strings if they come as Json
+      const existing = (item.images || []).filter((img): img is string => typeof img === 'string');
+      setInitialImageUrls(existing);
+    }
+  }, [item]);
 
-            <FormSection title="Categorization & Location" icon={CategoryIcon}>
-                <div>
-                    <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select name="category" id="category" required className={inputClass}>
-                        <option value="">Select a category...</option>
-                        {categories.map(cat => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                    </select>
-                </div>
-                 <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                    <p className="text-xs text-gray-500 mb-2">This helps buyers find items near them.</p>
-                    <LocationInput onLocationSelect={setLocation} />
-                </div>
-            </FormSection>
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-            <div className="pt-8 border-t">
-                <SubmitButton />
-            </div>
+  // FIX: Updated handleLocationSelect to match LocationInput's expected signature
+  const handleLocationSelect = (location: { description: string; lat: number; lng: number } | null) => {
+    setFormData(prev => ({
+      ...prev,
+      latitude: location?.lat?.toString() || '',
+      longitude: location?.lng?.toString() || '',
+      locationDescription: location?.description || '',
+    }));
+  };
+
+  // Handler for files change from ImageUploader
+  const handleFilesChange = (files: File[]) => {
+    setSelectedFiles(files);
+  };
+
+
+  // Wrap the onSubmit handler to include files
+  const handleSubmitWrapper = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); // Prevent default form submission
+    const form = e.currentTarget;
+    const data = new FormData(form);
+
+    // Append newly selected files to FormData
+    selectedFiles.forEach((file) => {
+      data.append(`newImages`, file); // Use a new name for new images
+    });
+
+    // Append existing image URLs as a JSON string or individual fields
+    // This is crucial if existing images are handled separately for updates
+    // For simplicity, let's append them as a JSON string.
+    data.append('existingImageUrls', JSON.stringify(initialImageUrls));
+
+    // Append item ID for editing
+    if (item?.id) {
+      data.append('itemId', item.id.toString());
+    }
+
+    await onSubmit(data); // Call the passed onSubmit prop
+  };
+
+  return (
+    <form onSubmit={handleSubmitWrapper} className="space-y-8 max-w-3xl mx-auto py-8">
+      {/* Basic Info */}
+      <FormSection title="Basic Information" icon={Pencil}>
+        <div>
+          <label htmlFor="title" className="block text-sm font-medium text-text-secondary">Title</label>
+          <input
+            type="text"
+            id="title"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-border rounded-md shadow-sm p-2"
+            required
+            maxLength={100}
+          />
         </div>
-    );
+        <div>
+          <label htmlFor="description" className="block text-sm font-medium text-text-secondary">Description</label>
+          <textarea
+            id="description"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            rows={4}
+            className="mt-1 block w-full border border-border rounded-md shadow-sm p-2"
+            maxLength={1000}
+          ></textarea>
+        </div>
+        <div>
+          <label htmlFor="categoryId" className="block text-sm font-medium text-text-secondary">Category</label>
+          <select
+            id="categoryId"
+            name="categoryId"
+            value={formData.categoryId}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-border rounded-md shadow-sm p-2"
+            required
+          >
+            <option value="">Select a category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="condition" className="block text-sm font-medium text-text-secondary">Condition</label>
+          <select
+            id="condition"
+            name="condition"
+            value={formData.condition}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-border rounded-md shadow-sm p-2"
+            required
+          >
+            <option value="">Select condition</option>
+            <option value="new">New</option>
+            <option value="like_new">Like New</option>
+            <option value="used_good">Used (Good)</option>
+            <option value="used_fair">Used (Fair)</option>
+          </select>
+        </div>
+      </FormSection>
+
+      {/* Upload Photos */}
+      <FormSection title="Upload Photos" icon={Package}>
+        {/* FIX: Pass the onFilesChange and existingImages props to ImageUploader */}
+        <ImageUploader onFilesChange={handleFilesChange} existingImages={initialImageUrls} />
+      </FormSection>
+
+      {/* Pricing & Details */}
+      <FormSection title="Pricing & Details" icon={DollarSign}>
+        <div>
+          <label htmlFor="buyNowPrice" className="block text-sm font-medium text-text-secondary">Your Selling Price (R)</label>
+          <input
+            type="number"
+            id="buyNowPrice"
+            name="buyNowPrice"
+            value={formData.buyNowPrice}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-border rounded-md shadow-sm p-2"
+            step="0.01"
+            min="0"
+            required
+          />
+        </div>
+        <div>
+          <label htmlFor="newItemPrice" className="block text-sm font-medium text-text-secondary">Price When New (R) (Optional)</label>
+          <input
+            type="number"
+            id="newItemPrice"
+            name="newItemPrice"
+            value={formData.newItemPrice}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-border rounded-md shadow-sm p-2"
+            step="0.01"
+            min="0"
+          />
+        </div>
+        <div>
+          <label htmlFor="purchaseDate" className="block text-sm font-medium text-text-secondary">Original Purchase Date (Optional)</label>
+          <input
+            type="date"
+            id="purchaseDate"
+            name="purchaseDate"
+            value={formData.purchaseDate}
+            onChange={handleChange}
+            className="mt-1 block w-full border border-border rounded-md shadow-sm p-2"
+          />
+        </div>
+      </FormSection>
+
+      {/* Location */}
+      <FormSection title="Location" icon={MapPin}>
+        <LocationInput
+          // FIX: Pass initial values as required by LocationInputProps
+          initialLatitude={item?.latitude || profile?.latitude || undefined}
+          initialLongitude={item?.longitude || profile?.longitude || undefined}
+          initialLocationDescription={item?.location_description || profile?.address || undefined}
+          onLocationSelect={handleLocationSelect}
+        />
+        {/* These hidden inputs will be populated by handleLocationSelect */}
+        <input type="hidden" name="latitude" value={formData.latitude} />
+        <input type="hidden" name="longitude" value={formData.longitude} />
+        <input type="hidden" name="locationDescription" value={formData.locationDescription} />
+      </FormSection>
+
+      <SubmitButton isExternalPending={isExternalPending} />
+    </form>
+  );
 }
