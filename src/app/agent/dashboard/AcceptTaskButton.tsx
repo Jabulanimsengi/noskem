@@ -1,7 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
-import { assignToAgentAction } from './actions';
+import { acceptTaskAction } from './actions'; // FIX: Corrected the imported function name
 import { useToast } from '@/context/ToastContext';
 
 export default function AcceptTaskButton({ orderId }: { orderId: number }) {
@@ -11,7 +11,8 @@ export default function AcceptTaskButton({ orderId }: { orderId: number }) {
     const handleAccept = () => {
         startTransition(async () => {
             try {
-                await assignToAgentAction(orderId);
+                // FIX: Call the correct function
+                await acceptTaskAction(orderId);
                 showToast('Task accepted successfully!', 'success');
             } catch (error) {
                 const err = error as Error;

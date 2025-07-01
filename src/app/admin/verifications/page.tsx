@@ -8,7 +8,7 @@ type ProfileForVerification = Profile & {
 };
 
 export default async function AdminVerificationsPage() {
-    const supabase = createAdminClient();
+    const supabase = await createAdminClient(); // FIX: Added await
 
     // Fetch profiles that are pending verification
     const { data: profiles, error: profileError } = await supabase

@@ -1,5 +1,3 @@
-// src/app/components/AuthModal.tsx
-
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -9,6 +7,7 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import { createClient } from '../utils/supabase/client';
 import { FaTimes } from 'react-icons/fa';
 import Link from 'next/link';
+// FIX: The import now correctly matches the exports from the actions file
 import { signInAction, type SignInState } from '../auth/actions';
 import { useToast } from '@/context/ToastContext';
 import { getGuestLikes, clearGuestLikes } from '@/utils/guestLikes';
@@ -41,8 +40,6 @@ export default function AuthModal() {
   const [isVerifying, setIsVerifying] = useState(false);
 
   const handleSuccessfulSignIn = useCallback(async () => {
-    // --- DEBUGGING LOG ---
-    console.log("1. AuthModal: handleSuccessfulSignIn called. Attempting to show toast...");
     showToast('Signed in successfully!', 'success');
 
     const guestLikes = getGuestLikes();
@@ -50,7 +47,7 @@ export default function AuthModal() {
       await mergeGuestLikesAction(guestLikes);
       clearGuestLikes();
     }
-    
+
     closeModal();
     router.refresh();
   }, [showToast, closeModal, router]);
@@ -94,7 +91,7 @@ export default function AuthModal() {
         setIsVerifying(false);
     }
   };
-  
+
   useEffect(() => {
       if (!isOpen) {
           setTimeout(() => setView('signIn'), 200);

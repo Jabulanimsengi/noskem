@@ -4,7 +4,7 @@ import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function purchaseCredits(
-    packageId: number, 
+    packageId: number,
     paystackRef: string
 ) {
   const supabase = await createClient();
@@ -34,7 +34,7 @@ export async function purchaseCredits(
   if (updateError) {
       return { success: false, error: 'Failed to update your credit balance.' };
   }
-  
+
   await supabase.from('credit_transactions').insert({
       profile_id: user.id,
       amount: totalCreditsToAdd,

@@ -53,5 +53,6 @@ export async function updateOrderStatus(orderId: number, paystackRef: string) {
     revalidatePath(`/orders/${orderId}`);
     revalidatePath('/account/dashboard/orders');
     revalidatePath('/agent/dashboard');
+    revalidatePath('/account/dashboard/transactions'); // FIX: Revalidate transactions page
     return { success: true };
 }

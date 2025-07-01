@@ -1,105 +1,72 @@
 'use client';
 
-// FIX: Import hooks from 'react' and 'react-dom' correctly.
-import { useEffect, useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
-import { useRouter } from 'next/navigation';
-import { fileInspectionReport } from '../../actions';
-import { useToast } from '@/context/ToastContext';
-import Image from 'next/image';
-import { FaTimes } from 'react-icons/fa';
+import { useFormStatus } from 'react-dom';
 
-const initialState = { success: false, error: null };
-
-function SubmitButton() {
-    const { pending } = useFormStatus();
-    return (
-        <button type="submit" disabled={pending} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400">
-            {pending ? 'Submitting Report...' : 'Submit Report'}
-        </button>
-    );
+// FIX: Define the props the component will receive
+interface InspectionFormProps {
+  orderId: number;
+  isPending: boolean;
+  onSubmit: (formData: FormData) => void;
 }
 
-export default function InspectionForm({ orderId }: { orderId: number }) {
-    const router = useRouter();
-    // FIX: The hook is correctly named useFormState.
-    const [state, formAction] = useFormState(fileInspectionReport, initialState);
-    const { showToast } = useToast();
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full bg-brand text-white font-bold py-3 px-4 rounded-lg hover:bg-brand-dark transition-colors disabled:bg-gray-400"
+    >
+      {pending ? 'Submitting...' : 'Submit Report'}
+    </button>
+  );
+}
 
-    const [images, setImages] = useState<File[]>([]);
-    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-    const MAX_IMAGES = 3;
+// FIX: Update the component to use the defined props
+export default function InspectionForm({ orderId, isPending, onSubmit }: InspectionFormProps) {
+  // The component now correctly uses the passed-down onSubmit handler
+  return (
+    <form action={onSubmit} className="space-y-6">
+      <input type="hidden" name="orderId" value={orderId} />
 
-    useEffect(() => {
-        if (state.success) {
-            showToast("Inspection report submitted successfully!", "success");
-            router.push('/agent/dashboard');
-        }
-        if (state.error) {
-            showToast(state.error, "error");
-        }
-    }, [state, showToast, router]);
-    
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const newFiles = Array.from(e.target.files);
-            setImages(prev => [...prev, ...newFiles].slice(0, MAX_IMAGES));
-        }
-    };
+      <fieldset className="space-y-2 border p-4 rounded-md">
+        <legend className="text-lg font-semibold px-2">Item Condition</legend>
+        <div className="flex items-center gap-4">
+          <label><input type="radio" name="conditionMatches" value="yes" required /> Matches Description</label>
+          <label><input type="radio" name="conditionMatches" value="no" /> Does Not Match</label>
+        </div>
+        <textarea name="conditionNotes" placeholder="Optional notes on condition..." className="w-full p-2 border rounded-md" rows={2}></textarea>
+      </fieldset>
 
-    const handleRemoveImage = (index: number) => {
-        setImages(prev => prev.filter((_, i) => i !== index));
-    };
+      <fieldset className="space-y-2 border p-4 rounded-md">
+        <legend className="text-lg font-semibold px-2">Functionality</legend>
+        <div className="flex items-center gap-4">
+          <label><input type="radio" name="functionalityMatches" value="yes" required /> Works as Expected</label>
+          <label><input type="radio" name="functionalityMatches" value="no" /> Has Issues</label>
+        </div>
+        <textarea name="functionalityNotes" placeholder="Optional notes on functionality..." className="w-full p-2 border rounded-md" rows={2}></textarea>
+      </fieldset>
 
-    useEffect(() => {
-        const urls = images.map(file => URL.createObjectURL(file));
-        setImagePreviews(urls);
-        return () => { urls.forEach(URL.revokeObjectURL); };
-    }, [images]);
+      <fieldset className="space-y-2 border p-4 rounded-md">
+        <legend className="text-lg font-semibold px-2">Accessories</legend>
+        <div className="flex items-center gap-4">
+          <label><input type="radio" name="accessoriesMatches" value="yes" required /> All Included</label>
+          <label><input type="radio" name="accessoriesMatches" value="no" /> Some Missing</label>
+        </div>
+        <textarea name="accessoriesNotes" placeholder="Optional notes on accessories..." className="w-full p-2 border rounded-md" rows={2}></textarea>
+      </fieldset>
 
-    const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
-    const labelStyles = "block text-sm font-medium text-text-secondary mb-1";
+      <fieldset className="space-y-2 border p-4 rounded-md bg-gray-50">
+        <legend className="text-lg font-semibold px-2">Final Verdict</legend>
+        <div className="flex items-center gap-4">
+          <label className="font-bold text-green-700"><input type="radio" name="finalVerdict" value="approved" required /> Approve</label>
+          <label className="font-bold text-red-700"><input type="radio" name="finalVerdict" value="rejected" /> Reject</label>
+        </div>
+        <textarea name="verdictNotes" placeholder="Required summary for your final verdict..." className="w-full p-2 border rounded-md" rows={3} required></textarea>
+      </fieldset>
 
-    return (
-        <form action={formAction} className="space-y-4">
-            <input type="hidden" name="orderId" value={orderId} />
-
-            <div>
-                <label htmlFor="inspectionResult" className={labelStyles}>Inspection Result</label>
-                <select name="inspectionResult" id="inspectionResult" required className={inputStyles}>
-                    <option value="pass">Pass</option>
-                    <option value="fail_damaged">Fail - Damaged</option>
-                    <option value="fail_counterfeit">Fail - Counterfeit</option>
-                    <option value="fail_not_as_described">Fail - Not as Described</option>
-                </select>
-            </div>
-
-            <div>
-                <label htmlFor="reportText" className={labelStyles}>Notes</label>
-                <textarea name="reportText" id="reportText" rows={5} className={inputStyles} placeholder="Describe the item's condition..."></textarea>
-            </div>
-            
-            <div>
-              <label htmlFor="images" className={labelStyles}>Upload Images ({images.length}/{MAX_IMAGES})</label>
-              <input name="images" id="images" type="file" multiple accept="image/*" onChange={handleImageChange} disabled={images.length >= MAX_IMAGES} className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20 disabled:opacity-50"/>
-            </div>
-
-            {imagePreviews.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {imagePreviews.map((previewUrl, index) => (
-                  <div key={index} className="relative aspect-square">
-                    <Image src={previewUrl} alt={`Preview ${index + 1}`} fill className="rounded-md object-cover"/>
-                    <button type="button" onClick={() => handleRemoveImage(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600">
-                      <FaTimes size={10}/>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="pt-2">
-                <SubmitButton />
-            </div>
-        </form>
-    );
+      {/* The form now uses its own internal SubmitButton */}
+      <SubmitButton />
+    </form>
+  );
 }

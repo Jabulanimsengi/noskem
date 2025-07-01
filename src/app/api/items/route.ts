@@ -4,7 +4,7 @@ import { createClient } from '@/app/utils/supabase/server';
 import { type NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient(); 
+  const supabase = await createClient(); // FIX: Added await
   
   const searchParams = request.nextUrl.searchParams;
   

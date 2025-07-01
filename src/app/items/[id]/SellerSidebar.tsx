@@ -1,48 +1,46 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useTransition } from 'react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
-import { type ItemData } from './page';
+import { type ItemDataWithCategory } from './page';
 import Link from 'next/link';
 import Avatar from '@/app/components/Avatar';
 import { Button } from '@/app/components/Button';
 import OfferModal from '@/app/components/OfferModal';
 import OpenChatButton from '@/app/components/OpenChatButton';
-import { useFormState } from 'react-dom';
-import { createCheckoutSession, type FormState } from './actions';
+import { createCheckoutSession } from './actions';
 import { useToast } from '@/context/ToastContext';
-import { useLoading } from '@/context/LoadingContext';
 
-const initialState: FormState = {
-  error: null,
-  sessionId: null,
-};
+interface SellerSidebarProps {
+  item: ItemDataWithCategory;
+  user: User | null;
+}
 
-export default function SellerSidebar({ item, user }: { item: ItemData, user: User | null }) {
+export default function SellerSidebar({ item, user }: SellerSidebarProps) {
   const { openModal } = useAuthModal();
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const { showToast } = useToast();
-  const { setIsLoading } = useLoading();
-
-  const [buyNowState, buyNowAction] = useFormState(createCheckoutSession, initialState);
-
-  useEffect(() => {
-    if (buyNowState.error) {
-      showToast(buyNowState.error, 'error');
-      setIsLoading(false);
-    }
-  }, [buyNowState, showToast, setIsLoading]);
+  const [isPending, startTransition] = useTransition();
 
   const handleUnauthenticatedAction = () => {
-    openModal('sign_in'); // This call is now correct
+    openModal('sign_in');
   };
 
-  const handleBuyNowSubmit = (formData: FormData) => {
-    setIsLoading(true);
-    buyNowAction(formData);
+  const handleBuyNowSubmit = async (formData: FormData) => {
+    startTransition(async () => {
+      const result = await createCheckoutSession({ error: undefined }, formData);
+
+      if (result?.error) {
+        showToast(result.error, 'error');
+      } else if (result?.success && result.url) {
+        // FIX: Added success toast before redirecting
+        showToast('Redirecting to payment gateway...', 'success');
+        window.location.href = result.url;
+      }
+    });
   };
-  
+
   const seller = item.profiles;
 
   if (!seller) {
@@ -56,10 +54,10 @@ export default function SellerSidebar({ item, user }: { item: ItemData, user: Us
       <div className="p-6 bg-white rounded-xl shadow-md border space-y-6">
         <h3 className="text-lg font-bold text-gray-800">Seller Information</h3>
         <Link href={`/sellers/${seller.username}`} className="flex items-center gap-4 group">
-          <Avatar 
-            src={seller.avatar_url} 
-            alt={seller.username || 'Seller Avatar'} // Fallback added
-            size={48} 
+          <Avatar
+            src={seller.avatar_url}
+            alt={seller.username || 'Seller Avatar'}
+            size={48}
           />
           <div>
             <p className="font-bold text-gray-900 group-hover:underline">{seller.username}</p>
@@ -72,8 +70,9 @@ export default function SellerSidebar({ item, user }: { item: ItemData, user: Us
               <input type="hidden" name="itemId" value={item.id} />
               <input type="hidden" name="sellerId" value={item.seller_id} />
               <input type="hidden" name="itemPrice" value={item.buy_now_price || 0} />
-              <Button type="submit" size="lg" className="w-full">
-                Buy Now
+              <input type="hidden" name="itemTitle" value={item.title || ''} />
+              <Button type="submit" size="lg" className="w-full" disabled={isPending}>
+                {isPending ? 'Processing...' : 'Buy Now'}
               </Button>
             </form>
             <Button
@@ -84,9 +83,9 @@ export default function SellerSidebar({ item, user }: { item: ItemData, user: Us
             >
               Make an Offer
             </Button>
-            <OpenChatButton 
+            <OpenChatButton
               recipientId={seller.id}
-              recipientUsername={seller.username || 'Seller'} // Fallback added
+              recipientUsername={seller.username || 'Seller'}
               recipientAvatar={seller.avatar_url}
               itemTitle={item.title || 'this item'}
             />

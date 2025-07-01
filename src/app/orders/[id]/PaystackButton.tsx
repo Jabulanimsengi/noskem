@@ -59,15 +59,25 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
       currency: 'ZAR',
       ref: `order_${orderId}_${new Date().getTime()}`,
       metadata: { orderId: orderId },
-      onClose: () => {},
+      onClose: () => {
+        // This is called when the user closes the Paystack modal without completing
+        if (!isProcessing) { // Only show if not already processing a successful payment
+            showToast('Payment window closed. You can try again.', 'info');
+        }
+      },
       callback: function (response: PaystackResponse) {
         (async () => {
           setIsProcessing(true);
           const result = await updateOrderStatus(orderId, response.reference);
 
           if (result.success) {
-            showToast('Payment Authorized! The seller will be notified.', 'success');
-            router.push(`/orders/${orderId}`);
+            // The redirection logic is now primarily handled by payment-callback page
+            // This button's responsibility is to trigger the server action.
+            // The success toast and navigation will happen on the callback page.
+            // However, a temporary toast can be shown here for immediate feedback.
+            showToast('Payment initiated successfully. Please wait...', 'info');
+            // The browser will be redirected by Paystack's iframe to `callback_url`
+            // which leads to /orders/payment-callback/page.tsx
           } else {
             showToast(result.error || 'An unknown error occurred while updating the order.', 'error');
             setIsProcessing(false);

@@ -4,15 +4,21 @@ import { useTransition } from 'react';
 import { useToast } from '@/context/ToastContext';
 import { confirmCollectionAction } from './actions';
 
-export default function ConfirmCollectionButton({ orderId }: { orderId: number }) {
+interface ConfirmCollectionButtonProps {
+    orderId: number;
+}
+
+export default function ConfirmCollectionButton({ orderId }: ConfirmCollectionButtonProps) {
     const [isPending, startTransition] = useTransition();
     const { showToast } = useToast();
 
     const handleConfirm = () => {
         startTransition(async () => {
             try {
-                await confirmCollectionAction(orderId);
-                showToast('Collection confirmed!', 'success');
+                const result = await confirmCollectionAction(orderId);
+                if (result.success) {
+                    showToast(result.message, 'success');
+                }
             } catch (error) {
                 const err = error as Error;
                 showToast(err.message, 'error');

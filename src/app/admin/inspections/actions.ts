@@ -1,84 +1,100 @@
 'use server';
 
-import { createClient } from "@/app/utils/supabase/server";
-import { createAdminClient } from "@/app/utils/supabase/admin";
+import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { createNotification } from "@/app/actions";
+import { createNotification, createBulkNotifications } from '@/lib/notifications';
 
-// This helper function now correctly awaits the client.
-async function verifyAdmin() {
-    // FIX: Added 'await' before createClient()
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        throw new Error("Authentication session not found.");
-    }
-    
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (profile?.role !== 'admin') {
-        throw new Error("Authorization failed: Admins only.");
-    }
+/**
+ * Approves an inspection and notifies the agent.
+ */
+export async function approveInspection(inspectionId: number, orderId: number) {
+  const supabase = await createClient();
+  
+  const { error: inspectionError } = await supabase
+    .from('inspections')
+    .update({ status: 'approved' })
+    .eq('id', inspectionId);
+
+  if (inspectionError) {
+    throw new Error(`Failed to approve inspection: ${inspectionError.message}`);
+  }
+
+  const { data: updatedOrder, error: orderError } = await supabase
+    .from('orders')
+    .update({ status: 'awaiting_collection' })
+    .eq('id', orderId)
+    .select('agent_id, items(title)')
+    .single();
+  
+  if (orderError) {
+    console.error(`Inspection ${inspectionId} approved, but failed to update order ${orderId}: ${orderError.message}`);
+  }
+
+  if (updatedOrder?.agent_id) {
+      // FIX: Access the item title from the first element of the array.
+      const itemTitle = updatedOrder.items?.[0]?.title || 'your item';
+      await createNotification({
+          profile_id: updatedOrder.agent_id,
+          message: `Your report for "${itemTitle}" was approved. Please proceed to collect the item.`,
+          link_url: '/agent/dashboard'
+      });
+  }
+
+  revalidatePath('/admin/inspections');
+  revalidatePath('/agent/dashboard');
 }
 
-export async function approveInspection(orderId: number) {
-    await verifyAdmin();
-    // FIX: The createAdminClient call does not need await as it is synchronous.
-    // The previous fix to use the admin client here was correct.
-    const supabase = createAdminClient();
+/**
+ * Rejects an inspection and notifies all parties.
+ */
+export async function rejectInspection(inspectionId: number, orderId: number) {
+  const supabase = await createClient();
 
-    const { data: order, error } = await supabase
-        .from('orders')
-        .update({ status: 'awaiting_collection' })
-        .eq('id', orderId)
-        .select('agent_id')
-        .single();
-    
-    if (error || !order) {
-        throw new Error(`Could not approve inspection: ${error?.message}`);
-    }
+  const { error: inspectionError } = await supabase
+    .from('inspections')
+    .update({ status: 'rejected' })
+    .eq('id', inspectionId);
 
-    if (order.agent_id) {
-        await createNotification(
-            order.agent_id,
-            `Your inspection report for Order #${orderId} was approved. Please proceed with collection.`,
-            `/agent/dashboard/task/${orderId}`
-        );
-    }
-    
-    revalidatePath('/admin/inspections');
-    revalidatePath('/agent/dashboard');
-}
+  if (inspectionError) {
+    throw new Error(`Failed to reject inspection: ${inspectionError.message}`);
+  }
+  
+  const { data: updatedOrder, error: orderError } = await supabase
+    .from('orders')
+    .update({ status: 'cancelled' })
+    .eq('id', orderId)
+    .select('buyer_id, seller_id, agent_id, items(title)')
+    .single();
 
-export async function rejectInspection(orderId: number, reason: string) {
-    await verifyAdmin();
-    // FIX: The createAdminClient call does not need await.
-    const supabase = createAdminClient();
-
-    const { data: order, error } = await supabase
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', orderId)
-        .select('*, item:items(title)')
-        .single();
-
-    if (error || !order) {
-        throw new Error(`Could not reject inspection: ${error?.message}`);
-    }
-
-    const itemTitle = order.item?.title || 'an item';
-    const message = `The inspection for "${itemTitle}" (Order #${orderId}) was rejected. Reason: ${reason}. The order has been cancelled.`;
-
-    if (order.agent_id) {
-        await createNotification(
-            order.agent_id, 
-            message, 
-            `/agent/dashboard/task/${orderId}`
-        );
-    }
-
-    if (order.buyer_id) await createNotification(order.buyer_id, message, '/account/dashboard/orders');
-    if (order.seller_id) await createNotification(order.seller_id, message, '/account/dashboard/orders');
-
-    revalidatePath('/admin/inspections');
-    revalidatePath('/agent/dashboard');
+  if (orderError) {
+    console.error(`Inspection ${inspectionId} rejected, but failed to update order ${orderId}: ${orderError.message}`);
+  }
+  
+  if (updatedOrder) {
+      // FIX: Access the item title from the first element of the array.
+      const itemTitle = updatedOrder.items?.[0]?.title || 'the item';
+      const notifications = [
+          {
+              profile_id: updatedOrder.buyer_id,
+              message: `Your order for "${itemTitle}" has been cancelled due to an inspection failure. You will be refunded.`,
+              link_url: `/orders/${orderId}`
+          },
+          {
+              profile_id: updatedOrder.seller_id,
+              message: `The sale of your item "${itemTitle}" was cancelled because it failed our agent's inspection.`,
+              link_url: '/account/dashboard/orders'
+          }
+      ];
+      if (updatedOrder.agent_id) {
+          notifications.push({
+              profile_id: updatedOrder.agent_id,
+              message: `The order for "${itemTitle}" was cancelled following your inspection report.`,
+              link_url: '/agent/dashboard'
+          });
+      }
+      await createBulkNotifications(notifications);
+  }
+  
+  revalidatePath('/admin/inspections');
+  revalidatePath('/agent/dashboard');
 }

@@ -1,90 +1,80 @@
-import { createAdminClient } from '@/app/utils/supabase/admin';
-import Link from 'next/link';
+import { createClient } from '@/app/utils/supabase/server';
 import ApprovalActions from './ApprovalActions';
-import Image from 'next/image';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
-type ReportForApproval = {
-    id: number;
-    items: { title: string | null } | null;
-    inspection_reports: {
-        id: number;
-        created_at: string;
-        report_text: string | null;
-        image_urls: string[] | null;
-        profiles: { username: string | null } | null;
-    }[];
-};
+export default async function AdminInspectionsPage() {
+    const supabase = await createClient();
 
-export default async function AdminAllInspectionsPage() {
-  const supabase = createAdminClient();
+    const { data: ordersWithPendingInspections, error } = await supabase
+        .from('orders')
+        .select(`
+            id,
+            created_at,
+            items ( title ),
+            agent:profiles!orders_agent_id_fkey ( username ),
+            inspections ( * )
+        `)
+        .eq('status', 'pending_admin_approval')
+        .not('inspections', 'is', null)
+        .order('created_at', { ascending: true });
 
-  const { data: reports, error } = await supabase
-    .from('orders')
-    .select(`
-        id,
-        items (title),
-        inspection_reports!inner (
-            id, created_at, report_text, image_urls,
-            profiles:agent_id (username)
-        )
-    `)
-    .eq('status', 'pending_admin_approval')
-    .order('created_at', { ascending: false });
+    if (error) {
+        return <p className="text-red-500 p-4">Error fetching reports for approval: {error.message}</p>;
+    }
 
-  if (error) {
-    console.error("Error fetching inspection reports:", error);
-    return <p className="text-red-500 p-4">Error fetching reports for approval: {error.message}</p>;
-  }
+    return (
+        <div>
+            <h1 className="text-3xl font-bold mb-6">Inspection Reports for Approval</h1>
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <table className="min-w-full">
+                    <thead className="bg-gray-100">
+                        <tr>
+                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Order ID</th>
+                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Item</th>
+                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Agent</th>
+                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Verdict</th>
+                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Submitted At</th>
+                            <th className="p-4 text-right text-sm font-semibold text-gray-600">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                        {ordersWithPendingInspections.length > 0 ? (
+                            ordersWithPendingInspections.map(order => {
+                                const report = order.inspections[0];
+                                if (!report) return null;
 
-  const typedReports = reports as unknown as ReportForApproval[];
-
-  return (
-    <div>
-      <h2 className="text-2xl font-bold text-text-primary mb-4">Inspection Reports for Approval</h2>
-      <div className="space-y-4">
-        {typedReports.length > 0 ? (
-          typedReports.map(task => {
-            const report = task.inspection_reports[0];
-            return (
-              <div key={report.id} className="bg-gray-50 border rounded-lg p-4">
-                <div className="flex justify-between items-start gap-4">
-                    <div>
-                        <Link href={`/orders/${task.id}`} className="font-bold text-brand hover:underline">
-                            Order #{task.id}
-                        </Link>
-                        <p className="text-sm text-text-secondary">{task.items?.title || 'Item Not Found'}</p>
-                        <p className="text-xs text-text-secondary mt-1">
-                            Report by: <strong>{report.profiles?.username || 'N/A'}</strong>
-                        </p>
-                    </div>
-                    <ApprovalActions orderId={task.id} />
-                </div>
-                {report.report_text && (
-                    <p className="mt-3 text-text-primary border-t pt-3 whitespace-pre-wrap italic">
-                        &quot;{report.report_text}&quot;
-                    </p>
-                )}
-                {report.image_urls && report.image_urls.length > 0 && (
-                    <div className="mt-3 border-t pt-3">
-                        <p className="text-sm font-semibold mb-2">Attached Images:</p>
-                        <div className="flex gap-2">
-                          {report.image_urls.map((url, index) => (
-                            <a key={index} href={url} target="_blank" rel="noopener noreferrer">
-                              <Image src={url} alt={`Inspection image ${index + 1}`} width={96} height={96} className="w-24 h-24 object-cover rounded-md border" />
-                            </a>
-                          ))}
-                        </div>
-                    </div>
-                )}
-              </div>
-            )
-          })
-        ) : (
-          <p className="text-center text-text-secondary p-8">No inspection reports are currently awaiting approval.</p>
-        )}
-      </div>
-    </div>
-  );
+                                return (
+                                    <tr key={report.id}>
+                                        <td className="p-4 font-mono text-xs">
+                                            <Link href={`/admin/orders/${order.id}`} className="hover:underline text-blue-600">
+                                                #{order.id}
+                                            </Link>
+                                        </td>
+                                        <td className="p-4 font-medium">{order.items?.[0]?.title || 'N/A'}</td>
+                                        {/* FIX: Access the first element of the 'agent' array with [0] */}
+                                        <td className="p-4">{order.agent?.[0]?.username || 'N/A'}</td>
+                                        <td className={`p-4 font-bold ${report.final_verdict === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {report.final_verdict === 'approved' ? 'PASS' : 'FAIL'}
+                                        </td>
+                                        <td className="p-4 text-sm text-gray-500">{new Date(report.created_at).toLocaleString()}</td>
+                                        <td className="p-4 text-right">
+                                            <ApprovalActions inspectionId={report.id} orderId={order.id} />
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        ) : (
+                            <tr>
+                                <td colSpan={6} className="p-6 text-center text-gray-500 italic">
+                                    There are no inspection reports pending approval.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
 }

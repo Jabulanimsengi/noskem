@@ -1,158 +1,169 @@
 'use server';
 
-import { createClient } from '../../utils/supabase/server';
-import { revalidatePath } from 'next/cache';
-import { createNotification } from '@/app/actions';
+import { createClient } from "@/app/utils/supabase/server";
+import { revalidatePath } from "next/cache";
+import { z } from 'zod';
+import { createNotification, createBulkNotifications } from '@/lib/notifications';
 
-export async function assignToAgentAction(orderId: number) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Authentication failed.');
+const inspectionSchema = z.object({
+  orderId: z.coerce.number(),
+  photos: z.array(z.string().url()).optional(),
+  conditionMatches: z.enum(['yes', 'no']),
+  conditionNotes: z.string().optional(),
+  functionalityMatches: z.enum(['yes', 'no']),
+  functionalityNotes: z.string().optional(),
+  accessoriesMatches: z.enum(['yes', 'no']),
+  accessoriesNotes: z.string().optional(),
+  finalVerdict: z.enum(['approved', 'rejected']),
+  verdictNotes: z.string().min(1, 'Verdict notes are required.'),
+});
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'agent') throw new Error('Authorization failed.');
+export async function acceptTaskAction(orderId: number) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: orderData, error: fetchError } = await supabase
-    .from('orders')
-    .select('seller_id, items (title)')
-    .eq('id', orderId)
-    .eq('status', 'payment_authorized')
-    .single();
+    if (!user) throw new Error('Authentication required.');
 
-  if (fetchError || !orderData) {
-    throw new Error(`Failed to assign order #${orderId}. It may have already been accepted or does not exist.`);
-  }
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role !== 'agent') throw new Error('You are not authorized to perform this action.');
 
-  const sellerId = orderData.seller_id;
-  const item = Array.isArray(orderData.items) ? orderData.items[0] : orderData.items;
-  const itemTitle = item?.title || 'Unknown Item';
+    const { data: updatedOrder, error } = await supabase
+        .from('orders')
+        .update({ agent_id: user.id, status: 'awaiting_assessment' })
+        .eq('id', orderId)
+        .is('agent_id', null)
+        .select('seller_id, items(title)')
+        .single();
 
-  if (!sellerId) {
-      throw new Error(`Could not find a valid seller for order #${orderId}`);
-  }
+    if (error) throw new Error(`Failed to accept the task: ${error.message}`);
 
-  const { error: updateError } = await supabase
-    .from('orders')
-    .update({ 
-      agent_id: user.id,
-      status: 'awaiting_assessment' 
-    })
-    .eq('id', orderId);
-  
-  if (updateError) {
-      throw new Error(`Failed to update order #${orderId}: ${updateError.message}`);
-  }
-  
-  const message = `An agent has been assigned to your item "${itemTitle}" for assessment and collection.`;
-  await createNotification(sellerId, message, `/account/dashboard/orders`);
-
-  revalidatePath('/agent/dashboard');
-}
-
-export async function fileInspectionReport(prevState: unknown, formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: 'Authentication failed.' };
-
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'agent') return { success: false, error: 'Authorization failed.' };
-
-  const orderId = parseInt(formData.get('orderId') as string);
-  const reportText = formData.get('reportText') as string;
-  const inspectionResult = formData.get('inspectionResult') as string;
-  const imageFiles = formData.getAll('images') as File[];
-
-  if (!orderId || !inspectionResult) {
-    return { success: false, error: 'Missing required data.' };
-  }
-
-  const uploadedImageUrls: string[] = [];
-  if (imageFiles.length > 0 && imageFiles[0].size > 0) {
-      for (const image of imageFiles) {
-          const fileName = `inspections/${orderId}/${Date.now()}_${image.name}`;
-          const { data: uploadData, error: uploadError } = await supabase.storage.from('inspection-images').upload(fileName, image);
-          if (uploadError) return { success: false, error: `Image upload failed: ${uploadError.message}` };
-          const { data: { publicUrl } } = supabase.storage.from('inspection-images').getPublicUrl(uploadData.path);
-          uploadedImageUrls.push(publicUrl);
-      }
-  }
-
-  const { error: reportError } = await supabase.from('inspection_reports').insert({
-      order_id: orderId,
-      agent_id: user.id,
-      report_text: `Result: ${inspectionResult.toUpperCase()}\n\nNotes:\n${reportText}`,
-      image_urls: uploadedImageUrls
-  });
-
-  if (reportError) {
-    return { success: false, error: `Failed to save inspection report: ${reportError.message}` };
-  }
-
-  const { error: orderUpdateError } = await supabase
-    .from('orders')
-    .update({ status: 'pending_admin_approval' })
-    .eq('id', orderId);
-
-  if (orderUpdateError) {
-    return { success: false, error: `Report saved, but failed to update order status: ${orderUpdateError.message}` };
-  }
-  
-  const { data: orderDetails } = await supabase
-    .from('orders')
-    .select('id, item:items(title)')
-    .eq('id', orderId)
-    .single<{
-        id: number;
-        item: { title: string }[] | null
-    }>();
-    
-  const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
-  
-  if (admins && orderDetails) {
-    const item = orderDetails.item?.[0];
-    const itemTitle = item?.title || 'Unknown Item';
-    
-    const adminMessage = `Inspection report for Order #${orderDetails.id} (${itemTitle}) has been filed and requires your approval.`;
-    for (const admin of admins) {
-      await createNotification(admin.id, adminMessage, `/admin/inspections`); 
+    if (updatedOrder) {
+        // FIX: Access item title correctly
+        const itemTitle = updatedOrder.items?.[0]?.title || 'your item';
+        await createNotification({
+            profile_id: updatedOrder.seller_id,
+            message: `An agent has been assigned to your item: "${itemTitle}".`,
+            link_url: `/account/dashboard/orders`
+        });
     }
-  }
 
-  revalidatePath('/agent/dashboard');
-  revalidatePath('/admin/inspections');
-  return { success: true, error: null };
+    revalidatePath('/agent/dashboard');
+    return { success: true, message: 'Task accepted successfully.' };
 }
 
 export async function confirmCollectionAction(orderId: number) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Authentication failed.');
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: order, error: fetchError } = await supabase
-    .from('orders')
-    .select('agent_id, buyer_id, seller_id, items(title)')
-    .eq('id', orderId)
-    .single();
+    if (!user) throw new Error('Authentication required.');
+    
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role !== 'agent') throw new Error('You are not authorized to perform this action.');
 
-  if (fetchError || !order || order.agent_id !== user.id) {
-    throw new Error('You are not authorized to perform this action.');
-  }
+    const { data: updatedOrder, error } = await supabase
+        .from('orders')
+        .update({ status: 'in_warehouse' })
+        .eq('id', orderId)
+        .eq('agent_id', user.id)
+        .select('buyer_id, seller_id, items(title)')
+        .single();
 
-  const { error: updateError } = await supabase
-    .from('orders')
-    .update({ status: 'in_warehouse' })
-    .eq('id', orderId);
+    if (error) throw new Error(`Failed to confirm collection: ${error.message}`);
 
-  if (updateError) {
-    throw new Error(`Failed to update order status: ${updateError.message}`);
-  }
+    if (updatedOrder) {
+        // FIX: Access item title correctly
+        const itemTitle = updatedOrder.items?.[0]?.title || 'your item';
+        await createBulkNotifications([
+            {
+                profile_id: updatedOrder.buyer_id,
+                message: `Good news! ${itemTitle} has been collected and is now at our secure warehouse.`,
+                link_url: `/orders/${orderId}`
+            },
+            {
+                profile_id: updatedOrder.seller_id,
+                message: `Your item "${itemTitle}" has been successfully collected by our agent.`,
+                link_url: `/account/dashboard/orders`
+            }
+        ]);
+    }
 
-  const item = Array.isArray(order.items) ? order.items[0] : order.items;
-  const itemTitle = item?.title || 'the item';
-  const message = `Good news! ${itemTitle} (Order #${orderId}) has been collected and is now at our secure warehouse. It will be dispatched for delivery soon.`;
-  await createNotification(order.buyer_id, message, `/account/dashboard/orders`);
-  await createNotification(order.seller_id, message, `/account/dashboard/orders`);
+    revalidatePath('/agent/dashboard');
+    return { success: true, message: 'Collection confirmed successfully.' };
+}
 
-  revalidatePath('/agent/dashboard');
-  revalidatePath('/account/dashboard/orders');
+export async function submitInspectionAction(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error('Authentication required.');
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role !== 'agent') throw new Error('You are not authorized to perform this action.');
+
+    const formObject: { [key: string]: any } = {};
+    formData.forEach((value, key) => {
+        if (key === 'photos') {
+            if (!formObject[key]) formObject[key] = [];
+            formObject[key].push(value);
+        } else {
+            formObject[key] = value;
+        }
+    });
+
+    const validatedFields = inspectionSchema.safeParse(formObject);
+
+    if (!validatedFields.success) {
+        throw new Error(`Invalid form data: ${JSON.stringify(validatedFields.error.flatten())}`);
+    }
+
+    const { orderId, photos } = validatedFields.data;
+
+    const { error: inspectionError } = await supabase.from('inspections').insert({
+        order_id: orderId,
+        agent_id: user.id,
+        photos: photos,
+        condition_matches: validatedFields.data.conditionMatches === 'yes',
+        condition_notes: validatedFields.data.conditionNotes,
+        functionality_matches: validatedFields.data.functionalityMatches === 'yes',
+        functionality_notes: validatedFields.data.functionalityNotes,
+        accessories_matches: validatedFields.data.accessoriesMatches === 'yes',
+        accessories_notes: validatedFields.data.accessoriesNotes,
+        final_verdict: validatedFields.data.finalVerdict,
+        verdict_notes: validatedFields.data.verdictNotes,
+        status: 'pending_admin_approval'
+    });
+
+    if (inspectionError) {
+        throw new Error(`Failed to submit inspection report. Details: ${inspectionError.message}`);
+    }
+
+    const { data: updatedOrder, error: orderUpdateError } = await supabase
+        .from('orders')
+        .update({ status: 'pending_admin_approval' })
+        .eq('id', orderId)
+        .select('items(title)')
+        .single();
+
+    if (orderUpdateError) {
+        throw new Error(`Inspection submitted, but failed to update order status: ${orderUpdateError.message}`);
+    }
+
+    if (updatedOrder) {
+        const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
+        if (admins && admins.length > 0) {
+            // FIX: Access item title correctly
+            const itemTitle = updatedOrder.items?.[0]?.title || 'an item';
+            const adminNotifications = admins.map(admin => ({
+                profile_id: admin.id,
+                message: `An inspection report for "${itemTitle}" is ready for your review.`,
+                link_url: '/admin/inspections'
+            }));
+            await createBulkNotifications(adminNotifications);
+        }
+    }
+
+    revalidatePath('/agent/dashboard');
+    revalidatePath('/admin/inspections');
+    revalidatePath(`/agent/dashboard/task/${orderId}`);
+    return { success: true, message: 'Inspection report submitted successfully.' };
 }
