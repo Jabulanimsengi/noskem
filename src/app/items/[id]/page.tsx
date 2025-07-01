@@ -1,4 +1,5 @@
-import { createClient } from '@/utils/supabase/server';
+// src/app/items/[id]/page.tsx
+import { createClient } from '@/utils/supabase/server'; // FIX: Added 'from' keyword
 import { notFound } from 'next/navigation';
 import { type Profile, type Item, type Category, type ItemWithProfile } from '@/types';
 import ItemDetails from './ItemDetails';
@@ -7,16 +8,17 @@ import { Suspense } from 'react';
 import ItemCarousel from '@/app/components/ItemCarousel';
 import GridSkeletonLoader from '@/app/components/skeletons/GridSkeletonLoader';
 import ItemCreationToast from './ItemCreationToast'; // Import the new component
+import BackButton from '@/app/components/BackButton';
 
 export const dynamic = 'force-dynamic';
 
-export type ItemDataWithCategory = Item & { // FIX: Ensure 'export' keyword is present
+export type ItemDataWithCategory = Item & {
   profiles: Profile | null;
   categories: Category | null;
 };
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
-  const supabase = await createClient(); // FIX: Added await
+  const supabase = await createClient();
   const { data: item } = await supabase.from('items').select('title, description').eq('id', params.id).single();
 
   if (!item) {
@@ -34,7 +36,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 async function RelatedItems({ categoryId, currentItemId }: { categoryId: number | null, currentItemId: number }) {
   if (!categoryId) return null;
   
-  const supabase = await createClient(); // FIX: Added await
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const { data: relatedItemsData } = await supabase
@@ -73,7 +75,7 @@ async function RelatedItems({ categoryId, currentItemId }: { categoryId: number 
 
 
 export default async function ItemPage({ params }: { params: { id: string } }) {
-  const supabase = await createClient(); // FIX: Added await
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const { data: itemData, error } = await supabase
@@ -100,6 +102,9 @@ export default async function ItemPage({ params }: { params: { id: string } }) {
       </Suspense>
 
       <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+        <div className="mb-6">
+          <BackButton />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <ItemDetails item={itemData as ItemDataWithCategory} />

@@ -1,19 +1,20 @@
+// src/app/items/[id]/SellerSidebar.tsx
 'use client';
 
 import { useState, useTransition } from 'react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
-import { type ItemDataWithCategory } from './page';
+import { type ItemWithProfile, type Profile } from '@/types';
 import Link from 'next/link';
 import Avatar from '@/app/components/Avatar';
-import { Button } from '@/app/components/Button';
+import { Button } from '@/app/components/Button'; // FIX: Changed '=' to 'from'
 import OfferModal from '@/app/components/OfferModal';
 import OpenChatButton from '@/app/components/OpenChatButton';
 import { createCheckoutSession } from './actions';
 import { useToast } from '@/context/ToastContext';
 
 interface SellerSidebarProps {
-  item: ItemDataWithCategory;
+  item: ItemWithProfile;
   user: User | null;
 }
 
@@ -27,14 +28,26 @@ export default function SellerSidebar({ item, user }: SellerSidebarProps) {
     openModal('sign_in');
   };
 
-  const handleBuyNowSubmit = async (formData: FormData) => {
+  const handleBuyNowSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); // Prevent default browser form submission
+
     startTransition(async () => {
-      const result = await createCheckoutSession({ error: undefined }, formData);
+      // If user is not logged in, trigger auth modal. This is a client-side check.
+      if (!user) {
+        handleUnauthenticatedAction();
+        return;
+      }
+      
+      const formData = new FormData(event.currentTarget); // Get FormData from the event target
+
+      const result = await createCheckoutSession(
+        { error: undefined }, // Initial state for the action
+        formData
+      );
 
       if (result?.error) {
         showToast(result.error, 'error');
       } else if (result?.success && result.url) {
-        // FIX: Added success toast before redirecting
         showToast('Redirecting to payment gateway...', 'success');
         window.location.href = result.url;
       }
@@ -66,7 +79,8 @@ export default function SellerSidebar({ item, user }: SellerSidebarProps) {
         </Link>
         {!isOwnListing && (
           <div className="space-y-3 pt-4 border-t">
-            <form action={user ? handleBuyNowSubmit : handleUnauthenticatedAction}>
+            {/* Form for Buy Now - calls handler which checks authentication */}
+            <form onSubmit={handleBuyNowSubmit}>
               <input type="hidden" name="itemId" value={item.id} />
               <input type="hidden" name="sellerId" value={item.seller_id} />
               <input type="hidden" name="itemPrice" value={item.buy_now_price || 0} />
@@ -83,17 +97,29 @@ export default function SellerSidebar({ item, user }: SellerSidebarProps) {
             >
               Make an Offer
             </Button>
-            <OpenChatButton
-              recipientId={seller.id}
-              recipientUsername={seller.username || 'Seller'}
-              recipientAvatar={seller.avatar_url}
-              itemTitle={item.title || 'this item'}
-            />
+            {/* Conditionally render OpenChatButton or a simple Contact button for unauthenticated users */}
+            {user ? (
+              <OpenChatButton
+                recipientId={seller.id}
+                recipientUsername={seller.username || 'Seller'}
+                recipientAvatar={seller.avatar_url}
+                itemTitle={item.title || 'this item'}
+              />
+            ) : (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="w-full"
+                onClick={handleUnauthenticatedAction} // Redirect to auth modal if not logged in
+              >
+                Contact
+              </Button>
+            )}
           </div>
         )}
       </div>
 
-      {user && isOfferModalOpen && (
+      {isOfferModalOpen && user && (
         <OfferModal
           isOpen={isOfferModalOpen}
           onClose={() => setIsOfferModalOpen(false)}

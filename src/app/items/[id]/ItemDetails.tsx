@@ -1,25 +1,31 @@
 // src/app/items/[id]/ItemDetails.tsx
 import Image from 'next/image';
 import Link from 'next/link';
-// FIX: Changed import from './page' to '@/types' and imported ItemWithProfile
 import { type ItemWithProfile } from '@/types';
 import Avatar from '@/app/components/Avatar';
 import { FaMapMarkerAlt, FaTag } from 'react-icons/fa';
+import ImageGallery from '@/app/components/ImageGallery';
 
 interface ItemDetailsProps {
-  // FIX: Use ItemWithProfile type for item
   item: ItemWithProfile;
 }
 
 export default function ItemDetails({ item }: ItemDetailsProps) {
-  const imageUrl = (Array.isArray(item.images) && item.images.length > 0 && typeof item.images[0] === 'string')
-    ? item.images[0]
-    : 'https://placehold.co/600x400';
+  // Ensure item.images is an array of strings for ImageGallery
+  const imageSources = Array.isArray(item.images)
+    ? item.images.filter((img): img is string => typeof img === 'string')
+    : [];
+
+  // Fallback if no images are available
+  if (imageSources.length === 0) {
+    imageSources.push('https://placehold.co/600x400/cccccc/ffffff?text=No+Image');
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 lg:p-8">
-      <div className="relative w-full h-80 rounded-lg overflow-hidden mb-6">
-        <Image src={imageUrl} alt={item.title} fill style={{ objectFit: 'cover' }} priority />
+      {/* FIX: Passed itemTitle prop to ImageGallery */}
+      <div className="w-full mb-6">
+        <ImageGallery images={imageSources} itemTitle={item.title} />
       </div>
 
       <h1 className="text-3xl font-bold text-gray-900 mb-3">{item.title}</h1>
