@@ -1,13 +1,15 @@
+// src/app/components/ItemCard.tsx
+
 'use client';
 
-import { useState, useTransition } from 'react'; // FIX: Corrected import syntax
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
 import { type ItemWithProfile } from '@/types';
-import { FaCheckCircle, FaEye, FaHeart } from 'react-icons/fa';
+import { FaCheckCircle, FaEye, FaHeart, FaHourglassHalf } from 'react-icons/fa';
 import { MessageSquare, Tag } from 'lucide-react';
 import { useChat, type ChatSession } from '@/context/ChatContext';
 import { Button } from './Button';
@@ -33,6 +35,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
     const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
     const [hasLiked, setHasLiked] = useState(initialHasLiked);
     const [isLiking, startLikeTransition] = useTransition();
+    const [isBuying, startBuyTransition] = useTransition(); // Transition for the buy action
     const { openModal } = useAuthModal();
     const { openChat } = useChat();
     const { showToast } = useToast();
@@ -85,27 +88,29 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
     };
 
     const handleBuyNow = () => {
-        handleAction(async () => {
-            if (!item.buy_now_price) {
-                showToast("This item isn't available for direct purchase.", "error");
-                return;
-            }
+        handleAction(() => {
+            startBuyTransition(async () => {
+                if (!item.buy_now_price) {
+                    showToast("This item isn't available for direct purchase.", "error");
+                    return;
+                }
 
-            showToast('Processing...', 'info');
-            const formData = new FormData();
-            formData.append('itemId', item.id.toString());
-            formData.append('sellerId', item.seller_id);
-            formData.append('itemPrice', item.buy_now_price.toString());
-            formData.append('itemTitle', item.title);
-            
-            const result = await createCheckoutSession({ error: undefined }, formData);
-            
-            if (result?.error) {
-                showToast(result.error, 'error');
-            } else if (result?.success && result.url) {
-                showToast('Redirecting to payment gateway...', 'success'); // FIX: Added success toast
-                window.location.href = result.url;
-            }
+                showToast('Processing...', 'info');
+                const formData = new FormData();
+                formData.append('itemId', item.id.toString());
+                formData.append('itemPrice', item.buy_now_price.toString());
+                
+                // Call the simplified server action
+                const result = await createCheckoutSession(formData);
+                
+                if (result?.error) {
+                    showToast(result.error, 'error');
+                } else if (result?.success && result.url) {
+                    showToast('Redirecting to payment gateway...', 'success');
+                    // Perform redirect on the client
+                    window.location.href = result.url;
+                }
+            });
         });
     };
 
@@ -167,9 +172,14 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                                     <Tag className="h-4 w-4" />
                                     <span className="ml-1">Offer</span>
                                 </Button>
-                                <Button size="sm" variant="primary" onClick={handleBuyNow}>
-                                    Buy
+                                <Button size="sm" variant="primary" onClick={handleBuyNow} disabled={isBuying}>
+                                    {isBuying ? '...' : 'Buy'}
                                 </Button>
+                            </div>
+                        ) : item.status === 'pending_payment' ? (
+                            <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-orange-600 bg-orange-100 border-2 border-orange-200 rounded-lg cursor-not-allowed">
+                                <FaHourglassHalf />
+                                <span>Pending Payment</span>
                             </div>
                         ) : (
                             <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 bg-red-100 border-2 border-red-200 rounded-lg cursor-not-allowed">

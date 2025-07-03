@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { purchaseCredits } from './actions';
+import { purchaseCredits } from './actions'; // This import should now work
 import { useToast } from '@/context/ToastContext';
 
 interface PaystackResponse {

@@ -1,3 +1,4 @@
+// src/app/orders/[id]/PaystackButton.tsx
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -23,12 +24,19 @@ interface PaystackButtonProps {
   orderId: number;
   userEmail: string;
   amount: number;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-export default function PaystackButton({ orderId, userEmail, amount }: PaystackButtonProps) {
+export default function PaystackButton({ orderId, userEmail, amount, size = 'md' }: PaystackButtonProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const sizeStyles = {
+    sm: 'px-3 py-1.5 text-xs',
+    md: 'px-6 py-3 text-base',
+    lg: 'px-8 py-4 text-lg',
+  };
 
   const handlePayment = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -95,7 +103,7 @@ export default function PaystackButton({ orderId, userEmail, amount }: PaystackB
       <button
           type="submit"
           disabled={isProcessing}
-          className="w-full px-6 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors disabled:bg-gray-400"
+          className={`font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-colors disabled:bg-gray-400 ${sizeStyles[size]} w-full`}
       >
           {isProcessing ? 'Verifying Payment...' : 'Proceed to Payment'}
       </button>

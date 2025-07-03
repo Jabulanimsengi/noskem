@@ -176,6 +176,48 @@ export type Database = {
           },
         ]
       }
+      dispute_messages: {
+        Row: {
+          created_at: string | null
+          id: number
+          image_urls: string[] | null
+          message: string
+          order_id: number
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: never
+          image_urls?: string[] | null
+          message: string
+          order_id: number
+          profile_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: never
+          image_urls?: string[] | null
+          message?: string
+          order_id?: number
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_messages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_messages_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_transactions: {
         Row: {
           amount: number
@@ -262,6 +304,72 @@ export type Database = {
           },
           {
             foreignKeyName: "inspection_reports_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspections: {
+        Row: {
+          accessories_matches: boolean | null
+          accessories_notes: string | null
+          agent_id: string
+          condition_matches: boolean | null
+          condition_notes: string | null
+          created_at: string | null
+          final_verdict: string
+          functionality_matches: boolean | null
+          functionality_notes: string | null
+          id: number
+          order_id: number
+          photos: string[] | null
+          status: string | null
+          verdict_notes: string
+        }
+        Insert: {
+          accessories_matches?: boolean | null
+          accessories_notes?: string | null
+          agent_id: string
+          condition_matches?: boolean | null
+          condition_notes?: string | null
+          created_at?: string | null
+          final_verdict: string
+          functionality_matches?: boolean | null
+          functionality_notes?: string | null
+          id?: number
+          order_id: number
+          photos?: string[] | null
+          status?: string | null
+          verdict_notes: string
+        }
+        Update: {
+          accessories_matches?: boolean | null
+          accessories_notes?: string | null
+          agent_id?: string
+          condition_matches?: boolean | null
+          condition_notes?: string | null
+          created_at?: string | null
+          final_verdict?: string
+          functionality_matches?: boolean | null
+          functionality_notes?: string | null
+          id?: number
+          order_id?: number
+          photos?: string[] | null
+          status?: string | null
+          verdict_notes?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspections_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
@@ -480,13 +588,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "offers_last_offer_by_fkey"
-            columns: ["last_offer_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "offers_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -648,6 +749,8 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
           username: string | null
+          verification_documents: Json | null
+          verification_status: string | null
         }
         Insert: {
           account_type?: Database["public"]["Enums"]["account_type_enum"]
@@ -665,6 +768,8 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           username?: string | null
+          verification_documents?: Json | null
+          verification_status?: string | null
         }
         Update: {
           account_type?: Database["public"]["Enums"]["account_type_enum"]
@@ -682,6 +787,8 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           username?: string | null
+          verification_documents?: Json | null
+          verification_status?: string | null
         }
         Relationships: []
       }
@@ -731,6 +838,35 @@ export type Database = {
           {
             foreignKeyName: "reviews_seller_id_fkey"
             columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_searches: {
+        Row: {
+          created_at: string | null
+          id: number
+          search_query: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: never
+          search_query: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: never
+          search_query?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_searches_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -953,10 +1089,6 @@ export type Database = {
           id: number
         }[]
       }
-      add_credits_to_user: {
-        Args: { user_id: string; amount_to_add: number }
-        Returns: undefined
-      }
       addauth: {
         Args: { "": string }
         Returns: boolean
@@ -992,11 +1124,22 @@ export type Database = {
             }
         Returns: string
       }
-      adjust_user_credits: {
+      agent_accept_task: {
+        Args: { p_order_id: number }
+        Returns: undefined
+      }
+      agent_submit_inspection: {
         Args: {
-          p_user_id: string
-          p_amount_to_adjust: number
-          p_admin_notes: string
+          p_order_id: number
+          p_photos: string[]
+          p_condition_matches: boolean
+          p_condition_notes: string
+          p_functionality_matches: boolean
+          p_functionality_notes: string
+          p_accessories_matches: boolean
+          p_accessories_notes: string
+          p_final_verdict: string
+          p_verdict_notes: string
         }
         Returns: undefined
       }
@@ -1054,14 +1197,6 @@ export type Database = {
       create_new_notification: {
         Args: { p_profile_id: string; p_message: string; p_link_url: string }
         Returns: undefined
-      }
-      deduct_listing_fee: {
-        Args: { p_user_id: string }
-        Returns: boolean
-      }
-      deduct_purchase_fee: {
-        Args: { p_user_id: string }
-        Returns: boolean
       }
       disablelongtransactions: {
         Args: Record<PropertyKey, never>
@@ -1337,12 +1472,35 @@ export type Database = {
         Args: { "": string }
         Returns: unknown
       }
-      get_dashboard_analytics: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
       get_items_nearby: {
         Args: { lat: number; long: number; radius_km: number }
+        Returns: {
+          buy_now_price: number | null
+          category: string | null
+          category_id: number | null
+          condition: Database["public"]["Enums"]["item_condition"]
+          created_at: string | null
+          description: string | null
+          discount_percentage: number | null
+          fts: unknown | null
+          id: number
+          images: Json[] | null
+          is_featured: boolean | null
+          latitude: number | null
+          likes_count: number | null
+          location_description: string | null
+          longitude: number | null
+          new_item_price: number | null
+          purchase_date: string | null
+          seller_id: string
+          status: Database["public"]["Enums"]["item_status"]
+          title: string
+          updated_at: string | null
+          view_count: number | null
+        }[]
+      }
+      get_popular_items: {
+        Args: { p_limit?: number }
         Returns: {
           buy_now_price: number | null
           category: string | null
@@ -1372,6 +1530,60 @@ export type Database = {
         Args: { "": number }
         Returns: string
       }
+      get_recently_listed_items: {
+        Args: { p_limit?: number }
+        Returns: {
+          buy_now_price: number | null
+          category: string | null
+          category_id: number | null
+          condition: Database["public"]["Enums"]["item_condition"]
+          created_at: string | null
+          description: string | null
+          discount_percentage: number | null
+          fts: unknown | null
+          id: number
+          images: Json[] | null
+          is_featured: boolean | null
+          latitude: number | null
+          likes_count: number | null
+          location_description: string | null
+          longitude: number | null
+          new_item_price: number | null
+          purchase_date: string | null
+          seller_id: string
+          status: Database["public"]["Enums"]["item_status"]
+          title: string
+          updated_at: string | null
+          view_count: number | null
+        }[]
+      }
+      get_recently_sold_items: {
+        Args: { p_limit?: number }
+        Returns: {
+          buy_now_price: number | null
+          category: string | null
+          category_id: number | null
+          condition: Database["public"]["Enums"]["item_condition"]
+          created_at: string | null
+          description: string | null
+          discount_percentage: number | null
+          fts: unknown | null
+          id: number
+          images: Json[] | null
+          is_featured: boolean | null
+          latitude: number | null
+          likes_count: number | null
+          location_description: string | null
+          longitude: number | null
+          new_item_price: number | null
+          purchase_date: string | null
+          seller_id: string
+          status: Database["public"]["Enums"]["item_status"]
+          title: string
+          updated_at: string | null
+          view_count: number | null
+        }[]
+      }
       get_user_conversations: {
         Args: { p_user_id: string }
         Returns: {
@@ -1399,10 +1611,35 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      handle_credit_purchase: {
+        Args: {
+          p_user_id: string
+          p_package_id: number
+          p_paystack_ref: string
+        }
+        Returns: undefined
+      }
+      handle_item_purchase: {
+        Args: { p_buyer_id: string; p_item_id: number }
+        Returns: number
+      }
+      handle_new_item_listing: {
+        Args: {
+          p_seller_id: string
+          p_title: string
+          p_description: string
+          p_category_id: number
+          p_condition: Database["public"]["Enums"]["item_condition"]
+          p_buy_now_price: number
+          p_images: Json[]
+          p_latitude: number
+          p_longitude: number
+          p_location_description: string
+        }
+        Returns: number
+      }
       increment_view_count: {
-        Args:
-          | { item_id_to_increment: number }
-          | { item_id_to_increment: number }
+        Args: { item_id_to_increment: number }
         Returns: undefined
       }
       json: {
@@ -1609,6 +1846,18 @@ export type Database = {
       }
       process_order_payment: {
         Args: { p_order_id: number; p_buyer_id: string; p_paystack_ref: string }
+        Returns: undefined
+      }
+      revert_abandoned_orders: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      send_chat_message: {
+        Args: {
+          p_recipient_id: string
+          p_message_text: string
+          p_room_id: string
+        }
         Returns: undefined
       }
       spheroid_in: {

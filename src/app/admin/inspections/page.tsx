@@ -1,80 +1,90 @@
-import { createClient } from '@/app/utils/supabase/server';
-import ApprovalActions from './ApprovalActions';
-import Link from 'next/link';
+// src/app/admin/inspections/page.tsx
 
-export const dynamic = 'force-dynamic';
+import { createClient } from '@/utils/supabase/server';
+import { notFound } from 'next/navigation';
+import PageHeader from '@/app/components/PageHeader';
+import ApprovalActions from './ApprovalActions';
+import { type InspectionWithDetails } from '@/types'; // This type should now exist from our previous fix
+import { format } from 'date-fns';
 
 export default async function AdminInspectionsPage() {
-    const supabase = await createClient();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-    const { data: ordersWithPendingInspections, error } = await supabase
-        .from('orders')
-        .select(`
-            id,
-            created_at,
-            items ( title ),
-            agent:profiles!orders_agent_id_fkey ( username ),
-            inspections ( * )
-        `)
-        .eq('status', 'pending_admin_approval')
-        .not('inspections', 'is', null)
-        .order('created_at', { ascending: true });
+  if (!user) {
+    notFound();
+  }
 
-    if (error) {
-        return <p className="text-red-500 p-4">Error fetching reports for approval: {error.message}</p>;
-    }
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  if (profile?.role !== 'admin') {
+    notFound();
+  }
 
-    return (
-        <div>
-            <h1 className="text-3xl font-bold mb-6">Inspection Reports for Approval</h1>
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                <table className="min-w-full">
-                    <thead className="bg-gray-100">
-                        <tr>
-                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Order ID</th>
-                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Item</th>
-                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Agent</th>
-                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Verdict</th>
-                            <th className="p-4 text-left text-sm font-semibold text-gray-600">Submitted At</th>
-                            <th className="p-4 text-right text-sm font-semibold text-gray-600">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                        {ordersWithPendingInspections.length > 0 ? (
-                            ordersWithPendingInspections.map(order => {
-                                const report = order.inspections[0];
-                                if (!report) return null;
+  // UPDATED QUERY: This now fetches all related data needed for the page correctly.
+  const { data: inspections, error } = await supabase
+    .from('inspections')
+    .select(`
+      *,
+      orders!inner (
+        id,
+        items (
+          id,
+          title
+        ),
+        profiles!orders_agent_id_fkey (
+          id,
+          username
+        )
+      )
+    `)
+    .eq('status', 'pending_admin_approval')
+    .order('created_at', { ascending: false });
 
-                                return (
-                                    <tr key={report.id}>
-                                        <td className="p-4 font-mono text-xs">
-                                            <Link href={`/admin/orders/${order.id}`} className="hover:underline text-blue-600">
-                                                #{order.id}
-                                            </Link>
-                                        </td>
-                                        <td className="p-4 font-medium">{order.items?.[0]?.title || 'N/A'}</td>
-                                        {/* FIX: Access the first element of the 'agent' array with [0] */}
-                                        <td className="p-4">{order.agent?.[0]?.username || 'N/A'}</td>
-                                        <td className={`p-4 font-bold ${report.final_verdict === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
-                                            {report.final_verdict === 'approved' ? 'PASS' : 'FAIL'}
-                                        </td>
-                                        <td className="p-4 text-sm text-gray-500">{new Date(report.created_at).toLocaleString()}</td>
-                                        <td className="p-4 text-right">
-                                            <ApprovalActions inspectionId={report.id} orderId={order.id} />
-                                        </td>
-                                    </tr>
-                                );
-                            })
-                        ) : (
-                            <tr>
-                                <td colSpan={6} className="p-6 text-center text-gray-500 italic">
-                                    There are no inspection reports pending approval.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
+  if (error) {
+    console.error('Error fetching inspections:', error);
+    return <p className="text-red-500">Error loading inspection reports.</p>;
+  }
+
+  return (
+    <div>
+      <PageHeader title="Inspection Reports for Approval" />
+      <div className="overflow-x-auto bg-white rounded-lg shadow">
+        <table className="min-w-full text-sm divide-y-2 divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-2 text-left font-semibold text-gray-600">Order ID</th>
+              <th className="px-4 py-2 text-left font-semibold text-gray-600">Item</th>
+              <th className="px-4 py-2 text-left font-semibold text-gray-600">Agent</th>
+              <th className="px-4 py-2 text-left font-semibold text-gray-600">Verdict</th>
+              <th className="px-4 py-2 text-left font-semibold text-gray-600">Submitted At</th>
+              <th className="px-4 py-2 text-left font-semibold text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {(inspections as InspectionWithDetails[]).map((inspection) => (
+              <tr key={inspection.id}>
+                <td className="px-4 py-2 font-medium text-gray-900">#{inspection.order_id}</td>
+                <td className="px-4 py-2 text-gray-700">{inspection.orders?.items?.title ?? 'N/A'}</td>
+                <td className="px-4 py-2 text-gray-700">{inspection.orders?.profiles?.username ?? 'N/A'}</td>
+                <td className="px-4 py-2 font-semibold capitalize" style={{ color: inspection.final_verdict === 'approved' ? 'green' : 'red' }}>{inspection.final_verdict}</td>
+                <td className="px-4 py-2 text-gray-700">
+                  {/* FIX: Your suggested fix is implemented here for safety. */}
+                  {inspection.created_at
+                    ? format(new Date(inspection.created_at), 'yyyy/MM/dd, HH:mm')
+                    : 'N/A'
+                  }
+                </td>
+                <td className="px-4 py-2">
+                  <ApprovalActions inspection={inspection} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {inspections.length === 0 && (
+          <p className="p-4 text-center text-gray-500">No inspection reports are currently awaiting approval.</p>
+        )}
+      </div>
+    </div>
+  );
 }

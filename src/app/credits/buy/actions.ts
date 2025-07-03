@@ -4,8 +4,8 @@ import { createClient } from '../../utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function purchaseCredits(
-    packageId: number,
-    paystackRef: string
+  packageId: number,
+  paystackRef: string
 ) {
   const supabase = await createClient();
 
@@ -14,45 +14,19 @@ export async function purchaseCredits(
     return { success: false, error: 'You must be logged in to buy credits.' };
   }
 
-  const { data: creditPackage, error: packageError } = await supabase
-    .from('credit_packages')
-    .select('credits_amount, bonus_credits, price_zar')
-    .eq('id', packageId)
-    .single();
+  const { error } = await supabase.rpc('handle_credit_purchase', {
+    p_user_id: user.id,
+    p_package_id: packageId,
+    p_paystack_ref: paystackRef
+  });
 
-  if (packageError || !creditPackage) {
-      return { success: false, error: 'Could not find the selected credit package.' };
+  if (error) {
+    console.error('Credit purchase database error:', error);
+    return { success: false, error: `An error occurred: ${error.message}` };
   }
-
-  const totalCreditsToAdd = creditPackage.credits_amount + (creditPackage.bonus_credits || 0);
-
-  const { error: updateError } = await supabase.rpc('add_credits_to_user', {
-      user_id: user.id,
-      amount_to_add: totalCreditsToAdd
-  });
-
-  if (updateError) {
-      return { success: false, error: 'Failed to update your credit balance.' };
-  }
-
-  await supabase.from('credit_transactions').insert({
-      profile_id: user.id,
-      amount: totalCreditsToAdd,
-      description: `Purchased package ID ${packageId} via Paystack ref: ${paystackRef}`,
-  });
-
-  // --- FIX: Log the financial transaction for the credit purchase ---
-  await supabase.from('financial_transactions').insert({
-      user_id: user.id,
-      type: 'credit_purchase',
-      status: 'completed',
-      amount: creditPackage.price_zar, // This should be a positive value representing money spent
-      description: `Purchase of ${totalCreditsToAdd} credits (Package ID: ${packageId})`
-  });
-  // --- END OF FIX ---
 
   revalidatePath('/', 'layout');
-  revalidatePath('/account/dashboard/transactions');
+  revalidatePath('/account/dashboard');
 
   return { success: true };
 }

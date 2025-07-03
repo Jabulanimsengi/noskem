@@ -12,6 +12,8 @@ import { type OrderWithDetails } from '@/types';
 import { Button } from '@/app/components/Button';
 import { useConfirmationModal } from '@/context/ConfirmationModalContext';
 import { useToast } from '@/context/ToastContext';
+import PaystackButton from '@/app/orders/[id]/PaystackButton';
+import { type User } from '@supabase/supabase-js';
 
 const StatusBadge = ({ status }: { status: string }) => {
     const getStatusClass = () => {
@@ -27,6 +29,8 @@ const StatusBadge = ({ status }: { status: string }) => {
             case 'out_for_delivery':
             case 'awaiting_collection':
                 return 'bg-blue-100 text-blue-800';
+            case 'pending_payment':
+                return 'bg-yellow-100 text-yellow-800';
             default:
                 return 'bg-yellow-100 text-yellow-800';
         }
@@ -38,7 +42,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     );
 };
 
-const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective: 'buying' | 'selling' }) => {
+const OrderRow = ({ order, perspective, currentUser }: { order: OrderWithDetails; perspective: 'buying' | 'selling', currentUser: User }) => {
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const { showConfirmation } = useConfirmationModal();
     const { showToast } = useToast();
@@ -85,6 +89,15 @@ const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective
                         <StatusBadge status={order.status} />
                     </div>
                     <div className="flex gap-2 items-center">
+                        {/* New condition for "Proceed to Payment" button */}
+                        {perspective === 'buying' && order.status === 'pending_payment' && order.final_amount > 0 && (
+                            <PaystackButton
+                                orderId={order.id}
+                                userEmail={currentUser.email || ''}
+                                amount={order.final_amount}
+                                size="sm" // [INFO]: Passed size="sm" to make the button smaller
+                            />
+                        )}
                         {perspective === 'buying' && order.status === 'delivered' && (
                             <form action={async () => {
                                 startTransition(async () => {
@@ -131,7 +144,7 @@ const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective
             {isReviewModalOpen && item && (
                 <LeaveReviewModal
                     isOpen={isReviewModalOpen}
-                    onClose={() => setIsReviewModalOpen(false)}
+                    onClose={() => setIsReviewModalOpen(false)} 
                     orderId={order.id}
                     sellerId={order.seller_id}
                     itemTitle={item.title || 'Unknown Item'}
@@ -144,9 +157,10 @@ const OrderRow = ({ order, perspective }: { order: OrderWithDetails; perspective
 interface OrdersClientProps {
     initialOrders: OrderWithDetails[];
     perspective: 'buying' | 'selling';
+    currentUser: User;
 }
 
-export default function OrdersClient({ initialOrders, perspective }: OrdersClientProps) {
+export default function OrdersClient({ initialOrders, perspective, currentUser }: OrdersClientProps) {
     if (initialOrders.length === 0) {
         return (
             <div className="text-center py-16 text-text-secondary bg-gray-50 rounded-lg">
@@ -162,7 +176,7 @@ export default function OrdersClient({ initialOrders, perspective }: OrdersClien
 
     return (
         <div className="space-y-4">
-            {initialOrders.map((order) => <OrderRow key={order.id} order={order} perspective={perspective} />)}
+            {initialOrders.map((order) => <OrderRow key={order.id} order={order} perspective={perspective} currentUser={currentUser} />)}
         </div>
     );
 }

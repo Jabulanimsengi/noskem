@@ -1,7 +1,8 @@
-import { createClient } from '@/utils/supabase/server';
+// src/app/account/dashboard/orders/page.tsx
+import { createClient } from '@/utils/supabase/server'; // Fixed: Added 'from'
 import { redirect } from 'next/navigation';
 import OrdersClient from './OrdersClient';
-import { type OrderWithDetails } from '@/types'; // This import is now correct
+import { type OrderWithDetails } from '@/types';
 import PageHeader from '@/app/components/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 
@@ -42,12 +43,14 @@ export default async function MyOrdersPage() {
                     <OrdersClient 
                         initialOrders={buyingOrders}
                         perspective="buying"
+                        currentUser={user} /* [INFO]: Passing currentUser */ // Fixed: Changed comment syntax
                     />
                 </TabsContent>
                 <TabsContent value="selling" className="mt-4">
                      <OrdersClient 
                         initialOrders={sellingOrders}
                         perspective="selling"
+                        currentUser={user} /* [INFO]: Passing currentUser */ // Fixed: Changed comment syntax
                     />
                 </TabsContent>
             </Tabs>

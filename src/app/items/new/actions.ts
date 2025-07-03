@@ -1,18 +1,33 @@
+// src/app/items/new/actions.ts
+
 'use server';
 
-import { createClient } from '@/app/utils/supabase/server';
-import { LISTING_FEE } from '@/lib/constants';
+import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
+import { z } from 'zod';
 
+// Define the shape of the state object returned by the action
 export interface ListItemFormState {
   error: string | null;
   success: boolean;
-  itemId?: number;
+  newItemId?: number;
 }
 
+// Define a schema for validating the form data on the server
+const itemSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters long.'),
+  description: z.string().optional(),
+  price: z.coerce.number().positive('Price must be a positive number.'),
+  categoryId: z.coerce.number().positive('You must select a category.'),
+  condition: z.enum(['new', 'like_new', 'used_good', 'used_fair']),
+  imageUrls: z.array(z.string().url()).min(1, 'At least one image is required.'),
+  latitude: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
+  locationDescription: z.string().optional(),
+});
+
 export async function listItemAction(
-  prevState: ListItemFormState,
+  previousState: ListItemFormState,
   formData: FormData
 ): Promise<ListItemFormState> {
   const supabase = await createClient();
@@ -22,74 +37,49 @@ export async function listItemAction(
     return { error: 'You must be logged in to list an item.', success: false };
   }
 
-  // --- 1. Gather all data from the form ---
-  const title = formData.get('title') as string;
-  const description = formData.get('description') as string;
-  const price = parseFloat(formData.get('price') as string);
-  const newItemPrice = formData.get('newItemPrice') ? parseFloat(formData.get('newItemPrice') as string) : null;
-  const categoryId = parseInt(formData.get('categoryId') as string, 10);
-  const condition = formData.get('condition') as 'new' | 'like_new' | 'used_good' | 'used_fair';
-  const purchaseDate = formData.get('purchaseDate') as string || null;
-  const locationDescription = formData.get('locationDescription') as string;
-  const latitude = parseFloat(formData.get('latitude') as string);
-  const longitude = parseFloat(formData.get('longitude') as string);
-  const imageUrls = formData.getAll('imageUrls') as string[];
-
-  // Basic validation
-  if (!title || !price || !categoryId || !condition || imageUrls.length === 0) {
-      return { error: 'Missing required fields. Please complete the form.', success: false };
-  }
-
-  // --- 2. Deduct the listing fee ---
-  const { data: feeDeducted, error: rpcError } = await supabase.rpc('deduct_listing_fee', {
-    p_user_id: user.id
+  // Parse and validate the form data using the schema
+  const validatedFields = itemSchema.safeParse({
+    title: formData.get('title'),
+    description: formData.get('description'),
+    price: formData.get('price'),
+    categoryId: formData.get('categoryId'),
+    condition: formData.get('condition'),
+    imageUrls: formData.getAll('imageUrls'), // Get all image URLs
+    latitude: formData.get('latitude'),
+    longitude: formData.get('longitude'),
+    locationDescription: formData.get('locationDescription'),
   });
 
-  if (rpcError || !feeDeducted) {
-    return { error: 'Could not process listing fee. You may not have enough credits.', success: false };
+  // If validation fails, return the error messages
+  if (!validatedFields.success) {
+    return {
+      error: validatedFields.error.flatten().fieldErrors.toString(),
+      success: false,
+    };
   }
 
-  // Log the financial transaction for the fee
-  await supabase.from('financial_transactions').insert({
-      user_id: user.id,
-      order_id: null,
-      type: 'listing_fee',
-      status: 'completed',
-      amount: -LISTING_FEE,
-      description: `Fee for listing item: "${title}"`
+  // Call the single, atomic database function we created earlier
+  const { data: newItemId, error } = await supabase.rpc('handle_new_item_listing', {
+    p_seller_id: user.id,
+    p_title: validatedFields.data.title,
+    p_description: validatedFields.data.description,
+    p_category_id: validatedFields.data.categoryId,
+    p_condition: validatedFields.data.condition,
+    p_buy_now_price: validatedFields.data.price,
+    p_images: validatedFields.data.imageUrls,
+    p_latitude: validatedFields.data.latitude,
+    p_longitude: validatedFields.data.longitude,
+    p_location_description: validatedFields.data.locationDescription,
   });
 
-  // --- 3. Insert the new item into the database ---
-  const { data: newItem, error: insertError } = await supabase
-    .from('items')
-    .insert({
-      title,
-      description,
-      buy_now_price: price,
-      new_item_price: newItemPrice,
-      category_id: categoryId,
-      condition,
-      purchase_date: purchaseDate,
-      seller_id: user.id,
-      images: imageUrls,
-      location_description: locationDescription,
-      latitude,
-      longitude,
-      status: 'available' // Set initial status
-    })
-    .select('id')
-    .single();
-
-  if (insertError) {
-      console.error("Database insert error:", insertError);
-      return { error: `Failed to list item: ${insertError.message}`, success: false };
+  // If the database function returns an error, pass it directly to the form
+  if (error) {
+    return { error: error.message, success: false };
   }
 
-  // --- 4. Revalidate paths to show the new item ---
-  revalidatePath('/'); // For the homepage carousels and item list
-  revalidatePath('/account/dashboard/my-listings'); // For the user's own listings page
+  // On success, revalidate paths and return the new item's ID
+  revalidatePath('/search');
+  revalidatePath('/account/dashboard/my-listings');
 
-  // --- 5. Redirect to the new item's page ---
-  // The '?created=true' param can be used by a toast component on the item page
-  redirect(`/items/${newItem.id}?created=true`);
+  return { success: true, error: null, newItemId: newItemId as number };
 }

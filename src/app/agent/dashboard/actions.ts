@@ -1,8 +1,11 @@
+// src/app/agent/dashboard/actions.ts
+
 'use server';
 
 import { createClient } from "@/app/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { z } from 'zod';
+// FIX: Import the missing 'createBulkNotifications' function
 import { createNotification, createBulkNotifications } from '@/lib/notifications';
 
 const inspectionSchema = z.object({
@@ -17,6 +20,14 @@ const inspectionSchema = z.object({
   finalVerdict: z.enum(['approved', 'rejected']),
   verdictNotes: z.string().min(1, 'Verdict notes are required.'),
 });
+
+// Helper type to make the code more readable
+type OrderWithItemTitle = {
+  items: { title: string }[] | null;
+  // Add other properties from your select queries
+  seller_id: string;
+  buyer_id?: string;
+};
 
 export async function acceptTaskAction(orderId: number) {
     const supabase = await createClient();
@@ -38,10 +49,12 @@ export async function acceptTaskAction(orderId: number) {
     if (error) throw new Error(`Failed to accept the task: ${error.message}`);
 
     if (updatedOrder) {
-        // FIX: Access item title correctly
-        const itemTitle = updatedOrder.items?.[0]?.title || 'your item';
+        // FIX: Safely access the title from the first element of the 'items' array.
+        const orderData = updatedOrder as OrderWithItemTitle;
+        const itemTitle = (orderData.items && orderData.items.length > 0) ? orderData.items[0].title : 'your item';
+
         await createNotification({
-            profile_id: updatedOrder.seller_id,
+            profile_id: orderData.seller_id,
             message: `An agent has been assigned to your item: "${itemTitle}".`,
             link_url: `/account/dashboard/orders`
         });
@@ -71,16 +84,18 @@ export async function confirmCollectionAction(orderId: number) {
     if (error) throw new Error(`Failed to confirm collection: ${error.message}`);
 
     if (updatedOrder) {
-        // FIX: Access item title correctly
-        const itemTitle = updatedOrder.items?.[0]?.title || 'your item';
+        // FIX: Safely access the title from the first element of the 'items' array.
+        const orderData = updatedOrder as OrderWithItemTitle;
+        const itemTitle = (orderData.items && orderData.items.length > 0) ? orderData.items[0].title : 'your item';
+
         await createBulkNotifications([
             {
-                profile_id: updatedOrder.buyer_id,
+                profile_id: orderData.buyer_id!,
                 message: `Good news! ${itemTitle} has been collected and is now at our secure warehouse.`,
                 link_url: `/orders/${orderId}`
             },
             {
-                profile_id: updatedOrder.seller_id,
+                profile_id: orderData.seller_id,
                 message: `Your item "${itemTitle}" has been successfully collected by our agent.`,
                 link_url: `/account/dashboard/orders`
             }
@@ -151,8 +166,10 @@ export async function submitInspectionAction(formData: FormData) {
     if (updatedOrder) {
         const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
         if (admins && admins.length > 0) {
-            // FIX: Access item title correctly
-            const itemTitle = updatedOrder.items?.[0]?.title || 'an item';
+            // FIX: Safely access the title from the first element of the 'items' array.
+            const orderData = updatedOrder as { items: { title: string }[] | null };
+            const itemTitle = (orderData.items && orderData.items.length > 0) ? orderData.items[0].title : 'an item';
+
             const adminNotifications = admins.map(admin => ({
                 profile_id: admin.id,
                 message: `An inspection report for "${itemTitle}" is ready for your review.`,
