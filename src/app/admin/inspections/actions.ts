@@ -1,4 +1,5 @@
 // src/app/admin/inspections/actions.ts
+
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
@@ -8,19 +9,31 @@ import { createNotification, createBulkNotifications } from '@/lib/notifications
 // Helper types to fix TypeScript errors with Supabase relationships
 type OrderWithItemTitle = {
   agent_id: string;
-  items: { title: string }[] | null; // Correctly typed as an array
+  items: { title: string }[] | null;
 };
 type OrderWithAllDetails = {
   buyer_id: string;
   seller_id: string;
   agent_id: string | null;
-  items: { title: string }[] | null; // Correctly typed as an array
+  items: { title: string }[] | null;
 };
 
+/**
+ * Approves an inspection and notifies the agent.
+ */
 export async function approveInspection(inspectionId: number, orderId: number) {
   const supabase = await createClient();
   
-  await supabase.from('inspections').update({ status: 'approved' }).eq('id', inspectionId);
+  // FIX: Update the new 'admin_status' column instead of the agent's 'status'.
+  const { error: inspectionError } = await supabase
+    .from('inspections')
+    .update({ admin_status: 'approved' })
+    .eq('id', inspectionId);
+
+  if (inspectionError) {
+    throw new Error(`Failed to approve inspection: ${inspectionError.message}`);
+  }
+
   const { data: updatedOrder, error: orderError } = await supabase
     .from('orders')
     .update({ status: 'awaiting_collection' })
@@ -34,7 +47,6 @@ export async function approveInspection(inspectionId: number, orderId: number) {
 
   if (updatedOrder?.agent_id) {
       const orderData = updatedOrder as OrderWithItemTitle;
-      // FIX: Safely access the title from the first element of the array
       const itemTitle = (orderData.items && orderData.items.length > 0) ? orderData.items[0].title : 'your item';
       await createNotification({
           profile_id: orderData.agent_id,
@@ -47,10 +59,22 @@ export async function approveInspection(inspectionId: number, orderId: number) {
   revalidatePath('/agent/dashboard');
 }
 
+/**
+ * Rejects an inspection and notifies all parties.
+ */
 export async function rejectInspection(inspectionId: number, orderId: number) {
   const supabase = await createClient();
 
-  await supabase.from('inspections').update({ status: 'rejected' }).eq('id', inspectionId);
+  // FIX: Update the new 'admin_status' column instead of the agent's 'status'.
+  const { error: inspectionError } = await supabase
+    .from('inspections')
+    .update({ admin_status: 'rejected' })
+    .eq('id', inspectionId);
+
+  if (inspectionError) {
+    throw new Error(`Failed to reject inspection: ${inspectionError.message}`);
+  }
+  
   const { data: updatedOrder, error: orderError } = await supabase
     .from('orders')
     .update({ status: 'cancelled' })
@@ -64,7 +88,6 @@ export async function rejectInspection(inspectionId: number, orderId: number) {
   
   if (updatedOrder) {
       const orderData = updatedOrder as OrderWithAllDetails;
-      // FIX: Safely access the title from the first element of the array
       const itemTitle = (orderData.items && orderData.items.length > 0) ? orderData.items[0].title : 'the item';
       const notifications = [
           {

@@ -315,6 +315,7 @@ export type Database = {
         Row: {
           accessories_matches: boolean | null
           accessories_notes: string | null
+          admin_status: string | null
           agent_id: string
           condition_matches: boolean | null
           condition_notes: string | null
@@ -331,6 +332,7 @@ export type Database = {
         Insert: {
           accessories_matches?: boolean | null
           accessories_notes?: string | null
+          admin_status?: string | null
           agent_id: string
           condition_matches?: boolean | null
           condition_notes?: string | null
@@ -347,6 +349,7 @@ export type Database = {
         Update: {
           accessories_matches?: boolean | null
           accessories_notes?: string | null
+          admin_status?: string | null
           agent_id?: string
           condition_matches?: boolean | null
           condition_notes?: string | null
