@@ -1,3 +1,5 @@
+// src/app/admin/users/actions.ts
+
 'use server';
 
 import { createClient } from '../../utils/supabase/server';
@@ -50,25 +52,24 @@ export async function updateUserRole(previousState: ActionState, formData: FormD
 
 export async function adjustCreditsAction(previousState: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const adminUser = await verifyAdmin();
+    await verifyAdmin(); // This already verifies the user is an admin
     const supabase = await createClient();
 
     const userId = formData.get('userId') as string;
     const amount = parseInt(formData.get('amount') as string, 10);
-    const notes = formData.get('notes') as string;
+    const reason = formData.get('notes') as string; // 'notes' from your original file
 
-    if (!userId || isNaN(amount) || !notes) {
+    if (!userId || isNaN(amount) || !reason) {
       throw new Error('Invalid user ID, amount, or reason provided.');
     }
 
-    const { error } = await supabase.rpc('add_credits_to_user', { user_id: userId, amount_to_add: amount });
-    if (error) throw new Error(`Credit adjustment failed: ${error.message}`);
-
-    await supabase.from('credit_transactions').insert({
-        profile_id: userId,
-        amount: amount,
-        description: `Manual adjustment by admin (${adminUser.email}): ${notes}`
+    // Call the new, single, atomic function
+    const { error } = await supabase.rpc('admin_adjust_credits', {
+        p_user_id: userId,
+        p_amount_to_add: amount,
+        p_reason: reason
     });
+    if (error) throw new Error(`Credit adjustment failed: ${error.message}`);
     
   } catch (error) {
     const err = error as Error;

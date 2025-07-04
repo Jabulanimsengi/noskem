@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { createNotification, createBulkNotifications } from '@/lib/notifications';
 
-// Helper types to fix TypeScript errors with Supabase relationships
+// Helper types to fix TypeScript errors
 type OrderWithItemTitle = {
   agent_id: string;
   items: { title: string }[] | null;
@@ -18,22 +18,12 @@ type OrderWithAllDetails = {
   items: { title: string }[] | null;
 };
 
-/**
- * Approves an inspection and notifies the agent.
- */
 export async function approveInspection(inspectionId: number, orderId: number) {
   const supabase = await createClient();
   
-  // FIX: Update the new 'admin_status' column instead of the agent's 'status'.
-  const { error: inspectionError } = await supabase
-    .from('inspections')
-    .update({ admin_status: 'approved' })
-    .eq('id', inspectionId);
-
-  if (inspectionError) {
-    throw new Error(`Failed to approve inspection: ${inspectionError.message}`);
-  }
-
+  // FIX: Update the new 'admin_status' column.
+  await supabase.from('inspections').update({ admin_status: 'approved' }).eq('id', inspectionId);
+  
   const { data: updatedOrder, error: orderError } = await supabase
     .from('orders')
     .update({ status: 'awaiting_collection' })
@@ -59,21 +49,11 @@ export async function approveInspection(inspectionId: number, orderId: number) {
   revalidatePath('/agent/dashboard');
 }
 
-/**
- * Rejects an inspection and notifies all parties.
- */
 export async function rejectInspection(inspectionId: number, orderId: number) {
   const supabase = await createClient();
 
-  // FIX: Update the new 'admin_status' column instead of the agent's 'status'.
-  const { error: inspectionError } = await supabase
-    .from('inspections')
-    .update({ admin_status: 'rejected' })
-    .eq('id', inspectionId);
-
-  if (inspectionError) {
-    throw new Error(`Failed to reject inspection: ${inspectionError.message}`);
-  }
+  // FIX: Update the new 'admin_status' column.
+  await supabase.from('inspections').update({ admin_status: 'rejected' }).eq('id', inspectionId);
   
   const { data: updatedOrder, error: orderError } = await supabase
     .from('orders')

@@ -20,7 +20,6 @@ export default async function AdminInspectionsPage() {
     notFound();
   }
 
-  // UPDATED QUERY: This now fetches all reports and their statuses.
   const { data: inspections, error } = await supabase
     .from('inspections')
     .select(`
@@ -55,7 +54,6 @@ export default async function AdminInspectionsPage() {
               <th className="px-4 py-2 text-left font-semibold text-gray-600">Item</th>
               <th className="px-4 py-2 text-left font-semibold text-gray-600">Agent</th>
               <th className="px-4 py-2 text-left font-semibold text-gray-600">Agent Verdict</th>
-              {/* FIX: Add the new header for Admin Status */}
               <th className="px-4 py-2 text-left font-semibold text-gray-600">Admin Status</th>
               <th className="px-4 py-2 text-left font-semibold text-gray-600">Submitted At</th>
               <th className="px-4 py-2 text-left font-semibold text-gray-600">Actions</th>
@@ -68,7 +66,6 @@ export default async function AdminInspectionsPage() {
                 <td className="px-4 py-2 text-gray-700">{inspection.orders?.items?.title ?? 'N/A'}</td>
                 <td className="px-4 py-2 text-gray-700">{inspection.orders?.profiles?.username ?? 'N/A'}</td>
                 <td className="px-4 py-2 font-semibold capitalize" style={{ color: inspection.final_verdict === 'approved' ? 'green' : 'red' }}>{inspection.final_verdict}</td>
-                {/* FIX: Add the new cell to display the admin_status */}
                 <td className="px-4 py-2 font-semibold capitalize">
                   {inspection.admin_status ? (
                     <span style={{ color: inspection.admin_status === 'approved' ? 'green' : 'red' }}>
