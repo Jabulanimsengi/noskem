@@ -36,8 +36,6 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
       onConfirm: async () => {
         const result = await signOutAction();
         if (result.success) {
-          // --- DEBUGGING LOG ---
-          console.log("1. AuthButton: handleSignOut confirmed. Attempting to show toast...");
           showToast("You have been signed out successfully.", 'success');
           setIsOpen(false);
           router.refresh();
@@ -61,10 +59,10 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
   if (!user) {
     return (
       <div className="flex items-center gap-2">
-        <button onClick={() => openModal('sign_in')} className="px-4 py-2 text-sm font-semibold text-text-primary hover:bg-gray-100 rounded-md">
+        <button onClick={() => openModal('sign_in')} className="px-4 py-2 text-sm font-semibold text-white border border-white/50 rounded-lg hover:bg-white/20 transition-colors">
           Sign In
         </button>
-        <Link href="/signup" className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark">
+        <Link href="/signup" className="px-4 py-2 text-sm font-semibold text-brand bg-white rounded-lg hover:bg-gray-200 transition-colors">
           Sign Up
         </Link>
       </div>
@@ -75,7 +73,7 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 transition-opacity hover:opacity-80"
+        className="flex items-center gap-2 p-2 rounded-full transition-all duration-200 ease-in-out hover:bg-white/10"
         aria-haspopup="true"
         aria-expanded={isOpen}
       >
@@ -85,22 +83,22 @@ export default function AuthButton({ user, profile }: AuthButtonProps) {
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-surface ring-1 ring-black ring-opacity-5 z-50">
-          <div className="py-1">
+          <div className="py-1 text-text-primary">
             <div className="px-4 py-3 border-b border-gray-200">
-              <p className="text-sm font-semibold text-text-primary truncate">{profile?.username || 'User'}</p>
+              <p className="text-sm font-semibold truncate">{profile?.username || 'User'}</p>
               <p className="text-xs text-text-secondary truncate">{user.email}</p>
             </div>
             <div className="py-1">
-              <Link href="/account/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
+              <Link href="/account/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
                 My Dashboard
               </Link>
               {profile?.role === 'admin' && (
-                <Link href="/admin/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
+                <Link href="/admin/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
                   Admin Panel
                 </Link>
               )}
               {profile?.role === 'agent' && (
-                <Link href="/agent/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-gray-100">
+                <Link href="/agent/dashboard" onClick={() => setIsOpen(false)} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100">
                   Agent Dashboard
                 </Link>
               )}

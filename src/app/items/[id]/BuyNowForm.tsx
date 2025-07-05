@@ -1,20 +1,17 @@
 // src/app/items/[id]/BuyNowForm.tsx
 'use client';
 
-import { useFormStatus } from 'react-dom';
+import { useFormState, useFormStatus } from 'react-dom';
 import { useToast } from '@/context/ToastContext';
 import { useEffect } from 'react';
-import { FaShieldAlt, FaTruck, FaBox } from 'react-icons/fa'; // Import icons
+import { FaShieldAlt, FaTruck, FaBox } from 'react-icons/fa';
+import { type FormState } from './actions'; // Ensure this import is correct
 
-interface FormState {
-    // FIX: Changed 'error: string | undefined;' to 'error?: string;'
-    // This makes the 'error' property optional, aligning with src/app/items/[id]/actions.ts
-    error?: string;
-    success?: boolean;
-    url?: string;
-}
-
-const initialState: FormState = { error: undefined };
+const initialState: FormState = {
+    error: undefined,
+    success: false,
+    url: undefined,
+};
 
 function SubmitButton() {
     const { pending } = useFormStatus();
@@ -34,45 +31,39 @@ interface BuyNowFormProps {
     sellerId: string;
     itemPrice: number;
     itemTitle: string;
+    addDelivery: boolean; // Keep this prop to pass the delivery choice
     action: (prevState: FormState, formData: FormData) => Promise<FormState>;
 }
 
-export default function BuyNowForm({ itemId, sellerId, itemPrice, itemTitle, action }: BuyNowFormProps) {
+export default function BuyNowForm({ itemId, sellerId, itemPrice, itemTitle, addDelivery, action }: BuyNowFormProps) {
     const { showToast } = useToast();
+    // --- FIX: Correctly use the useFormState hook ---
+    const [state, formAction] = useFormState(action, initialState);
+    
+    const deliveryFee = 399;
+    const totalPrice = addDelivery ? itemPrice + deliveryFee : itemPrice;
 
-    // Use useFormState here if it's intended to manage form state with server actions
-    // For this example, assuming action directly handles the state in the server function
-    // If useFormState is needed, it would be:
-    // const [state, formAction] = useFormState(action, initialState);
-    // And then formAction would be passed to the form.
-
-    // For now, assuming direct call of 'action' via onSubmit
-    // This component's use of `action` directly in `onSubmit` means `useFormState` might not be directly applied here
-    // unless the 'action' itself is a result of useFormState from a parent component.
-    // The previous context implies action is a server action that takes FormData.
-
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        showToast('Processing purchase...', 'info');
-
-        const formData = new FormData(event.currentTarget);
-        formData.append('itemId', itemId.toString());
-        formData.append('sellerId', sellerId);
-        formData.append('itemPrice', itemPrice.toString());
-        formData.append('itemTitle', itemTitle);
-
-        const result = await action(initialState, formData); // Pass initialState if action expects it
-
-        if (result?.error) {
-            showToast(result.error, 'error');
-        } else if (result?.success && result.url) {
+    // This effect will run when the server action returns a response
+    useEffect(() => {
+        if (state.success && state.url) {
             showToast('Redirecting to payment gateway...', 'success');
-            window.location.href = result.url;
+            window.location.href = state.url;
         }
-    };
+        if (state.error) {
+            showToast(state.error, 'error');
+        }
+    }, [state, showToast]);
 
     return (
-        <form onSubmit={handleSubmit} className="p-6 bg-white rounded-lg shadow-md space-y-6">
+        // --- FIX: The form now calls 'formAction' directly ---
+        <form action={formAction} className="p-6 bg-white rounded-lg shadow-md space-y-6">
+            {/* Hidden inputs to pass all necessary data to the server action */}
+            <input type="hidden" name="itemId" value={itemId} />
+            <input type="hidden" name="sellerId" value={sellerId} />
+            <input type="hidden" name="itemPrice" value={itemPrice} />
+            <input type="hidden" name="itemTitle" value={itemTitle} />
+            <input type="hidden" name="addDelivery" value={String(addDelivery)} />
+
             <h3 className="text-xl font-semibold text-text-primary mb-4">Complete Your Purchase</h3>
             
             <div className="flex items-center space-x-3 text-text-secondary">
@@ -88,7 +79,7 @@ export default function BuyNowForm({ itemId, sellerId, itemPrice, itemTitle, act
                 <p className="text-sm">Item inspection by a certified agent ensures it matches the description.</p>
             </div>
 
-            <p className="text-3xl font-extrabold text-brand mt-6">R{itemPrice.toFixed(2)}</p>
+            <p className="text-3xl font-extrabold text-brand mt-6">R{totalPrice.toFixed(2)}</p>
 
             <SubmitButton />
         </form>

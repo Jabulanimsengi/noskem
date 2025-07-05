@@ -20,7 +20,7 @@ interface AvatarProps {
 }
 
 export default function Avatar({ src, alt, size = 40 }: AvatarProps) {
-  const placeholder = `https://ui-avatars.com/api/?name=${alt.charAt(0).toUpperCase()}&background=0891B2&color=fff&size=${size}`;
+  const placeholder = `https://ui-avatars.com/api/?name=${alt.charAt(0).toUpperCase()}&background=FFFFFF&color=0891B2&size=${size}`;
   const imageUrl = src || placeholder;
 
   return (

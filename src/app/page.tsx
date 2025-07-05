@@ -41,10 +41,12 @@ async function HomepageContent() {
     creditPackagesRes,
   ] = await Promise.all([
     supabase.from('categories').select('*').order('name', { ascending: true }),
-    supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('is_featured', true).eq('status', 'available').limit(10),
-    supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('status', 'available').order('view_count', { ascending: false, nullsFirst: false }).limit(10),
-    supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('status', 'available').order('created_at', { ascending: false }).limit(10),
-    supabase.from('items').select(`*, profiles:seller_id(username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10),
+    // --- FIX: Fetch 'available' AND 'pending_payment' items for all carousels ---
+    supabase.from('items').select(`*, new_item_price, profiles:seller_id(username, avatar_url)`).eq('is_featured', true).in('status', ['available', 'pending_payment']).limit(10),
+    supabase.from('items').select(`*, new_item_price, profiles:seller_id(username, avatar_url)`).in('status', ['available', 'pending_payment']).order('view_count', { ascending: false, nullsFirst: false }).limit(10),
+    supabase.from('items').select(`*, new_item_price, profiles:seller_id(username, avatar_url)`).in('status', ['available', 'pending_payment']).order('created_at', { ascending: false }).limit(10),
+    // 'recentlySold' should correctly only show 'sold' items.
+    supabase.from('items').select(`*, new_item_price, profiles:seller_id(username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10),
     supabase.from('credit_packages').select('*').order('price_zar', { ascending: true }),
   ]);
 

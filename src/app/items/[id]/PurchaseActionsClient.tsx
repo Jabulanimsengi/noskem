@@ -2,28 +2,24 @@
 'use client';
 
 import { useAuthModal } from '@/context/AuthModalContext';
-import { type ItemWithProfile, type Profile } from '@/types';
+import { type ItemWithProfile } from '@/types';
 import { useUser } from '@/hooks/useUser';
 import BuyNowForm from './BuyNowForm';
 import OfferModal from '@/app/components/OfferModal';
 import { useState } from 'react';
 import { Button } from '@/app/components/Button';
-import { createCheckoutSession } from './actions'; // Import the server action
+import { createCheckoutSession } from './actions';
 
 interface PurchaseActionsClientProps {
   item: ItemWithProfile;
 }
 
 export default function PurchaseActionsClient({ item }: PurchaseActionsClientProps) {
-  const { user, profile } = useUser();
+  const { user } = useUser();
   const { openModal } = useAuthModal();
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
-
-  const handleBuyNowClick = () => {
-    if (!user) {
-      openModal('sign_in');
-    }
-  };
+  const [addDelivery, setAddDelivery] = useState(false); // State for delivery fee
+  const deliveryFee = 399; // The fee amount
 
   const handleMakeOfferClick = () => {
     if (!user) {
@@ -43,7 +39,6 @@ export default function PurchaseActionsClient({ item }: PurchaseActionsClientPro
     );
   }
 
-  // If the user is the seller, display a message instead of purchase actions
   if (isSeller) {
     return (
       <div className="p-6 bg-blue-50 rounded-lg shadow-md text-center text-blue-800">
@@ -55,16 +50,35 @@ export default function PurchaseActionsClient({ item }: PurchaseActionsClientPro
 
   return (
     <div>
+      {/* --- Add this section for the delivery option --- */}
+      <div className="mb-4">
+        <label htmlFor="delivery" className="flex items-center gap-3 p-4 border rounded-lg hover:border-brand cursor-pointer transition-colors bg-white">
+            <input 
+                type="checkbox"
+                id="delivery"
+                name="delivery"
+                checked={addDelivery}
+                onChange={(e) => setAddDelivery(e.target.checked)}
+                className="h-5 w-5 rounded border-gray-300 text-brand focus:ring-brand"
+            />
+            <div>
+                <p className="font-semibold text-gray-800">Collection & Delivery</p>
+                <p className="text-sm text-gray-500">An agent collects, inspects, and delivers the item to you.</p>
+            </div>
+            <p className="ml-auto font-bold text-brand">R {deliveryFee}</p>
+        </label>
+      </div>
+      {/* --- End of section --- */}
+
       <div className="space-y-4">
         {item.buy_now_price && item.buy_now_price > 0 && (
           <BuyNowForm
             itemId={item.id}
             sellerId={item.seller_id}
             itemPrice={item.buy_now_price}
-            // FIX: Pass the missing itemTitle prop
             itemTitle={item.title}
-            // FIX: Pass the missing action prop
             action={createCheckoutSession}
+            addDelivery={addDelivery} // Pass the delivery state to the form
           />
         )}
 

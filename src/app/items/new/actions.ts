@@ -4,82 +4,94 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { z } from 'zod';
 
-// Define the shape of the state object returned by the action
-export interface ListItemFormState {
-  error: string | null;
+// --- FIX: Export the FormState type so it can be imported. ---
+export type FormState = {
   success: boolean;
-  newItemId?: number;
-}
+  message: string;
+  itemId?: number;
+};
 
-// Define a schema for validating the form data on the server
-const itemSchema = z.object({
-  title: z.string().min(3, 'Title must be at least 3 characters long.'),
-  description: z.string().optional(),
-  price: z.coerce.number().positive('Price must be a positive number.'),
-  categoryId: z.coerce.number().positive('You must select a category.'),
-  condition: z.enum(['new', 'like_new', 'used_good', 'used_fair']),
-  imageUrls: z.array(z.string().url()).min(1, 'At least one image is required.'),
-  latitude: z.coerce.number().optional(),
-  longitude: z.coerce.number().optional(),
-  locationDescription: z.string().optional(),
-});
-
-export async function listItemAction(
-  previousState: ListItemFormState,
+export async function createItem(
+  prevState: FormState,
   formData: FormData
-): Promise<ListItemFormState> {
-  const supabase = await createClient();
+): Promise<FormState> {
+  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: 'You must be logged in to list an item.', success: false };
+    return { success: false, message: 'You must be logged in to create an item.' };
   }
 
-  // Parse and validate the form data using the schema
-  const validatedFields = itemSchema.safeParse({
-    title: formData.get('title'),
-    description: formData.get('description'),
-    price: formData.get('price'),
-    categoryId: formData.get('categoryId'),
-    condition: formData.get('condition'),
-    imageUrls: formData.getAll('imageUrls'), // Get all image URLs
-    latitude: formData.get('latitude'),
-    longitude: formData.get('longitude'),
-    locationDescription: formData.get('locationDescription'),
-  });
+  // --- 1. Handle Image Uploads ---
+  const imageFiles = formData.getAll('images') as File[];
+  const imageUrls: string[] = [];
 
-  // If validation fails, return the error messages
-  if (!validatedFields.success) {
-    return {
-      error: validatedFields.error.flatten().fieldErrors.toString(),
-      success: false,
-    };
+  if (imageFiles.length > 0 && imageFiles[0].size > 0) {
+      for (const file of imageFiles) {
+          const fileName = `${user.id}/${Date.now()}-${file.name}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('item-images')
+              .upload(fileName, file);
+
+          if (uploadError) {
+              console.error('Error uploading image:', uploadError);
+              return { success: false, message: `Failed to upload image: ${uploadError.message}` };
+          }
+          
+          const { data: { publicUrl } } = supabase.storage
+              .from('item-images')
+              .getPublicUrl(uploadData.path);
+          
+          imageUrls.push(publicUrl);
+      }
+  } else {
+      return { success: false, message: 'At least one image is required.' };
   }
 
-  // Call the single, atomic database function we created earlier
-  const { data: newItemId, error } = await supabase.rpc('handle_new_item_listing', {
-    p_seller_id: user.id,
-    p_title: validatedFields.data.title,
-    p_description: validatedFields.data.description,
-    p_category_id: validatedFields.data.categoryId,
-    p_condition: validatedFields.data.condition,
-    p_buy_now_price: validatedFields.data.price,
-    p_images: validatedFields.data.imageUrls,
-    p_latitude: validatedFields.data.latitude,
-    p_longitude: validatedFields.data.longitude,
-    p_location_description: validatedFields.data.locationDescription,
-  });
+  // --- 2. Prepare Item Data from Form ---
+  const newItemPriceValue = formData.get('new_item_price');
+  const purchaseDateValue = formData.get('purchase_date');
+  const categoryIdValue = formData.get('category');
 
-  // If the database function returns an error, pass it directly to the form
+  const itemData = {
+    seller_id: user.id,
+    title: formData.get('title') as string,
+    description: formData.get('description') as string,
+    images: imageUrls,
+    category_id: categoryIdValue ? Number(categoryIdValue) : null,
+    condition: formData.get('condition') as 'new' | 'like_new' | 'used_good' | 'used_fair',
+    buy_now_price: Number(formData.get('price')),
+    new_item_price: newItemPriceValue ? Number(newItemPriceValue) : null,
+    latitude: Number(formData.get('latitude')),
+    longitude: Number(formData.get('longitude')),
+    location_description: formData.get('locationDescription') as string,
+    purchase_date: purchaseDateValue ? (purchaseDateValue as string) : null,
+    status: 'available' as const,
+    is_featured: false,
+    discount_percentage: 0,
+  };
+  
+  if (!itemData.title || !itemData.buy_now_price || !itemData.category_id) {
+      return { success: false, message: 'Please fill out all required fields.' };
+  }
+
+  // --- 3. Insert into Database ---
+  const { data: newItem, error } = await supabase
+    .from('items')
+    .insert(itemData)
+    .select()
+    .single();
+
   if (error) {
-    return { error: error.message, success: false };
+    console.error('Error creating item:', error);
+    return { success: false, message: `Failed to create item: ${error.message}` };
   }
 
-  // On success, revalidate paths and return the new item's ID
+  // --- 4. Revalidate Paths and Return Success ---
+  revalidatePath('/');
   revalidatePath('/search');
-  revalidatePath('/account/dashboard/my-listings');
-
-  return { success: true, error: null, newItemId: newItemId as number };
+  revalidatePath(`/items/${newItem.id}`);
+  
+  return { success: true, message: 'Item created successfully!', itemId: newItem.id };
 }

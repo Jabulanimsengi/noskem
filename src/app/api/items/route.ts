@@ -4,7 +4,7 @@ import { createClient } from '@/app/utils/supabase/server';
 import { type NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient(); // FIX: Added await
+  const supabase = await createClient();
   
   const searchParams = request.nextUrl.searchParams;
   
@@ -26,30 +26,29 @@ export async function GET(request: NextRequest) {
   try {
     let query;
 
-    // --- FIX STARTS HERE ---
     // We check for location params first. If they exist, we use the RPC call.
     if (lat && lon) {
+        // IMPORTANT: The database function 'get_items_nearby' must also be updated
+        // to return items with a 'pending_payment' status for this filter to work correctly.
         query = supabase
             .rpc('get_items_nearby', { 
                 lat: parseFloat(lat), 
                 long: parseFloat(lon), 
                 radius_km: 50 // Default radius of 50km
             })
-            .select('*, profiles:seller_id(username, avatar_url)');
+            .select('*, new_item_price, profiles:seller_id(username, avatar_url)');
             
-            // Note: Further filtering on RPC results is limited. 
-            // For a full implementation, these filters would need to be added to the SQL function itself.
-            // For now, we apply sorting after the RPC call.
-             if (sortColumn && sortOrder) {
-                query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
-            }
+        if (sortColumn && sortOrder) {
+            query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
+        }
 
     } else {
         // If no location, build a standard query where all filters can be applied.
         query = supabase
             .from('items')
-            .select('*, profiles:seller_id(username, avatar_url)', { count: 'exact' })
-            .eq('status', 'available');
+            .select('*, new_item_price, profiles:seller_id(username, avatar_url)', { count: 'exact' })
+            // --- FIX: This is the key change. We now fetch 'available' AND 'pending_payment' items. ---
+            .in('status', ['available', 'pending_payment']);
 
         if (categorySlug) {
             const { data: category } = await supabase.from('categories').select('id').eq('slug', categorySlug).single();
@@ -66,10 +65,13 @@ export async function GET(request: NextRequest) {
             query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
         }
     }
-    // --- FIX ENDS HERE ---
 
-
-    const { data, count } = await query.range(from, to);
+    const { data, error, count } = await query.range(from, to);
+    
+    if (error) {
+        console.error("API Error fetching items:", error);
+        throw error;
+    }
 
     return NextResponse.json({
       items: data,

@@ -1,3 +1,5 @@
+// src/app/components/NotificationBell.tsx
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -116,19 +118,22 @@ export default function NotificationBell() {
   
   return (
     <div className="relative">
-        <button onClick={handleToggleDropdown} className="relative text-gray-500 hover:text-brand p-2">
+        <button 
+            onClick={handleToggleDropdown} 
+            className="relative p-2 rounded-full transition-all duration-200 ease-in-out hover:bg-white/10"
+        >
             <FaBell size={22} />
             {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-red-600 text-white text-xs font-bold ring-2 ring-surface flex items-center justify-center">
+                <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-red-600 text-white text-xs font-bold ring-2 ring-brand flex items-center justify-center">
                     {unreadCount}
                 </span>
             )}
         </button>
 
         {isOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-surface border border-gray-200 rounded-xl shadow-lg z-50">
+            <div className="absolute right-0 mt-2 w-80 bg-surface border border-gray-200 rounded-xl shadow-lg z-50 text-text-primary">
                 <div className="p-3 flex justify-between items-center border-b border-gray-200">
-                    <span className="font-bold text-text-primary">Notifications</span>
+                    <span className="font-bold">Notifications</span>
                     {notifications.length > 0 && (
                     <button onClick={handleClearAll} className="text-xs text-red-500 hover:underline flex items-center gap-1">
                         <FaTrash />
@@ -144,7 +149,7 @@ export default function NotificationBell() {
                                 <FaBell className={`h-5 w-5 ${!n.is_read ? 'text-brand' : 'text-gray-400'}`} />
                             </div>
                             <div className="flex-grow">
-                                <p className={`text-sm ${!n.is_read ? 'text-text-primary font-semibold' : 'text-text-secondary'}`}>{n.message}</p>
+                                <p className={`text-sm ${!n.is_read ? 'font-semibold' : 'text-text-secondary'}`}>{n.message}</p>
                                 <p className="text-xs text-gray-400 mt-1">
                                     {new Date(n.created_at).toLocaleString()}
                                 </p>
@@ -167,7 +172,7 @@ export default function NotificationBell() {
                     ) : (
                     <div className="p-6 text-center text-text-secondary">
                         <FaCheckCircle className="mx-auto text-4xl text-gray-300 mb-2"/>
-                        <p>You&apos;re all caught up!</p>
+                        <p>You're all caught up!</p>
                     </div>
                     )}
                 </div>

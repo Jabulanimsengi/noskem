@@ -2,7 +2,8 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
@@ -14,7 +15,7 @@ import { MessageSquare, Tag } from 'lucide-react';
 import { useChat, type ChatSession } from '@/context/ChatContext';
 import { Button } from './Button';
 import { useToast } from '@/context/ToastContext';
-import { createCheckoutSession } from '@/app/items/[id]/actions';
+import { createCheckoutSession, type FormState } from '@/app/items/[id]/actions';
 import { toggleLikeAction } from '@/app/likes/actions';
 import { getGuestLikes, addGuestLike, removeGuestLike } from '@/utils/guestLikes';
 
@@ -31,11 +32,40 @@ interface ItemCardProps {
     initialHasLiked?: boolean;
 }
 
+// A self-contained component for the "Buy" button form
+function BuyButtonForm({ item }: { item: ItemWithProfile }) {
+    const { showToast } = useToast();
+    const { pending } = useFormStatus();
+    
+    const initialState: FormState = { error: undefined, success: false, url: undefined };
+    const [state, formAction] = useFormState(createCheckoutSession, initialState);
+
+    useEffect(() => {
+        if (state.error) {
+            showToast(state.error, 'error');
+        }
+        if (state.success && state.url) {
+            showToast('Redirecting to payment...', 'success');
+            window.location.href = state.url;
+        }
+    }, [state, showToast]);
+
+    return (
+        <form action={formAction}>
+            <input type="hidden" name="itemId" value={item.id} />
+            <input type="hidden" name="itemPrice" value={item.buy_now_price || 0} />
+            <Button size="sm" variant="primary" type="submit" disabled={pending} className="w-full">
+                {pending ? '...' : 'Buy'}
+            </Button>
+        </form>
+    );
+}
+
+
 export default function ItemCard({ item, user, initialHasLiked = false }: ItemCardProps) {
     const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
     const [hasLiked, setHasLiked] = useState(initialHasLiked);
     const [isLiking, startLikeTransition] = useTransition();
-    const [isBuying, startBuyTransition] = useTransition(); // Transition for the buy action
     const { openModal } = useAuthModal();
     const { openChat } = useChat();
     const { showToast } = useToast();
@@ -87,33 +117,6 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
         });
     };
 
-    const handleBuyNow = () => {
-        handleAction(() => {
-            startBuyTransition(async () => {
-                if (!item.buy_now_price) {
-                    showToast("This item isn't available for direct purchase.", "error");
-                    return;
-                }
-
-                showToast('Processing...', 'info');
-                const formData = new FormData();
-                formData.append('itemId', item.id.toString());
-                formData.append('itemPrice', item.buy_now_price.toString());
-                
-                // Call the simplified server action
-                const result = await createCheckoutSession(formData);
-                
-                if (result?.error) {
-                    showToast(result.error, 'error');
-                } else if (result?.success && result.url) {
-                    showToast('Redirecting to payment gateway...', 'success');
-                    // Perform redirect on the client
-                    window.location.href = result.url;
-                }
-            });
-        });
-    };
-
     const finalImageUrl = (Array.isArray(item.images) && typeof item.images[0] === 'string' && item.images.length > 0)
         ? item.images[0]
         : 'https://placehold.co/600x400/27272a/9ca3af?text=No+Image';
@@ -137,11 +140,23 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                     <button
                         onClick={handleToggleLike}
                         disabled={isLiking}
-                        className="absolute top-2 right-2 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+                        className="absolute top-2 right-2 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors z-10"
                         aria-label="Like item"
                     >
                         <FaHeart className={`${hasLiked ? 'text-red-500' : 'text-white/80'}`} />
                     </button>
+
+                    {/* --- FIX: Add status badges for 'sold' and 'pending_payment' --- */}
+                    {item.status === 'sold' && (
+                        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-lg">
+                            SOLD
+                        </div>
+                    )}
+                    {item.status === 'pending_payment' && (
+                        <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-lg">
+                            PENDING
+                        </div>
+                    )}
                 </div>
                 <div className="p-4 flex flex-col flex-grow">
                     <h3 className="text-lg font-bold text-text-primary truncate">{item.title}</h3>
@@ -158,9 +173,16 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                         </div>
                     )}
 
-                    <p className="mt-3 text-2xl font-extrabold text-brand flex-grow">
+                    <div className="flex items-baseline gap-2 mt-3 flex-grow">
+                      <p className="text-2xl font-extrabold text-brand">
                         {item.buy_now_price ? `R${item.buy_now_price.toFixed(2)}` : 'Make an Offer'}
-                    </p>
+                      </p>
+                      {item.new_item_price && item.buy_now_price && item.new_item_price > item.buy_now_price && (
+                        <p className="text-md text-gray-500 line-through">
+                          R{item.new_item_price.toFixed(2)}
+                        </p>
+                      )}
+                    </div>
 
                     <div className="mt-auto pt-4 border-t border-gray-200">
                         {item.status === 'available' ? (
@@ -172,9 +194,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                                     <Tag className="h-4 w-4" />
                                     <span className="ml-1">Offer</span>
                                 </Button>
-                                <Button size="sm" variant="primary" onClick={handleBuyNow} disabled={isBuying}>
-                                    {isBuying ? '...' : 'Buy'}
-                                </Button>
+                                <BuyButtonForm item={item} />
                             </div>
                         ) : item.status === 'pending_payment' ? (
                             <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-orange-600 bg-orange-100 border-2 border-orange-200 rounded-lg cursor-not-allowed">

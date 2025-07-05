@@ -3,7 +3,7 @@ import ItemCard from '../components/ItemCard';
 import SortFilter from './SortFilter';
 import SidebarFilters from './SidebarFilters';
 import { Suspense } from 'react';
-import { type ItemWithProfile } from '@/types'; // This line must be present
+import { type ItemWithProfile } from '@/types';
 import SaveSearchButton from './SaveSearchButton';
 
 export const dynamic = 'force-dynamic';
@@ -28,8 +28,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   let query = supabase
     .from('items')
-    .select('*, profiles:seller_id(*)')
-    .eq('status', 'available');
+    .select('*, new_item_price, profiles:seller_id(*)')
+    // --- FIX: Include items with 'pending_payment' status ---
+    .in('status', ['available', 'pending_payment']);
 
   if (typeof searchQuery === 'string' && searchQuery) {
     query = query.textSearch('fts', searchQuery, { type: 'plain', config: 'english' });
@@ -105,7 +106,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 <p className="text-center text-text-secondary py-16">No items found matching your criteria.</p>
             )}
             </div>
-      </div>
+        </div>
     </div>
   );
 }

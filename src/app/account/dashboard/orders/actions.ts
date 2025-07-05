@@ -17,7 +17,37 @@ async function getAuthenticatedUser() {
     return user;
 }
 
-// Corrected: Function now returns Promise<void> on success
+// --- NEW CANCEL ACTION ---
+// This function now calls our new all-in-one database function.
+export async function cancelPendingOrder(orderId: number) {
+  try {
+    const user = await getAuthenticatedUser();
+    const supabase = createClient();
+
+    // Call the new RPC function
+    const { error } = await supabase.rpc('cancel_order_and_refund', {
+      p_order_id: orderId,
+      p_buyer_id: user.id
+    });
+
+    if (error) {
+      throw new Error(`Failed to cancel order: ${error.message}`);
+    }
+
+    revalidatePath('/account/dashboard/orders');
+    revalidatePath('/items'); // Revalidate item pages as well
+
+    return { success: true, message: 'Order cancelled successfully.' };
+
+  } catch (error) {
+    const err = error as Error;
+    return { success: false, message: err.message };
+  }
+}
+
+
+// --- Your other existing actions ---
+
 export async function confirmReceipt(orderId: number): Promise<void> {
   const user = await getAuthenticatedUser();
   const supabase = createClient();
@@ -39,17 +69,17 @@ export async function confirmReceipt(orderId: number): Promise<void> {
 
   if (updateError) throw new Error("Failed to update order status.");
   
-  const sellerId = order.items && Array.isArray(order.items) && order.items.length > 0 ? order.items[0].seller_id : null;
+  const sellerId = order.items && typeof order.items === 'object' && !Array.isArray(order.items)
+    ? (order.items as { seller_id: string }).seller_id
+    : null;
 
   if (sellerId) {
     await createNotification(sellerId, `The buyer has confirmed receipt for order #${orderId}. You can now claim your funds.`, '/account/dashboard/orders');
   }
 
   revalidatePath('/account/dashboard/orders');
-  // No return value on success
 }
 
-// Corrected: Function now returns Promise<void> on success
 export async function claimSellerFunds(orderId: number): Promise<void> {
   const user = await getAuthenticatedUser();
   const supabase = createClient();
@@ -77,7 +107,6 @@ export async function claimSellerFunds(orderId: number): Promise<void> {
   revalidatePath('/account/dashboard/orders');
   revalidatePath('/account/dashboard/transactions');
   revalidatePath('/', 'layout');
-  // No return value on success
 }
 
 export async function requestReturnAction(orderId: number): Promise<void> {
@@ -107,38 +136,4 @@ export async function requestReturnAction(orderId: number): Promise<void> {
   }
 
   revalidatePath('/account/dashboard/orders');
-}
-
-export async function cancelOrderAction(orderId: number): Promise<{ success: boolean; error?: string }> {
-    const user = await getAuthenticatedUser();
-    const supabase = createClient();
-
-    const { data: order, error: fetchError } = await supabase
-        .from('orders')
-        .select('id, buyer_id, seller_id, status, item_id')
-        .eq('id', orderId)
-        .single();
-
-    if (fetchError || !order) {
-        return { success: false, error: 'Order not found.' };
-    }
-    if (order.buyer_id !== user.id) {
-        return { success: false, error: 'You are not authorized to cancel this order.' };
-    }
-    if (!['pending_payment', 'payment_authorized'].includes(order.status)) {
-         return { success: false, error: 'This order can no longer be cancelled.' };
-    }
-
-    const { error } = await supabase.rpc('cancel_order_and_restock_item', {
-        p_order_id: orderId,
-        p_item_id: order.item_id
-    });
-
-    if (error) {
-        return { success: false, error: `Failed to cancel order: ${error.message}` };
-    }
-
-    revalidatePath('/account/dashboard/orders');
-    revalidatePath(`/items/${order.item_id}`);
-    return { success: true };
 }

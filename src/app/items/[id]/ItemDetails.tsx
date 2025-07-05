@@ -11,19 +11,24 @@ interface ItemDetailsProps {
 }
 
 export default function ItemDetails({ item }: ItemDetailsProps) {
-  // Ensure item.images is an array of strings for ImageGallery
-  const imageSources = Array.isArray(item.images)
-    ? item.images.filter((img): img is string => typeof img === 'string')
-    : [];
+  // --- FIX: More robust logic to parse the images array ---
+  let imageSources: string[] = [];
 
-  // Fallback if no images are available
+  if (Array.isArray(item.images)) {
+      // Flatten the array in case it's nested (e.g., [['url1', 'url2']])
+      // and filter for valid, non-empty strings.
+      imageSources = item.images
+          .flat()
+          .filter((img): img is string => typeof img === 'string' && img.length > 0);
+  }
+
+  // Fallback if no valid images are found after parsing
   if (imageSources.length === 0) {
-    imageSources.push('https://placehold.co/600x400/cccccc/ffffff?text=No+Image');
+      imageSources.push('https://placehold.co/600x400/cccccc/ffffff?text=No+Image');
   }
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 lg:p-8">
-      {/* FIX: Passed itemTitle prop to ImageGallery */}
       <div className="w-full mb-6">
         <ImageGallery images={imageSources} itemTitle={item.title} />
       </div>

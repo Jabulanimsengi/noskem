@@ -5,7 +5,8 @@
 import { useState, useTransition } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { confirmReceipt, claimSellerFunds, requestReturnAction } from './actions';
+// --- FIX: Import the new cancel action ---
+import { confirmReceipt, claimSellerFunds, requestReturnAction, cancelPendingOrder } from './actions';
 import OpenChatButton from '@/app/components/OpenChatButton';
 import LeaveReviewModal from '@/app/components/LeaveReviewModal'; 
 import { type OrderWithDetails } from '@/types';
@@ -48,6 +49,24 @@ const OrderRow = ({ order, perspective, currentUser }: { order: OrderWithDetails
     const { showToast } = useToast();
     const [isPending, startTransition] = useTransition();
 
+    const handleCancelOrder = () => {
+        showConfirmation({
+            title: "Cancel Order",
+            message: "Are you sure you want to cancel this order? This action cannot be undone.",
+            confirmText: "Yes, Cancel Order",
+            onConfirm: () => {
+                startTransition(async () => {
+                    const result = await cancelPendingOrder(order.id);
+                    if (result.success) {
+                        showToast(result.message, 'success');
+                    } else {
+                        showToast(result.message, 'error');
+                    }
+                });
+            }
+        });
+    };
+
     const handleDispute = () => {
         showConfirmation({
             title: "File a Dispute",
@@ -89,15 +108,22 @@ const OrderRow = ({ order, perspective, currentUser }: { order: OrderWithDetails
                         <StatusBadge status={order.status} />
                     </div>
                     <div className="flex gap-2 items-center">
-                        {/* New condition for "Proceed to Payment" button */}
-                        {perspective === 'buying' && order.status === 'pending_payment' && order.final_amount > 0 && (
-                            <PaystackButton
-                                orderId={order.id}
-                                userEmail={currentUser.email || ''}
-                                amount={order.final_amount}
-                                size="sm" // [INFO]: Passed size="sm" to make the button smaller
-                            />
+                        {/* --- ADDED CANCEL BUTTON LOGIC --- */}
+                        {perspective === 'buying' && order.status === 'pending_payment' && (
+                            <>
+                                <PaystackButton
+                                    orderId={order.id}
+                                    userEmail={currentUser.email || ''}
+                                    amount={order.final_amount}
+                                    size="sm"
+                                />
+                                <Button onClick={handleCancelOrder} variant="destructive" size="sm" disabled={isPending}>
+                                    {isPending ? 'Cancelling...' : 'Cancel'}
+                                </Button>
+                            </>
                         )}
+                        {/* --- END OF CANCEL BUTTON LOGIC --- */}
+
                         {perspective === 'buying' && order.status === 'delivered' && (
                             <form action={async () => {
                                 startTransition(async () => {

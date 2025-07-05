@@ -2,9 +2,12 @@
 import { type Database } from "../database.types";
 
 // Base types from the database
+// FIX: Added 'new_item_price' to the Item type
 export type Item = Database['public']['Tables']['items']['Row'] & {
   last_bumped_at?: string | null;
+  new_item_price?: number | null; // Add this line
 };
+
 export type Profile = Database['public']['Tables']['profiles']['Row'] & {
   email?: string;
   verification_status?: string | null;
@@ -12,6 +15,8 @@ export type Profile = Database['public']['Tables']['profiles']['Row'] & {
   latitude?: number | null;
   longitude?: number | null;
 };
+
+// ... the rest of your file remains the same
 export type Order = Database['public']['Tables']['orders']['Row'];
 export type Category = Database['public']['Tables']['categories']['Row'];
 export type Like = Database['public']['Tables']['likes']['Row'];
@@ -54,9 +59,6 @@ export type OrderWithDetails = Order & {
 export type ItemWithSeller = Item & {
   profiles: Profile | null;
 };
-
-// FIX: Add the missing InspectionWithDetails type definition
-// This type matches the complex data structure from the admin page query.
 export type InspectionWithDetails = Inspection & {
   orders: {
     id: number;

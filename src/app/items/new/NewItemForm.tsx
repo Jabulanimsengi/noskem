@@ -1,30 +1,31 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useTransition } from 'react';
-import { useFormState } from 'react-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { listItemAction, type ListItemFormState } from './actions';
+// --- FIX 1: Correctly import 'createItem' and the 'FormState' type ---
+import { createItem, type FormState } from './actions';
 import { FaTimes, FaSpinner, FaMapMarkerAlt, FaSearch } from 'react-icons/fa';
 import Image from 'next/image';
 import { type Category } from '@/types';
 import { useToast } from '@/context/ToastContext';
-import { createClient } from '@/app/utils/supabase/client';
 
 const MapSelector = dynamic(() => import('./MapSelector'), {
   ssr: false,
   loading: () => <div className="h-72 bg-gray-200 rounded-lg flex items-center justify-center"><p>Loading Map...</p></div>
 });
 
-const initialState: ListItemFormState = { error: null, success: false };
+// Use the imported FormState type
+const initialState: FormState = { success: false, message: '' };
 
 export default function NewItemForm({ categories }: { categories: Category[] }) {
   const router = useRouter();
   const { showToast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
-
-  const [state, formAction] = useFormState(listItemAction, initialState);
-  const [isPending, startTransition] = useTransition();
+  
+  // --- FIX 2: Use the correct action 'createItem' ---
+  const [state, formAction] = useFormState(createItem, initialState);
+  const { pending } = useFormStatus();
 
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -35,59 +36,17 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const MAX_IMAGES = 5;
 
   useEffect(() => {
+    // This effect runs when the server action returns a response
     if (state.success) {
-      showToast('Your item has been listed successfully!', 'success');
-      router.push('/account/dashboard/my-listings');
+      showToast(state.message, 'success');
+      // Redirect to the newly created item page
+      router.push(`/items/${state.itemId}`);
     }
-    if (state.error) {
-      showToast(state.error, 'error');
+    if (!state.success && state.message) {
+      showToast(state.message, 'error');
     }
   }, [state, router, showToast]);
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    startTransition(async () => {
-      if (images.length === 0) {
-        showToast('Please upload at least one image.', 'error');
-        return;
-      }
-
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        showToast('You must be logged in.', 'error');
-        return;
-      }
-
-      showToast('Uploading images...', 'info');
-      try {
-        const uploadPromises = images.map(file => {
-          const filePath = `${user.id}/${Date.now()}_${file.name}`;
-          return supabase.storage.from('item-images').upload(filePath, file);
-        });
-        const uploadResults = await Promise.all(uploadPromises);
-        const uploadedImageUrls: string[] = [];
-        for (const result of uploadResults) {
-          if (result.error) throw new Error(`Image upload failed: ${result.error.message}`);
-          const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(result.data.path);
-          uploadedImageUrls.push(publicUrl);
-        }
-
-        if (!formRef.current) {
-          throw new Error("Form reference is not available.");
-        }
-        const formData = new FormData(formRef.current);
-
-        uploadedImageUrls.forEach(url => formData.append('imageUrls', url));
-        formAction(formData);
-      } catch (error) {
-        const err = error as Error;
-        showToast(err.message || "A client-side error occurred.", 'error');
-      }
-    });
-  };
-
+  
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files).filter(file => file.size <= 10 * 1024 * 1024);
@@ -101,7 +60,7 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
   const handleRemoveImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index));
   };
-
+  
   const handleLocationSelect = useCallback((lat: number, lng: number) => {
     setLocation({ lat, lng });
   }, []);
@@ -140,7 +99,7 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
       }
     );
   };
-
+  
   useEffect(() => {
     const urls = images.map(file => URL.createObjectURL(file));
     setImagePreviews(urls);
@@ -175,7 +134,8 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
 
   return (
     <div className="container mx-auto max-w-2xl py-8">
-      <form ref={formRef} onSubmit={handleSubmit} className="p-8 bg-surface rounded-xl shadow-lg space-y-6">
+        {/* --- FIX 3: The form now directly calls the 'formAction' --- */}
+      <form action={formAction} className="p-8 bg-surface rounded-xl shadow-lg space-y-6">
         <h1 className="text-2xl font-bold text-center text-text-primary">List a New Item</h1>
         
         <div>
@@ -193,15 +153,17 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
               <input name="price" id="price" type="number" step="0.01" required className={inputStyles} placeholder="e.g., 750.00"/>
             </div>
             <div>
-              <label htmlFor="newItemPrice" className={labelStyles}>Price When New (R)</label>
-              <input name="newItemPrice" id="newItemPrice" type="number" step="0.01" required className={inputStyles} placeholder="e.g., 1500.00"/>
+              {/* --- FIX 4: Changed 'newItemPrice' to 'new_item_price' to match DB --- */}
+              <label htmlFor="new_item_price" className={labelStyles}>Price When New (R)</label>
+              <input name="new_item_price" id="new_item_price" type="number" step="0.01" className={inputStyles} placeholder="e.g., 1500.00"/>
             </div>
         </div>
 
          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="categoryId" className={labelStyles}>Category</label>
-              <select name="categoryId" id="categoryId" required className={inputStyles} defaultValue="">
+              {/* --- FIX 5: Changed 'categoryId' to 'category' to match DB --- */}
+              <label htmlFor="category" className={labelStyles}>Category</label>
+              <select name="category" id="category" required className={inputStyles} defaultValue="">
                 <option value="" disabled>Select a category</option>
                 {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
               </select>
@@ -218,8 +180,9 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
         </div>
 
         <div>
-            <label htmlFor="purchaseDate" className={labelStyles}>Original Purchase Date</label>
-            <input name="purchaseDate" id="purchaseDate" type="date" required className={inputStyles}/>
+            {/* --- FIX 6: Changed 'purchaseDate' to 'purchase_date' to match DB --- */}
+            <label htmlFor="purchase_date" className={labelStyles}>Original Purchase Date</label>
+            <input name="purchase_date" id="purchase_date" type="date" className={inputStyles}/>
         </div>
 
         <div className="space-y-2">
@@ -236,24 +199,24 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
           <div className="mt-2">
              <label htmlFor="locationDescription" className="text-xs text-gray-500">Location Name (e.g., Sandton, Johannesburg)</label>
              <div className="flex items-center gap-2">
-                <input 
-                  name="locationDescription" 
-                  id="locationDescription" 
-                  type="text" 
-                  placeholder="Enter a suburb or city" 
-                  required 
-                  className={inputStyles}
-                  value={locationDescription}
-                  onChange={(e) => setLocationDescription(e.target.value)}
-                />
-                <button 
-                  type="button" 
-                  onClick={handleLocationSearch}
-                  disabled={isSearchingLocation}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-gray-600 rounded-lg hover:bg-gray-700 disabled:bg-gray-400"
-                >
-                  {isSearchingLocation ? <FaSpinner className="animate-spin" /> : <FaSearch />}
-                </button>
+               <input 
+                 name="locationDescription" 
+                 id="locationDescription" 
+                 type="text" 
+                 placeholder="Enter a suburb or city" 
+                 required 
+                 className={inputStyles}
+                 value={locationDescription}
+                 onChange={(e) => setLocationDescription(e.target.value)}
+               />
+               <button 
+                 type="button" 
+                 onClick={handleLocationSearch}
+                 disabled={isSearchingLocation}
+                 className="px-4 py-2 text-sm font-semibold text-white bg-gray-600 rounded-lg hover:bg-gray-700 disabled:bg-gray-400"
+               >
+                 {isSearchingLocation ? <FaSpinner className="animate-spin" /> : <FaSearch />}
+               </button>
              </div>
           </div>
           <MapSelector onLocationSelect={handleLocationSelect} initialPosition={location ? [location.lat, location.lng] : undefined} />
@@ -277,20 +240,21 @@ export default function NewItemForm({ categories }: { categories: Category[] }) 
           </div>
         )}
         
-        {state.error && (
+        {state.message && !state.success && (
           <div className="p-3 text-center text-sm font-semibold text-white bg-red-500 rounded-md">
-            {state.error}
+            {state.message}
           </div>
         )}
 
         <div className="pt-4 border-t">
+            {/* The form now has a single submit button */}
             <button 
-              type="submit" 
-              disabled={isPending} 
-              className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400 flex items-center justify-center gap-2"
+                type="submit" 
+                disabled={pending} 
+                className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400 flex items-center justify-center gap-2"
             >
-              {isPending && <FaSpinner className="animate-spin" />}
-              {isPending ? 'Processing...' : 'List Item (Cost: 25 Credits)'}
+                {pending && <FaSpinner className="animate-spin" />}
+                {pending ? 'Processing...' : 'List Item (Cost: 25 Credits)'}
             </button>
         </div>
       </form>
