@@ -1,3 +1,4 @@
+// src/app/components/AuthModal.tsx
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
@@ -7,7 +8,6 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import { createClient } from '../utils/supabase/client';
 import { FaTimes } from 'react-icons/fa';
 import Link from 'next/link';
-// FIX: The import now correctly matches the exports from the actions file
 import { signInAction, type SignInState } from '../auth/actions';
 import { useToast } from '@/context/ToastContext';
 import { getGuestLikes, clearGuestLikes } from '@/utils/guestLikes';
@@ -142,39 +142,48 @@ export default function AuthModal() {
                       </div>
                       <SubmitButton text="Sign In" pendingText="Signing In..." />
                     </form>
-                    <p className="text-center text-sm text-text-secondary mt-6">
-                      Don&apos;t have an account?{' '}
-                      <Link href="/signup" onClick={closeModal} className="font-semibold text-brand hover:underline">
-                          Sign Up
-                      </Link>
-                    </p>
+                    
+                    {/* --- THIS IS THE FIX --- */}
+                    <div className="text-center text-sm text-text-secondary mt-6 space-y-2">
+                        <p>
+                            Don&apos;t have an account?{' '}
+                            <Link href="/signup" onClick={closeModal} className="font-semibold text-brand hover:underline">
+                                Sign Up
+                            </Link>
+                        </p>
+                        <p>
+                            <Link href="/forgot-password" onClick={closeModal} className="font-semibold text-brand hover:underline">
+                                Forgot your password?
+                            </Link>
+                        </p>
+                    </div>
                   </div>
                 )}
 
                 {view === 'mfa' && (
-                    <div>
-                     <div className="text-center mb-6">
-                       <h2 className="text-2xl font-bold text-text-primary">Enter Verification Code</h2>
-                       <p className="text-text-secondary mt-1">Enter the 6-digit code from your authenticator app.</p>
-                     </div>
-                     <form onSubmit={handleMfaVerify} className="space-y-4">
-                         <input
-                             type="text"
-                             value={mfaCode}
-                             onChange={(e) => setMfaCode(e.target.value)}
-                             placeholder="123456"
-                             maxLength={6}
-                             required
-                             className="w-full text-center tracking-[0.5em] text-2xl p-2 border rounded-md"
-                         />
-                         <button type="submit" disabled={isVerifying} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400">
-                            {isVerifying ? "Verifying..." : "Verify"}
-                         </button>
-                     </form>
-                     <button onClick={() => setView('signIn')} className="text-center text-sm text-text-secondary mt-6 w-full hover:underline">
-                         Back to login
-                     </button>
-                    </div>
+                  <div>
+                   <div className="text-center mb-6">
+                      <h2 className="text-2xl font-bold text-text-primary">Enter Verification Code</h2>
+                      <p className="text-text-secondary mt-1">Enter the 6-digit code from your authenticator app.</p>
+                   </div>
+                   <form onSubmit={handleMfaVerify} className="space-y-4">
+                       <input
+                           type="text"
+                           value={mfaCode}
+                           onChange={(e) => setMfaCode(e.target.value)}
+                           placeholder="123456"
+                           maxLength={6}
+                           required
+                           className="w-full text-center tracking-[0.5em] text-2xl p-2 border rounded-md"
+                       />
+                       <button type="submit" disabled={isVerifying} className="w-full px-4 py-3 font-bold text-white bg-brand rounded-lg hover:bg-brand-dark transition-all disabled:bg-gray-400">
+                           {isVerifying ? "Verifying..." : "Verify"}
+                       </button>
+                   </form>
+                   <button onClick={() => setView('signIn')} className="text-center text-sm text-text-secondary mt-6 w-full hover:underline">
+                       Back to login
+                   </button>
+                  </div>
                 )}
             </div>
           </motion.div>

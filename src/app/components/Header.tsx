@@ -1,5 +1,5 @@
 // src/app/components/Header.tsx
-'use client';
+'use client'; // <-- THIS IS THE FIX
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -7,7 +7,7 @@ import { FaShoppingCart, FaBars, FaPlusCircle, FaCoins, FaHeart, FaChevronDown }
 import { MessageSquare } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
 import SearchBar from './SearchBar';
-import AuthButton from './AuthButton'; // This is the component we fixed
+import AuthButton from './AuthButton';
 import MobileMenu from './MobileMenu';
 import NotificationBell from './NotificationBell';
 import { type Profile } from '@/types';
@@ -124,7 +124,6 @@ export default function Header({ user, profile, initialLikesCount }: HeaderProps
                   </Link>
                   <NotificationBell />
                   <div className="h-8 border-l border-white/30 mx-2"></div>
-                  {/* It now correctly renders the full AuthButton component */}
                   <AuthButton user={user} profile={profile} />
                 </div>
               ) : (
