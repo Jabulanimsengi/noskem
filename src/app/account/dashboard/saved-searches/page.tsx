@@ -1,9 +1,12 @@
+// src/app/account/dashboard/saved-searches/page.tsx
+
 import { createClient } from '@/app/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { deleteSavedSearch } from './actions';
 import { FaTrash } from 'react-icons/fa';
+import SavedSearchList from './SavedSearchList'; // We will create this client component
 
+// This is the type for a single saved search
 type SavedSearch = {
     id: number;
     search_query: string;
@@ -18,6 +21,7 @@ export default async function SavedSearchesPage() {
         return redirect('/?authModal=true');
     }
 
+    // Fetch the initial list of saved searches on the server
     const { data: searches, error } = await supabase
         .from('saved_searches')
         .select('*')
@@ -31,25 +35,8 @@ export default async function SavedSearchesPage() {
     return (
         <div>
             <h2 className="text-2xl font-semibold text-text-primary mb-4">Saved Searches</h2>
-            <div className="space-y-3">
-                {searches.length > 0 ? (
-                    searches.map((search: SavedSearch) => (
-                        <div key={search.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                            <Link href={`/search?q=${encodeURIComponent(search.search_query)}`} className="font-semibold text-brand hover:underline">
-                                &quot;{search.search_query}&quot;
-                            </Link>
-                            <form action={deleteSavedSearch}>
-                                <input type="hidden" name="searchId" value={search.id} />
-                                <button type="submit" className="text-gray-400 hover:text-red-600" title="Delete search">
-                                    <FaTrash />
-                                </button>
-                            </form>
-                        </div>
-                    ))
-                ) : (
-                    <p className="text-center py-8 text-text-secondary">You have no saved searches.</p>
-                )}
-            </div>
+            {/* The list is now rendered by a client component */}
+            <SavedSearchList initialSearches={searches as SavedSearch[]} />
         </div>
     );
 }

@@ -1,3 +1,4 @@
+// src/app/components/HeroSection.tsx
 'use client';
 
 import React from 'react';
@@ -28,7 +29,9 @@ export const HeroSection: React.FC = () => {
                     Start Selling Today <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
             </Link>
-             <Link href="/marketplace">
+            {/* --- THIS IS THE FIX --- */}
+            {/* The href now points to the ID of the listings section on the homepage. */}
+             <Link href="/#listings-section">
                 <Button
                     size="lg"
                     variant="secondary"

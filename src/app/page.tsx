@@ -1,3 +1,5 @@
+// src/app/page.tsx
+
 import { createClient } from './utils/supabase/server';
 import { Suspense } from 'react';
 import { Category, ItemWithProfile, Like } from '@/types';
@@ -32,6 +34,10 @@ async function HomepageContent() {
       }
   }
 
+  // --- THIS IS THE FIX ---
+  // The query now only asks for profile data, avoiding the user_badges table.
+  const selectQuery = '*, profiles!seller_id(*)';
+
   const [
     categoriesRes,
     featuredItemsRes,
@@ -41,12 +47,10 @@ async function HomepageContent() {
     creditPackagesRes,
   ] = await Promise.all([
     supabase.from('categories').select('*').order('name', { ascending: true }),
-    // --- FIX: Fetch 'available' AND 'pending_payment' items for all carousels ---
-    supabase.from('items').select(`*, new_item_price, profiles:seller_id(username, avatar_url)`).eq('is_featured', true).in('status', ['available', 'pending_payment']).limit(10),
-    supabase.from('items').select(`*, new_item_price, profiles:seller_id(username, avatar_url)`).in('status', ['available', 'pending_payment']).order('view_count', { ascending: false, nullsFirst: false }).limit(10),
-    supabase.from('items').select(`*, new_item_price, profiles:seller_id(username, avatar_url)`).in('status', ['available', 'pending_payment']).order('created_at', { ascending: false }).limit(10),
-    // 'recentlySold' should correctly only show 'sold' items.
-    supabase.from('items').select(`*, new_item_price, profiles:seller_id(username, avatar_url)`).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10),
+    supabase.from('items').select(selectQuery).eq('is_featured', true).in('status', ['available', 'pending_payment']).limit(10),
+    supabase.from('items').select(selectQuery).in('status', ['available', 'pending_payment']).order('view_count', { ascending: false, nullsFirst: false }).limit(10),
+    supabase.from('items').select(selectQuery).in('status', ['available', 'pending_payment']).order('created_at', { ascending: false }).limit(10),
+    supabase.from('items').select(selectQuery).eq('status', 'sold').order('updated_at', { ascending: false }).limit(10),
     supabase.from('credit_packages').select('*').order('price_zar', { ascending: true }),
   ]);
 

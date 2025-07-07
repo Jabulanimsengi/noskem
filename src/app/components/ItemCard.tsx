@@ -18,6 +18,8 @@ import { useToast } from '@/context/ToastContext';
 import { createCheckoutSession, type FormState } from '@/app/items/[id]/actions';
 import { toggleLikeAction } from '@/app/likes/actions';
 import { getGuestLikes, addGuestLike, removeGuestLike } from '@/utils/guestLikes';
+// --- Import UserBadges ---
+import UserBadges from './UserBadges';
 
 const OfferModal = dynamic(() => import('./OfferModal'));
 
@@ -146,7 +148,6 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                         <FaHeart className={`${hasLiked ? 'text-red-500' : 'text-white/80'}`} />
                     </button>
 
-                    {/* --- FIX: Add status badges for 'sold' and 'pending_payment' --- */}
                     {item.status === 'sold' && (
                         <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-md shadow-lg">
                             SOLD
@@ -165,6 +166,9 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                         <div className="flex items-center justify-between mt-2">
                             <Link href={`/sellers/${sellerUsername}`} className="flex items-center gap-2 group/seller">
                                 <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">by {sellerUsername}</span>
+                                {/* --- THIS IS THE FIX --- */}
+                                {/* This line was missing. It renders the badges. */}
+                                <UserBadges profile={sellerProfile} />
                             </Link>
                             <div className="flex items-center gap-1 text-xs text-text-secondary">
                                 <FaEye />
@@ -175,12 +179,12 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
 
                     <div className="flex items-baseline gap-2 mt-3 flex-grow">
                       <p className="text-2xl font-extrabold text-brand">
-                        {item.buy_now_price ? `R${item.buy_now_price.toFixed(2)}` : 'Make an Offer'}
+                          {item.buy_now_price ? `R${item.buy_now_price.toFixed(2)}` : 'Make an Offer'}
                       </p>
                       {item.new_item_price && item.buy_now_price && item.new_item_price > item.buy_now_price && (
-                        <p className="text-md text-gray-500 line-through">
-                          R{item.new_item_price.toFixed(2)}
-                        </p>
+                          <p className="text-md text-gray-500 line-through">
+                            R{item.new_item_price.toFixed(2)}
+                          </p>
                       )}
                     </div>
 

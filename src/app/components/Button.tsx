@@ -4,7 +4,7 @@ import React from 'react';
 
 // Define the props for our button
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'destructive'; // Added new variants
+  variant?: 'primary' | 'secondary' | 'outline' | 'destructive' | 'ghost'; // Added 'ghost'
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
 }
@@ -24,8 +24,9 @@ export const Button = ({
   const variantStyles = {
     primary: 'bg-brand text-white hover:bg-brand-dark focus:ring-brand',
     secondary: 'bg-gray-200 text-text-primary hover:bg-gray-300 focus:ring-gray-400',
-    outline: 'bg-transparent border border-gray-300 text-text-primary hover:bg-gray-100 focus:ring-gray-400', // Added outline styles
-    destructive: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500', // Added destructive styles
+    outline: 'bg-transparent border border-gray-300 text-text-primary hover:bg-gray-100 focus:ring-gray-400',
+    destructive: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+    ghost: 'bg-transparent text-text-primary hover:bg-gray-100 focus:ring-gray-400' // Added ghost styles
   };
 
   // Styles for different sizes

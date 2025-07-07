@@ -1,61 +1,56 @@
+// src/app/search/actions.ts
 'use server';
 
-import { createClient } from "@/app/utils/supabase/server";
-import { revalidatePath } from "next/cache";
+import { createClient } from '@/utils/supabase/server';
+import { revalidatePath } from 'next/cache';
 
-export async function saveSearchAction(searchQuery: string) {
-    if (!searchQuery || searchQuery.trim() === '') {
-        return { error: 'A search query is required.' };
-    }
+// The action now returns a structured response
+type ActionResponse = {
+  success: boolean;
+  message: string;
+};
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+export async function saveSearchAction(query: string): Promise<ActionResponse> {
+  if (!query) {
+    return { success: false, message: 'Search query cannot be empty.' };
+  }
 
-    if (!user) {
-        return { error: 'You must be logged in to save a search.' };
-    }
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-    const { error } = await supabase
-        .from('saved_searches')
-        .insert({ user_id: user.id, search_query: searchQuery.trim() });
+  if (!user) {
+    return { success: false, message: 'You must be logged in to save a search.' };
+  }
 
-    if (error) {
-        if (error.code === '23505') {
-            return { success: true, message: 'Search already saved.' };
-        }
-        return { error: `Could not save search: ${error.message}` };
-    }
-    
-    revalidatePath('/account/dashboard/saved-searches');
-    return { success: true, message: 'Search saved successfully!' };
-}
+  // Check if this search already exists for the user to avoid duplicates
+  const { data: existingSearch, error: existingError } = await supabase
+    .from('saved_searches')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('search_query', query)
+    .maybeSingle();
 
-// The function now accepts formData to match the expected signature.
-export async function deleteSavedSearchAction(formData: FormData) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+  if (existingError) {
+    console.error('Error checking for existing search:', existingError);
+    return { success: false, message: 'Failed to save search.' };
+  }
 
-    if (!user) {
-        return { error: 'You must be logged in.' };
-    }
+  if (existingSearch) {
+    return { success: false, message: 'You have already saved this search.' };
+  }
 
-    // The ID is read from the form's hidden input field.
-    const searchId = parseInt(formData.get('searchId') as string, 10);
-    
-    if (isNaN(searchId)) {
-        return { error: 'Invalid search ID.' };
-    }
+  // If it doesn't exist, insert the new saved search
+  const { error } = await supabase
+    .from('saved_searches')
+    .insert({ user_id: user.id, search_query: query });
 
-    const { error } = await supabase
-        .from('saved_searches')
-        .delete()
-        .eq('id', searchId)
-        .eq('user_id', user.id);
+  if (error) {
+    console.error('Error saving search:', error);
+    return { success: false, message: 'Failed to save search.' };
+  }
 
-    if (error) {
-        return { error: `Could not delete saved search: ${error.message}` };
-    }
+  // Revalidate the dashboard page so the new search appears in the list
+  revalidatePath('/account/dashboard/saved-searches');
 
-    revalidatePath('/account/dashboard/saved-searches');
-    return { success: true };
+  return { success: true, message: 'Search saved successfully!' };
 }

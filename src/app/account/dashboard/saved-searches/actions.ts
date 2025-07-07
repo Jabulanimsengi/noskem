@@ -1,12 +1,30 @@
+// src/app/account/dashboard/saved-searches/actions.ts
+'use server';
 
-"use server";
+import { createClient } from '@/app/utils/supabase/server';
+import { revalidatePath } from 'next/cache';
 
-import { deleteSavedSearchAction as deleteAction } from "@/app/search/actions";
+// The action now returns a structured response
+export async function deleteSavedSearch(searchId: number): Promise<{ success: boolean; message: string }> {
+    // --- THIS IS THE FIX ---
+    // Added the 'await' keyword here
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-export async function deleteSavedSearch(formData: FormData) {
-  const result = await deleteAction(formData);
-  if (result?.error) {
-    // Handle error case, maybe log it or re-throw
-    console.error(result.error);
-  }
+    if (!user) {
+        return { success: false, message: 'Authentication required.' };
+    }
+
+    const { error } = await supabase
+        .from('saved_searches')
+        .delete()
+        .match({ id: searchId, user_id: user.id }); // Ensures users can only delete their own searches
+
+    if (error) {
+        console.error('Error deleting saved search:', error);
+        return { success: false, message: 'Failed to delete search.' };
+    }
+
+    revalidatePath('/account/dashboard/saved-searches');
+    return { success: true, message: 'Search deleted.' };
 }

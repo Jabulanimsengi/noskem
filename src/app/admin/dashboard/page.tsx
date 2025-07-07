@@ -1,73 +1,115 @@
-import { createClient } from "@/app/utils/supabase/server";
-import AnalyticsCharts from "./AnalyticsCharts"; // Import the new component
+// src/app/admin/dashboard/page.tsx
 
-type DashboardStats = {
-  userCount: number | null;
-  itemCount: number | null;
-  orderCount: number | null;
-  offerCount: number | null;
-};
+import { createClient } from '@/utils/supabase/server';
+import { Suspense } from 'react';
+import DynamicAnalyticsCharts from './DynamicAnalyticsCharts';
+import { notFound } from 'next/navigation';
 
-// Define the type for the analytics data from our new function
-type AnalyticsData = {
-  dates: string[];
-  signups: number[];
-  listings: number[];
-  orders: number[];
-};
+// This function generates the time-series data for the charts
+async function getAnalyticsData() {
+  const supabase = createClient();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-const StatCard = ({ title, value }: { title: string; value: number | string }) => (
-  <div className="bg-gray-50 p-4 rounded-lg border">
-    <p className="text-sm text-text-secondary">{title}</p>
-    <p className="text-3xl font-bold text-text-primary">{value ?? 0}</p>
-  </div>
-);
-
-export default async function AdminDashboardPage() {
-  const supabase = await createClient();
-
-  // Fetch all stats and analytics data in parallel
-  const [
-    { count: userCount },
-    { count: itemCount },
-    { count: orderCount },
-    { count: offerCount },
-    { data: analyticsData, error: analyticsError }
-  ] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('items').select('*', { count: 'exact', head: true }),
-    supabase.from('orders').select('*', { count: 'exact', head: true }),
-    supabase.from('offers').select('*', { count: 'exact', head: true }),
-    supabase.rpc('get_dashboard_analytics') // Call our new database function
+  // --- FIX: Fetch completed orders along with signups and listings ---
+  const [signupsRes, listingsRes, ordersRes] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('created_at')
+      .gte('created_at', thirtyDaysAgo.toISOString()),
+    supabase
+      .from('items')
+      .select('created_at')
+      .gte('created_at', thirtyDaysAgo.toISOString()),
+    // Add this query to get completed orders
+    supabase
+      .from('orders')
+      .select('created_at')
+      .eq('status', 'completed')
+      .gte('created_at', thirtyDaysAgo.toISOString()),
   ]);
 
-  if (analyticsError) {
-    console.error("Error fetching analytics:", analyticsError);
+  if (signupsRes.error || listingsRes.error || ordersRes.error) {
+    console.error('Error fetching analytics:', signupsRes.error || listingsRes.error || ordersRes.error);
+    // Return a default structure to prevent crashes
+    return { dates: [], signups: [], listings: [], orders: [] };
   }
 
-  const stats: DashboardStats = { userCount, itemCount, orderCount, offerCount };
-  const analytics = analyticsData as AnalyticsData;
+  const signupsByDate: { [key: string]: number } = {};
+  const listingsByDate: { [key: string]: number } = {};
+  // --- FIX: Add a map for orders data ---
+  const ordersByDate: { [key: string]: number } = {};
+
+  // Group data by date
+  (signupsRes.data || []).forEach(profile => {
+    const date = new Date(profile.created_at).toISOString().split('T')[0];
+    signupsByDate[date] = (signupsByDate[date] || 0) + 1;
+  });
+
+  (listingsRes.data || []).forEach(item => {
+    const date = new Date(item.created_at).toISOString().split('T')[0];
+    listingsByDate[date] = (listingsByDate[date] || 0) + 1;
+  });
+
+  // --- FIX: Group orders data by date ---
+  (ordersRes.data || []).forEach(order => {
+    const date = new Date(order.created_at).toISOString().split('T')[0];
+    ordersByDate[date] = (ordersByDate[date] || 0) + 1;
+  });
+
+  const dates: string[] = [];
+  const signups: number[] = [];
+  const listings: number[] = [];
+  // --- FIX: Add an array for the final orders count ---
+  const orders: number[] = [];
+
+  // Create arrays for the last 30 days
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateString = date.toISOString().split('T')[0];
+    
+    dates.push(dateString);
+    signups.push(signupsByDate[dateString] || 0);
+    listings.push(listingsByDate[dateString] || 0);
+    // --- FIX: Populate the orders array ---
+    orders.push(ordersByDate[dateString] || 0);
+  }
+
+  // --- FIX: Return the orders data ---
+  return { dates, signups, listings, orders };
+}
+
+export default async function AdminDashboardPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return notFound();
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (profile?.role !== 'admin') {
+    return notFound();
+  }
+
+  const analyticsData = await getAnalyticsData();
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-text-primary mb-4">Marketplace Overview</h2>
-      
-      {/* Existing Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Users" value={stats.userCount ?? 0} />
-        <StatCard title="Total Items" value={stats.itemCount ?? 0} />
-        <StatCard title="Total Orders" value={stats.orderCount ?? 0} />
-        <StatCard title="Total Offers" value={stats.offerCount ?? 0} />
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <p className="text-text-secondary">Overview of marketplace activity.</p>
       </div>
-
-      {/* New Analytics Chart Section */}
-      {analytics ? (
-        <AnalyticsCharts analytics={analytics} />
-      ) : (
-        <div className="mt-8 p-6 bg-gray-50 rounded-lg text-center">
-            <p className="text-text-secondary">Analytics data is being generated. Please check back shortly.</p>
-        </div>
-      )}
+      
+      <Suspense fallback={<div className="text-center p-8">Loading analytics...</div>}>
+        <DynamicAnalyticsCharts analytics={analyticsData} />
+      </Suspense>
     </div>
   );
 }

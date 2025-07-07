@@ -1,10 +1,12 @@
+// src/app/components/ConfirmationModal.tsx
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/app/components/Button';
+import React, { Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { Button } from './Button';
 
-// Define the properties (props) the modal component will accept
-interface ConfirmationModalProps {
+// FIX: Update the props to accept the new properties for the input field
+export interface ConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -12,53 +14,97 @@ interface ConfirmationModalProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  isConfirming: boolean;
+  isConfirming?: boolean;
+  requiresInput?: boolean;
+  inputValue?: string;
+  setInputValue?: (value: string) => void;
 }
 
-// Use a default export for the component, making it easy to import
 export default function ConfirmationModal({
   isOpen,
   onClose,
   onConfirm,
   title,
   message,
-  confirmText,
-  cancelText,
-  isConfirming,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  isConfirming = false,
+  requiresInput = false,
+  inputValue = '',
+  setInputValue = () => {},
 }: ConfirmationModalProps) {
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
         >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-surface rounded-xl shadow-xl w-full max-w-md overflow-hidden"
-          >
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-text-primary">{title}</h2>
-              <p className="text-text-secondary mt-2 mb-6 whitespace-pre-wrap">{message}</p>
-            </div>
-            <div className="flex justify-end gap-3 bg-gray-50 p-4 border-t">
-              <Button variant="secondary" onClick={onClose} disabled={isConfirming}>
-                {cancelText || 'Cancel'}
-              </Button>
-              <Button onClick={onConfirm} disabled={isConfirming} className="bg-red-600 hover:bg-red-700">
-                {isConfirming ? 'Processing...' : (confirmText || 'Confirm')}
-              </Button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+          <div className="fixed inset-0 bg-black bg-opacity-25" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                <Dialog.Title
+                  as="h3"
+                  className="text-lg font-medium leading-6 text-gray-900"
+                >
+                  {title}
+                </Dialog.Title>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-500">{message}</p>
+                </div>
+
+                {/* FIX: Conditionally render the input field */}
+                {requiresInput && (
+                  <div className="mt-4">
+                    <label htmlFor="rejection-reason" className="sr-only">
+                      Reason
+                    </label>
+                    <textarea
+                      id="rejection-reason"
+                      rows={3}
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand focus:ring-brand sm:text-sm"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      placeholder="Provide a reason..."
+                    />
+                  </div>
+                )}
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <Button variant="secondary" onClick={onClose}>
+                    {cancelText}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={onConfirm}
+                    disabled={isConfirming}
+                    className={isConfirming ? 'bg-red-400' : 'bg-red-600 hover:bg-red-700'}
+                  >
+                    {isConfirming ? 'Processing...' : confirmText}
+                  </Button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
   );
 }

@@ -1,31 +1,51 @@
+// src/app/layout.tsx
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { Providers } from './providers';
-import HeaderLayout from './components/HeaderLayout'; // Corrected: Import HeaderLayout
-import Footer from './components/Footer';
+import Script from 'next/script'; // Import the Script component
+
+// Import your central Providers component
+import { Providers } from '@/app/providers';
+
+// Import the Header and Footer components
+import HeaderLayout from '@/app/components/HeaderLayout';
+import Footer from '@/app/components/Footer';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Noskem - The Managed Marketplace',
-  description: 'A managed marketplace for second-hand goods you can trust.',
+  title: 'Your Marketplace',
+  description: 'The best place to buy and sell second-hand goods.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="en">
-      <head>
-        <script src="https://js.paystack.co/v1/inline.js" async />
-      </head>
-      <body className={`${inter.className} bg-background text-text-primary`}>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} flex flex-col h-full`}>
         <Providers>
-          <div className="flex flex-col min-h-screen">
-            <HeaderLayout /> {/* Corrected: Render HeaderLayout, not Header */}
-            <main className="flex-grow">{children}</main>
-            <Footer />
-          </div>
+          {/* Add the Header back here */}
+          <HeaderLayout />
+
+          <main className="flex-grow">
+            {children}
+          </main>
+          
+          {/* Add the Footer back here */}
+          <Footer />
+
+          {/* This is the target for your confirmation modal portal */}
+          <div id="modal-root"></div>
         </Providers>
+
+        {/* ADD THIS SCRIPT TAG
+          This loads the Paystack script, making the payment pop-up available.
+        */}
+        <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
       </body>
     </html>
   );

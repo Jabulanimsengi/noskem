@@ -1,5 +1,4 @@
 // src/app/components/Header.tsx
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +7,7 @@ import { FaShoppingCart, FaBars, FaPlusCircle, FaCoins, FaHeart, FaChevronDown }
 import { MessageSquare } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
 import SearchBar from './SearchBar';
-import AuthButton from './AuthButton';
+import AuthButton from './AuthButton'; // This is the component we fixed
 import MobileMenu from './MobileMenu';
 import NotificationBell from './NotificationBell';
 import { type Profile } from '@/types';
@@ -53,10 +52,8 @@ export default function Header({ user, profile, initialLikesCount }: HeaderProps
 
   const likesHref = user ? "/account/dashboard/liked" : "/likes";
 
-  // --- Reusable classes for hover effects ---
   const navLinkClasses = "flex items-center gap-2 px-3 py-2 rounded-md transition-all duration-200 ease-in-out hover:bg-white/10";
   const iconLinkClasses = "relative flex items-center p-2 rounded-full transition-all duration-200 ease-in-out hover:bg-white/10";
-
 
   return (
     <>
@@ -81,8 +78,7 @@ export default function Header({ user, profile, initialLikesCount }: HeaderProps
                 <Link href="/about" className={navLinkClasses}>About Us</Link>
                 <div ref={howItWorksRef} className="relative group">
                   <button
-                    onMouseEnter={() => setIsHowItWorksOpen(true)}
-                    onMouseLeave={() => setIsHowItWorksOpen(false)}
+                    onClick={() => setIsHowItWorksOpen(prev => !prev)}
                     className={navLinkClasses}
                   >
                     <span>How It Works</span>
@@ -90,8 +86,6 @@ export default function Header({ user, profile, initialLikesCount }: HeaderProps
                   </button>
                   {isHowItWorksOpen && (
                     <div
-                      onMouseEnter={() => setIsHowItWorksOpen(true)}
-                      onMouseLeave={() => setIsHowItWorksOpen(false)}
                       className="absolute top-full mt-2 w-56 rounded-md shadow-lg bg-surface ring-1 ring-black ring-opacity-5 z-50 text-text-primary"
                     >
                       <div className="py-1">
@@ -130,6 +124,7 @@ export default function Header({ user, profile, initialLikesCount }: HeaderProps
                   </Link>
                   <NotificationBell />
                   <div className="h-8 border-l border-white/30 mx-2"></div>
+                  {/* It now correctly renders the full AuthButton component */}
                   <AuthButton user={user} profile={profile} />
                 </div>
               ) : (

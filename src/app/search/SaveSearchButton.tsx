@@ -1,37 +1,56 @@
+// src/app/search/SaveSearchButton.tsx
 'use client';
 
 import { useTransition } from 'react';
+import { useAuthModal } from '@/context/AuthModalContext';
 import { useToast } from '@/context/ToastContext';
 import { saveSearchAction } from './actions';
-import { FaBookmark } from 'react-icons/fa';
+import { Button } from '@/app/components/Button';
+import { Bookmark } from 'lucide-react';
+import { type User } from '@supabase/supabase-js';
 
-export default function SaveSearchButton({ query }: { query: string }) {
-    const [isPending, startTransition] = useTransition();
-    const { showToast } = useToast();
+interface SaveSearchButtonProps {
+  query: string;
+  // The button now needs to know who the user is.
+  user: User | null;
+}
 
-    if (!query) {
-        return null;
+export default function SaveSearchButton({ query, user }: SaveSearchButtonProps) {
+  const [isPending, startTransition] = useTransition();
+  const { showToast } = useToast();
+  const { openModal } = useAuthModal();
+
+  const handleSave = () => {
+    // --- THIS IS THE FIX ---
+    // If there is no user, open the sign-in modal instead of calling the action.
+    if (!user) {
+      openModal('sign_in');
+      return;
     }
 
-    const handleSave = () => {
-        startTransition(async () => {
-            const result = await saveSearchAction(query);
-            if (result.success) {
-                showToast(result.message || 'Search Saved!', 'success');
-            } else if (result.error) {
-                showToast(result.error, 'error');
-            }
-        });
-    };
+    startTransition(async () => {
+      const result = await saveSearchAction(query);
+      if (result.success) {
+        showToast(result.message, 'success');
+      } else {
+        showToast(result.message, 'error');
+      }
+    });
+  };
 
-    return (
-        <button
-            onClick={handleSave}
-            disabled={isPending}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark disabled:bg-gray-400"
-        >
-            <FaBookmark />
-            {isPending ? 'Saving...' : 'Save Search'}
-        </button>
-    );
+  if (!query) {
+    return null;
+  }
+
+  return (
+    <Button
+      variant="secondary"
+      onClick={handleSave}
+      disabled={isPending}
+      className="w-full"
+    >
+      <Bookmark className="mr-2 h-4 w-4" />
+      {isPending ? 'Saving...' : 'Save This Search'}
+    </Button>
+  );
 }

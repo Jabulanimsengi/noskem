@@ -1,55 +1,62 @@
+// src/app/admin/verifications/VerificationActions.tsx
 'use client';
 
 import { useTransition } from 'react';
 import { approveVerificationAction, rejectVerificationAction } from './actions';
 import { useToast } from '@/context/ToastContext';
-import { useLoading } from '@/context/LoadingContext';
+import { useConfirmationModal } from '@/context/ConfirmationModalContext';
 
-export default function VerificationActions({ userId }: { userId: string }) {
-    const { showToast } = useToast();
-    const { showLoader, hideLoader } = useLoading();
+interface VerificationActionsProps {
+  profileId: string;
+}
 
-    const handleApprove = () => {
-        showLoader();
-        startTransition(async () => {
-            try {
-                await approveVerificationAction(userId);
-                showToast('User has been verified.', 'success');
-            } catch (error) {
-                showToast((error as Error).message, 'error');
-            } finally {
-                hideLoader();
-            }
-        });
-    };
+export default function VerificationActions({ profileId }: VerificationActionsProps) {
+  const [isPending, startTransition] = useTransition();
+  const { showToast } = useToast();
+  const { showConfirmation } = useConfirmationModal();
 
-    const handleReject = () => {
-        const reason = prompt("Please provide a reason for rejecting this verification:");
-        if (reason) {
-            showLoader();
-            startTransition(async () => {
-                try {
-                    await rejectVerificationAction(userId, reason);
-                    showToast('User verification rejected.', 'info');
-                } catch (error) {
-                    showToast((error as Error).message, 'error');
-                } finally {
-                    hideLoader();
-                }
-            });
+  const handleApprove = () => {
+    startTransition(async () => {
+      const result = await approveVerificationAction(profileId);
+      showToast(result.message, result.success ? 'success' : 'error');
+    });
+  };
+
+  const handleReject = () => {
+    showConfirmation({
+      title: 'Reject Verification',
+      message: 'Please provide a reason for rejecting this verification. This will be sent to the user.',
+      confirmText: 'Reject',
+      requiresInput: true,
+      onConfirm: (reason) => {
+        if (!reason) {
+          showToast('A reason for rejection is required.', 'error');
+          return;
         }
-    };
+        startTransition(async () => {
+          const result = await rejectVerificationAction(profileId, reason);
+          showToast(result.message, result.success ? 'success' : 'error');
+        });
+      },
+    });
+  };
 
-    const [isPending, startTransition] = useTransition();
-
-    return (
-        <div className="flex gap-2">
-            <button onClick={handleReject} disabled={isPending} className="px-3 py-1 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700">
-                Reject
-            </button>
-            <button onClick={handleApprove} disabled={isPending} className="px-3 py-1 text-sm font-semibold text-white bg-green-600 rounded-md hover:bg-green-700">
-                Approve
-            </button>
-        </div>
-    );
+  return (
+    <div className="flex gap-2">
+      <button
+        onClick={handleApprove}
+        disabled={isPending}
+        className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:bg-gray-400"
+      >
+        {isPending ? '...' : 'Approve'}
+      </button>
+      <button
+        onClick={handleReject}
+        disabled={isPending}
+        className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 disabled:bg-gray-400"
+      >
+        {isPending ? '...' : 'Reject'}
+      </button>
+    </div>
+  );
 }

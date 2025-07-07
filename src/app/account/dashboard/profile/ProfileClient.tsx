@@ -1,6 +1,7 @@
+// src/app/account/dashboard/profile/ProfileClient.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react'; // Import useState
 import { useFormState, useFormStatus } from 'react-dom';
 import { updateUserProfile, type UpdateProfileState } from './actions';
 import Avatar from '../../../components/Avatar';
@@ -32,11 +33,36 @@ export default function ProfileClient({ profile, factors }: ProfileClientProps) 
   const [state, formAction] = useFormState(updateUserProfile, initialState);
   const { showToast } = useToast();
 
+  // --- ADDED ---
+  // State to hold the preview URL for the selected avatar
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.avatar_url);
+
   useEffect(() => {
     if (state.message) {
       showToast(state.message, state.type || 'info');
+      // If the update was successful, update the preview to the new official URL
+      if (state.type === 'success' && profile.avatar_url) {
+        // This forces a re-render with the latest profile data after revalidation
+        setAvatarPreview(profile.avatar_url);
+      }
     }
-  }, [state, showToast]);
+  }, [state, showToast, profile.avatar_url]);
+
+  // --- ADDED ---
+  // Handler to update the preview when a new file is selected
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // If the file selection is cancelled, revert to the original avatar
+      setAvatarPreview(profile.avatar_url);
+    }
+  };
   
   const inputStyles = "w-full px-3 py-2 text-text-primary bg-background border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand";
   const labelStyles = "block text-sm font-medium text-text-secondary mb-1";
@@ -47,10 +73,19 @@ export default function ProfileClient({ profile, factors }: ProfileClientProps) 
       <h2 className="text-2xl font-semibold text-text-primary mb-6">Edit Profile</h2>
       <form action={formAction} className="space-y-6">
         <div className="flex items-center gap-4">
-            <Avatar src={profile.avatar_url} alt={profile.username || 'user'} size={64} />
+            {/* --- UPDATED --- Use the avatarPreview state for the src */}
+            <Avatar src={avatarPreview} alt={profile.username || 'user'} size={64} />
             <div>
                 <label htmlFor="avatar" className={labelStyles}>Update Profile Picture</label>
-                <input type="file" name="avatar" id="avatar" accept="image/*" className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20"/>
+                {/* --- UPDATED --- Added the onChange handler */}
+                <input 
+                  type="file" 
+                  name="avatar" 
+                  id="avatar" 
+                  accept="image/*" 
+                  className="w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-brand/10 file:text-brand hover:file:bg-brand/20"
+                  onChange={handleAvatarChange}
+                />
             </div>
         </div>
 

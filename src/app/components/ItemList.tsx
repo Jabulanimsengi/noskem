@@ -1,108 +1,130 @@
-'use client'; 
+// src/app/components/ItemList.tsx
+'use client';
 
-import { useState, useEffect, Suspense, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
-import ItemCard from './ItemCard';
-import GridSkeletonLoader from './skeletons/GridSkeletonLoader';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useInView } from 'react-intersection-observer';
 import { type User } from '@supabase/supabase-js';
 import { type ItemWithProfile } from '@/types';
-import { FaSpinner } from 'react-icons/fa';
+import ItemCard from './ItemCard';
+import GridSkeletonLoader from './skeletons/GridSkeletonLoader';
 
 interface ItemListProps {
   user: User | null;
-  initialLikedItemIds: number[]; // Add this prop
+  initialLikedItemIds?: number[];
+  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-function ItemListComponent({ user, initialLikedItemIds }: ItemListProps) {
-  const searchParams = useSearchParams();
-  
+export default function ItemList({ user, initialLikedItemIds = [], searchParams = {} }: ItemListProps) {
   const [items, setItems] = useState<ItemWithProfile[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { ref, inView } = useInView({ threshold: 0.5 });
 
-  const fetchItems = useCallback(async (pageNum: number) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('page', pageNum.toString());
-    const response = await fetch(`/api/items?${params.toString()}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch items');
+  // --- FIX: Stabilize the searchParams dependency ---
+  // By stringifying the searchParams object, we create a stable primitive value (a string)
+  // that will only change when the actual filter values change. This prevents the
+  // useEffect hook from re-running unnecessarily on every render.
+  const stableSearchParams = useMemo(() => JSON.stringify(searchParams), [searchParams]);
+
+  const loadMoreItems = useCallback(async () => {
+    if (isLoading || !hasMore) return;
+    setIsLoading(true);
+
+    const query = new URLSearchParams();
+    // Use the original searchParams object here for building the query
+    Object.entries(searchParams).forEach(([key, value]) => {
+      if (value) {
+        query.append(key, Array.isArray(value) ? value.join(',') : value);
+      }
+    });
+    query.append('page', String(page + 1));
+
+    try {
+      const res = await fetch(`/api/items?${query.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch items');
+      const data = await res.json();
+
+      if (data.items && data.items.length > 0) {
+        setItems((prev) => [...prev, ...data.items]);
+        setPage((prev) => prev + 1);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error(error);
+      setHasMore(false);
+    } finally {
+      setIsLoading(false);
     }
-    return response.json();
-  }, [searchParams]);
+  }, [isLoading, hasMore, page, searchParams]);
 
   useEffect(() => {
-    setIsLoading(true);
-    setPage(1);
-    fetchItems(1).then(data => {
-      setItems(data.items || []);
-      setHasMore(data.hasMore || false);
-      setIsLoading(false);
-    }).catch(error => {
-      console.error(error);
-      setIsLoading(false);
-    });
-  }, [searchParams, fetchItems]);
+    if (inView && hasMore) {
+      loadMoreItems();
+    }
+  }, [inView, hasMore, loadMoreItems]);
+  
+  // Effect to reset list when search params change
+  useEffect(() => {
+    const fetchInitialItems = async () => {
+        setIsLoading(true);
+        setHasMore(true);
+        setPage(1);
 
-  const loadMoreItems = async () => {
-    if (isFetchingMore || !hasMore) return;
+        const query = new URLSearchParams();
+        // Use the original searchParams object here too
+        Object.entries(searchParams).forEach(([key, value]) => {
+            if (value) {
+                query.append(key, Array.isArray(value) ? value.join(',') : value);
+            }
+        });
+        query.append('page', '1');
 
-    setIsFetchingMore(true);
-    const nextPage = page + 1;
-    
-    fetchItems(nextPage).then(data => {
-      setItems(prevItems => [...prevItems, ...(data.items || [])]);
-      setPage(nextPage);
-      setHasMore(data.hasMore || false);
-    }).catch(error => {
-      console.error(error);
-    }).finally(() => {
-      setIsFetchingMore(false);
-    });
-  };
-
-  if (isLoading) {
-    return <GridSkeletonLoader count={8} />;
-  }
+        try {
+          const res = await fetch(`/api/items?${query.toString()}`);
+          if (!res.ok) throw new Error('Failed to fetch initial items');
+          const data = await res.json();
+          setItems(data.items || []);
+          if (!data.items || data.items.length < 20) {
+            setHasMore(false);
+          }
+        } catch (error) {
+          console.error(error);
+          setItems([]);
+          setHasMore(false);
+        } finally {
+          setIsLoading(false);
+        }
+    };
+    fetchInitialItems();
+  // --- FIX: Use the stable, stringified search params as the dependency ---
+  }, [stableSearchParams]); // The hook now depends on the stable string
 
   return (
-    <>
+    <div>
       {items.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((item) => (
-            <ItemCard 
-              key={`${item.id}-${item.created_at}`} 
-              item={item as ItemWithProfile} 
+            <ItemCard
+              key={item.id}
+              item={item}
               user={user}
-              initialHasLiked={initialLikedItemIds.includes(item.id)} // Pass down the like status
+              initialHasLiked={initialLikedItemIds.includes(item.id)}
             />
           ))}
         </div>
-      ) : (
-        <p className="text-center text-text-secondary py-10">No items found matching your criteria.</p>
-      )}
+      ) : !isLoading ? (
+        <p className="text-center py-12 text-gray-500">No items found matching your criteria.</p>
+      ) : null}
 
-      {hasMore && (
-        <div className="text-center mt-12">
-          <button
-            onClick={loadMoreItems}
-            disabled={isFetchingMore}
-            className="px-6 py-3 font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark disabled:bg-gray-400 flex items-center justify-center gap-2 mx-auto"
-          >
-            {isFetchingMore && <FaSpinner className="animate-spin" />}
-            {isFetchingMore ? 'Loading...' : 'Load More'}
-          </button>
+      {isLoading && page === 1 && <GridSkeletonLoader count={6} />}
+
+      {hasMore && !isLoading && (
+        <div ref={ref} className="text-center py-8 text-gray-500">
+          Loading more items...
         </div>
       )}
-    </>
+    </div>
   );
-}
-
-export default function ItemList(props: ItemListProps) {
-  return (
-    <Suspense fallback={<GridSkeletonLoader count={8} />}>
-      <ItemListComponent {...props} />
-    </Suspense>
-  )
 }
