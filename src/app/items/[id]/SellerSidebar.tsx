@@ -1,7 +1,8 @@
 // src/app/items/[id]/SellerSidebar.tsx
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
 import { type ItemWithProfile } from '@/types';
@@ -10,50 +11,48 @@ import Avatar from '@/app/components/Avatar';
 import { Button } from '@/app/components/Button';
 import OfferModal from '@/app/components/OfferModal';
 import OpenChatButton from '@/app/components/OpenChatButton';
-import { createCheckoutSession } from './actions';
 import { useToast } from '@/context/ToastContext';
+import { redirect } from 'next/navigation';
+import { createCheckoutSession, type FormState } from './actions';
 
+const initialState: FormState = {};
+
+// This interface defines the shape of the props for our component
 interface SellerSidebarProps {
   item: ItemWithProfile;
   user: User | null;
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      {pending ? 'Processing...' : 'Buy Now'}
+    </Button>
+  );
 }
 
 export default function SellerSidebar({ item, user }: SellerSidebarProps) {
   const { openModal } = useAuthModal();
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const { showToast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  
+  const [state, formAction] = useFormState(createCheckoutSession, initialState);
 
   const handleUnauthenticatedAction = () => {
-    openModal('sign_in');
+    if (!user) {
+      openModal('sign_in');
+    }
   };
-
-  const handleBuyNowSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsSubmitting(true);
-
-    startTransition(async () => {
-      if (!user) {
-        handleUnauthenticatedAction();
-        setIsSubmitting(false);
-        return;
-      }
-
-      const formData = new FormData(event.currentTarget);
-      
-      // FIX: The function call now correctly passes only one argument.
-      const result = await createCheckoutSession(formData);
-
-      if (result?.error) {
-        showToast(result.error, 'error');
-        setIsSubmitting(false);
-      } else if (result?.success && result.url) {
-        // On success, redirect the user to the payment page.
-        window.location.href = result.url;
-      }
-    });
-  };
+  
+  useEffect(() => {
+    if (state.success && state.url) {
+      redirect(state.url);
+    }
+    if (state.error) {
+      showToast(state.error, 'error');
+    }
+  }, [state, showToast]);
 
   const seller = item.profiles;
 
@@ -80,14 +79,11 @@ export default function SellerSidebar({ item, user }: SellerSidebarProps) {
         </Link>
         {!isOwnListing && (
           <div className="space-y-3 pt-4 border-t">
-            <form onSubmit={handleBuyNowSubmit}>
+            <form action={user ? formAction : handleUnauthenticatedAction}>
               <input type="hidden" name="itemId" value={item.id} />
-              <input type="hidden" name="sellerId" value={item.seller_id} />
-              <input type="hidden" name="itemPrice" value={item.buy_now_price || 0} />
-              <input type="hidden" name="itemTitle" value={item.title || ''} />
-              <Button type="submit" size="lg" className="w-full" disabled={isPending || isSubmitting}>
-                {isPending || isSubmitting ? 'Processing...' : 'Buy Now'}
-              </Button>
+              <input type="hidden"name="itemPrice" value={item.buy_now_price || 0} />
+              <input type="hidden" name="addDelivery" value="false" /> 
+              <SubmitButton />
             </form>
             <Button
               variant="secondary"

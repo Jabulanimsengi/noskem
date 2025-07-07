@@ -1,3 +1,4 @@
+// src/app/components/SharedChatInterface.tsx
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -49,6 +50,7 @@ export default function SharedChatInterface({ roomId, recipientId, currentUser }
             if (currentMessages.find(m => m.id === payload.new.id)) {
               return currentMessages;
             }
+            // Replace optimistic message with the real one from the database
             return [...currentMessages.filter(m => m.message !== payload.new.message), payload.new];
           });
 
@@ -89,8 +91,9 @@ export default function SharedChatInterface({ roomId, recipientId, currentUser }
     const messageText = newMessage.trim();
     if (messageText === '') return;
 
+    // Keep your optimistic UI update
     const optimisticMessage: Message = {
-      id: Date.now(),
+      id: Date.now(), // Temporary ID
       sender_id: currentUser.id,
       message: messageText,
       created_at: new Date().toISOString(),
@@ -101,32 +104,30 @@ export default function SharedChatInterface({ roomId, recipientId, currentUser }
     setNewMessage('');
     setIsSending(true);
 
-    const { error: insertError } = await supabase.from('chat_messages').insert({
-        room_id: roomId,
-        sender_id: currentUser.id,
-        recipient_id: recipientId,
-        message: messageText,
+    // --- THIS IS THE FIX ---
+    // Use the secure 'send_chat_message' RPC function instead of a direct insert.
+    // This function runs on the server and correctly sets the sender_id.
+    const { error } = await supabase.rpc('send_chat_message', {
+        p_recipient_id: recipientId,
+        p_message_text: messageText,
+        p_room_id: roomId,
     });
 
-    if (insertError) {
-      showToast(`Error: Message not sent. ${insertError.message}`, 'error');
+    setIsSending(false);
+
+    if (error) {
+      showToast(`Error: Message not sent. ${error.message}`, 'error');
+      // If the send fails, remove the optimistic message
       setMessages(currentMessages => currentMessages.filter(m => m.id !== optimisticMessage.id));
-      setIsSending(false);
       return;
     }
 
-    const { error: rpcError } = await supabase.rpc('create_new_notification', {
+    // Send a notification after the message is successfully sent
+    await supabase.rpc('create_single_notification', {
       p_profile_id: recipientId,
       p_message: `New message from ${currentUser.user_metadata?.username || 'a user'}`,
       p_link_url: '/chat' 
     });
-
-    if (rpcError) {
-      console.error("Failed to create notification:", rpcError);
-      showToast("Message sent, but failed to create a notification.", "error");
-    }
-
-    setIsSending(false);
   };
 
   return (

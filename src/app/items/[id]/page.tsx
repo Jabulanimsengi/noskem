@@ -1,19 +1,19 @@
 // src/app/items/[id]/page.tsx
-import { createClient } from '@/utils/supabase/server'; // FIX: Added 'from' keyword
+import { createClient } from '@/utils/supabase/server';
 import { notFound } from 'next/navigation';
-import { type Profile, type Item, type Category, type ItemWithProfile } from '@/types';
+import { type ItemWithProfile, type Category } from '@/types'; // Use ItemWithProfile
 import ItemDetails from './ItemDetails';
 import SellerSidebar from './SellerSidebar';
 import { Suspense } from 'react';
 import ItemCarousel from '@/app/components/ItemCarousel';
 import GridSkeletonLoader from '@/app/components/skeletons/GridSkeletonLoader';
-import ItemCreationToast from './ItemCreationToast'; // Import the new component
+import ItemCreationToast from './ItemCreationToast';
 import BackButton from '@/app/components/BackButton';
 
 export const dynamic = 'force-dynamic';
 
-export type ItemDataWithCategory = Item & {
-  profiles: Profile | null;
+// This local type now correctly uses ItemWithProfile to include badges
+export type ItemDataWithCategory = ItemWithProfile & {
   categories: Category | null;
 };
 
@@ -39,9 +39,18 @@ async function RelatedItems({ categoryId, currentItemId }: { categoryId: number 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // This query also needs to be updated to fetch badges for related items
   const { data: relatedItemsData } = await supabase
     .from('items')
-    .select(`*, profiles:seller_id(*)`)
+    .select(`
+        *,
+        profiles:seller_id (
+            *,
+            user_badges (
+                badge_type
+            )
+        )
+    `)
     .eq('category_id', categoryId)
     .neq('id', currentItemId)
     .eq('status', 'available')
@@ -78,9 +87,20 @@ export default async function ItemPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // --- THIS IS THE FIX ---
+  // The select query now explicitly fetches user_badges from the related profiles table.
   const { data: itemData, error } = await supabase
     .from('items')
-    .select('*, profiles:seller_id(*), categories:category_id(*)')
+    .select(`
+        *,
+        categories:category_id (*),
+        profiles:seller_id (
+            *,
+            user_badges (
+                badge_type
+            )
+        )
+    `)
     .eq('id', params.id)
     .single();
 
@@ -107,6 +127,7 @@ export default async function ItemPage({ params }: { params: { id: string } }) {
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
+            {/* The cast now works because itemData includes badges */}
             <ItemDetails item={itemData as ItemDataWithCategory} />
           </div>
           <div className="lg:col-span-1">

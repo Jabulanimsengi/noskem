@@ -1,8 +1,10 @@
+// src/app/offers/actions.ts
 'use server';
 
-import { createClient } from '../utils/supabase/server';
+import { createClient } from '@/utils/supabase/server'; // Corrected import
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { z } from 'zod';
 import { createNotification } from '@/app/actions';
 
 export interface OfferFormState {
@@ -10,33 +12,47 @@ export interface OfferFormState {
   success: boolean;
 }
 
-// ... (createOfferAction, rejectOfferAction, and counterOfferAction can remain the same) ...
+const CreateOfferSchema = z.object({
+  offerAmount: z.coerce.number().positive({ message: 'Offer amount must be a positive number.' }),
+  itemId: z.coerce.number(),
+  sellerId: z.string().uuid(),
+});
+
 export async function createOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
-  const supabase = await createClient();
+  const supabase = createClient();
+  // ... rest of the function is correct ...
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return { error: 'You must be logged in to make an offer.', success: false };
   }
 
-  const offerAmount = parseFloat(formData.get('offerAmount') as string);
-  const itemId = parseInt(formData.get('itemId') as string);
-  const sellerId = formData.get('sellerId') as string;
+  const validatedFields = CreateOfferSchema.safeParse({
+    offerAmount: formData.get('offerAmount'),
+    itemId: formData.get('itemId'),
+    sellerId: formData.get('sellerId'),
+  });
 
-  if (isNaN(offerAmount) || isNaN(itemId) || !sellerId) {
-    return { error: 'Invalid data provided.', success: false };
+  if (!validatedFields.success) {
+    return {
+      error: validatedFields.error.flatten().fieldErrors.offerAmount?.[0] || 'Invalid data provided.',
+      success: false,
+    };
   }
-  
+
+  const { offerAmount, itemId, sellerId } = validatedFields.data;
+
   if (user.id === sellerId) {
     return { error: "You cannot make an offer on your own item.", success: false };
   }
 
-  const { data: itemData } = await supabase.from('items').select('title').eq('id', itemId).single();
-  if (!itemData) {
-      return { error: 'Could not find the item.', success: false };
+  const { data: itemData, error: itemError } = await supabase.from('items').select('title').eq('id', itemId).single();
+
+  if (itemError || !itemData) {
+    return { error: 'Could not find the associated item.', success: false };
   }
 
-  const { error } = await supabase.from('offers').insert({
+  const { error: insertError } = await supabase.from('offers').insert({
     item_id: itemId,
     buyer_id: user.id,
     seller_id: sellerId,
@@ -45,15 +61,16 @@ export async function createOfferAction(prevState: OfferFormState, formData: For
     last_offer_by: user.id,
   });
 
-  if (error) {
-    return { error: `Could not submit your offer: ${error.message}`, success: false };
+  if (insertError) {
+    console.error("Supabase insert error:", insertError.message);
+    return { error: 'A database error occurred. Could not submit your offer.', success: false };
   }
   
   try {
     const message = `You received a new offer of R${offerAmount.toFixed(2)} for your item: "${itemData.title}"`;
     await createNotification(sellerId, message, '/account/dashboard/offers');
   } catch (notificationError) {
-      console.error("Failed to create notification for new offer:", notificationError);
+    console.error("Failed to create notification for new offer:", notificationError);
   }
 
   revalidatePath(`/items/${itemId}`);
@@ -61,9 +78,9 @@ export async function createOfferAction(prevState: OfferFormState, formData: For
   return { error: null, success: true };
 }
 
-// FIX: This function has been completely refactored for the correct workflow.
 export async function acceptOfferAction(offerId: number) {
-  const supabase = await createClient();
+  const supabase = createClient();
+  // ... rest of the function ...
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -100,27 +117,27 @@ export async function acceptOfferAction(offerId: number) {
     throw new Error(`This offer cannot be accepted because the item is no longer available (status: ${item.status}).`);
   }
 
-  // Call the database function to create the order
   const { data: rpcData, error: rpcError } = await supabase.rpc('accept_offer_and_create_order', {
     p_offer_id: offer.id,
   });
 
+  if (rpcError || !rpcData) {
+      throw new Error(`Failed to create order from offer: ${rpcError?.message || 'Did not receive a valid order ID from the database.'}`);
+  }
+
   const newOrderId = rpcData?.[0]?.id;
 
-  if (rpcError || typeof newOrderId !== 'number') {
-    throw new Error(`Failed to create order from offer: ${rpcError?.message || 'Did not receive a valid order ID from the database.'}`);
+  if (typeof newOrderId !== 'number') {
+      throw new Error('Did not receive a valid order ID from the database.');
   }
   
-  // Define the true buyer and seller based on the original offer record
   const trueBuyerId = offer.buyer_id;
   const trueSellerId = offer.seller_id;
   
   try {
-    // Notify the BUYER to proceed with payment.
     const buyerMessage = `Your offer for "${item.title}" was accepted! Please proceed to payment.`;
     await createNotification(trueBuyerId, buyerMessage, `/orders/${newOrderId}`);
     
-    // Notify the SELLER that their item is sold and pending payment.
     const sellerMessage = `Your item "${item.title}" has been sold! We are waiting for the buyer to complete payment.`;
     await createNotification(trueSellerId, sellerMessage, `/account/dashboard/orders`);
 
@@ -131,16 +148,13 @@ export async function acceptOfferAction(offerId: number) {
   revalidatePath('/account/dashboard/offers');
   revalidatePath(`/items/${offer.item_id}`);
 
-  // IMPORTANT: Only redirect the user who is the actual BUYER.
-  // If the seller was the one who clicked "Accept", they will not be redirected.
-  // Their offer list will just refresh.
   if (user.id === trueBuyerId) {
     redirect(`/orders/${newOrderId}`);
   }
 }
 
 export async function rejectOfferAction(offerId: number) {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -169,7 +183,7 @@ export async function rejectOfferAction(offerId: number) {
 }
 
 export async function counterOfferAction(prevState: OfferFormState, formData: FormData): Promise<OfferFormState> {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         return { error: 'You must be logged in.', success: false };

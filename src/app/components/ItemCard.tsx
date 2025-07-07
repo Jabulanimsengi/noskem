@@ -11,19 +11,17 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import { type User } from '@supabase/supabase-js';
 import { type ItemWithProfile } from '@/types';
 import { FaCheckCircle, FaEye, FaHeart, FaHourglassHalf } from 'react-icons/fa';
-import { MessageSquare, Tag } from 'lucide-react';
+import { MessageSquare, Tag, ShieldCheck } from 'lucide-react';
 import { useChat, type ChatSession } from '@/context/ChatContext';
 import { Button } from './Button';
 import { useToast } from '@/context/ToastContext';
 import { createCheckoutSession, type FormState } from '@/app/items/[id]/actions';
 import { toggleLikeAction } from '@/app/likes/actions';
 import { getGuestLikes, addGuestLike, removeGuestLike } from '@/utils/guestLikes';
-// --- Import UserBadges ---
-import UserBadges from './UserBadges';
 
 const OfferModal = dynamic(() => import('./OfferModal'));
 
-const createCanonicalRoomId = (userId1: string, userId2: string): string => {
+const createCanonicalRoomId = (userId1: string, userId2:string): string => {
     const sortedIds = [userId1, userId2].sort();
     return `chat_user_${sortedIds[0]}_${sortedIds[1]}`;
 };
@@ -166,9 +164,15 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                         <div className="flex items-center justify-between mt-2">
                             <Link href={`/sellers/${sellerUsername}`} className="flex items-center gap-2 group/seller">
                                 <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">by {sellerUsername}</span>
+                                
                                 {/* --- THIS IS THE FIX --- */}
-                                {/* This line was missing. It renders the badges. */}
-                                <UserBadges profile={sellerProfile} />
+                                {/* We wrap the icon in a span and apply the title attribute to the span for the tooltip. */}
+                                {sellerProfile.verification_status === 'verified' && (
+                                    <span title="Verified Seller">
+                                        <ShieldCheck className="h-4 w-4 text-blue-500" />
+                                    </span>
+                                )}
+
                             </Link>
                             <div className="flex items-center gap-1 text-xs text-text-secondary">
                                 <FaEye />

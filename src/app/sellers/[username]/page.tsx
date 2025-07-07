@@ -1,11 +1,14 @@
+// src/app/sellers/[username]/page.tsx
+
 import { createClient } from '../../utils/supabase/server';
 import { notFound } from 'next/navigation';
 import ItemCard from '@/app/components/ItemCard';
 import Avatar from '@/app/components/Avatar';
 import { FaStar } from 'react-icons/fa';
-import { type ItemWithProfile, type UserBadge } from '@/types';
+import { ShieldCheck } from 'lucide-react'; // Import the new icon
+import { type ItemWithProfile } from '@/types'; // UserBadge is no longer needed
 import BackButton from '@/app/components/BackButton';
-import UserBadges from '@/app/components/UserBadges';
+// UserBadges component is no longer needed
 
 interface SellerPageProps {
   params: {
@@ -27,9 +30,10 @@ export default async function SellerPage({ params }: SellerPageProps) {
   const supabase = await createClient();
   const { data: { user: currentUser } } = await supabase.auth.getUser();
 
+  // --- FIX 1: Fetch `verification_status` with the profile ---
   const { data: sellerProfile } = await supabase
     .from('profiles')
-    .select('id, username, created_at, avatar_url, average_rating, availability_notes')
+    .select('id, username, created_at, avatar_url, average_rating, availability_notes, verification_status')
     .eq('username', params.username)
     .single();
 
@@ -37,15 +41,16 @@ export default async function SellerPage({ params }: SellerPageProps) {
     notFound();
   }
 
-  const [availableItemsRes, soldItemsRes, reviewsRes, badgesRes] = await Promise.all([
+  // --- FIX 2: Remove the query for the deleted 'user_badges' table ---
+  const [availableItemsRes, soldItemsRes, reviewsRes] = await Promise.all([
     supabase
       .from('items')
-      .select('*, profiles:seller_id(username, avatar_url)')
+      .select('*, profiles:seller_id(*)') // Fetch full profile for ItemCard
       .eq('seller_id', sellerProfile.id)
       .eq('status', 'available'),
     supabase
       .from('items')
-      .select('*, profiles:seller_id(username, avatar_url)')
+      .select('*, profiles:seller_id(*)') // Fetch full profile for ItemCard
       .eq('seller_id', sellerProfile.id)
       .eq('status', 'sold')
       .order('updated_at', { ascending: false }),
@@ -54,24 +59,13 @@ export default async function SellerPage({ params }: SellerPageProps) {
       .select('id, rating, comment, created_at, reviewer:reviewer_id(username, avatar_url)')
       .eq('seller_id', sellerProfile.id)
       .order('created_at', { ascending: false }),
-    supabase
-        .from('user_badges')
-        .select('badge_type')
-        .eq('user_id', sellerProfile.id)
   ]);
     
   const availableItems: ItemWithProfile[] = (availableItemsRes.data || []) as ItemWithProfile[];
   const soldItems: ItemWithProfile[] = (soldItemsRes.data || []) as ItemWithProfile[];
   const reviews = reviewsRes.data || [];
   
-  // --- START OF FIX ---
-  // We will safely filter the data and use a type guard to ensure every item
-  // in the final array has the correct shape. This is more robust than casting.
-  const badges: UserBadge[] = (badgesRes.data || []).filter(
-    (badge): badge is UserBadge => 
-        badge && typeof badge === 'object' && 'badge_type' in badge
-  );
-  // --- END OF FIX ---
+  // The logic for fetching and processing badges is no longer needed.
 
   return (
     <div className="container mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
@@ -86,7 +80,7 @@ export default async function SellerPage({ params }: SellerPageProps) {
           <div className="flex items-center gap-2 mt-2">
             <StarDisplay rating={sellerProfile.average_rating || 0} />
             <span className="text-text-secondary font-semibold">
-                {(sellerProfile.average_rating || 0).toFixed(1)} ({reviews?.length || 0} reviews)
+              {(sellerProfile.average_rating || 0).toFixed(1)} ({reviews?.length || 0} reviews)
             </span>
           </div>
           <p className="text-text-secondary mt-1">
@@ -95,7 +89,14 @@ export default async function SellerPage({ params }: SellerPageProps) {
           {sellerProfile.availability_notes && (
             <p className="text-sm italic text-text-secondary mt-2 bg-gray-50 p-2 rounded-md">{sellerProfile.availability_notes}</p>
           )}
-          <UserBadges badges={badges} />
+          
+          {/* --- FIX 3: Replace UserBadges with a simple verification check --- */}
+          {sellerProfile.verification_status === 'verified' && (
+            <div className="flex items-center gap-2 text-green-600 font-semibold mt-2">
+                <ShieldCheck className="h-5 w-5" />
+                <span>Verified Seller</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -142,7 +143,7 @@ export default async function SellerPage({ params }: SellerPageProps) {
                     </div>
                 ))
             ) : (
-                 <div className="text-center py-16 bg-gray-50 rounded-lg">
+                <div className="text-center py-16 bg-gray-50 rounded-lg">
                     <p className="text-text-secondary">This seller has no reviews yet.</p>
                 </div>
             )}

@@ -1,36 +1,41 @@
-// src/app/auth/SignOutButton.tsx
 'use client';
 
-import { createClient } from '@/utils/supabase/client';
+import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-// Corrected import path for the Button component
-import { Button } from '@/app/components/Button'; 
-import { LogOut } from 'lucide-react';
+import { useToast } from '@/context/ToastContext';
+import { signOutAction } from '@/app/auth/actions';
+import { Button } from '@/app/components/Button'; // Assuming you have a general Button component
 
 export default function SignOutButton() {
+  const [isPending, startTransition] = useTransition();
+  const { showToast } = useToast();
   const router = useRouter();
 
   const handleSignOut = async () => {
-    const supabase = createClient();
-    const { error } = await supabase.auth.signOut();
+    startTransition(async () => {
+      const result = await signOutAction();
 
-    if (error) {
-      console.error('Error signing out:', error);
-    } else {
-      // Redirect to the homepage and refresh to clear the cache
-      router.push('/');
-      router.refresh();
-    }
+      if (result.success) {
+        // Show the success toast immediately
+        showToast('You have been signed out successfully.', 'success');
+        
+        // --- THIS IS THE FIX ---
+        // We delay the navigation slightly to ensure the toast is visible before the page reloads.
+        setTimeout(() => {
+          router.push('/');
+          router.refresh(); 
+        }, 100); // A 100ms delay is usually enough for the toast to render.
+
+      } else if (result.error) {
+        // Show an error toast if sign-out fails
+        showToast(`Sign out failed: ${result.error}`, 'error');
+      }
+    });
   };
 
   return (
-    <Button
-      onClick={handleSignOut}
-      variant="ghost"
-      className="w-full flex justify-start items-center gap-2"
-    >
-      <LogOut className="h-4 w-4" />
-      <span>Sign Out</span>
+    <Button onClick={handleSignOut} disabled={isPending} variant="ghost">
+      {isPending ? 'Signing out...' : 'Sign Out'}
     </Button>
   );
 }

@@ -1,6 +1,8 @@
+// src/app/account/dashboard/liked/page.tsx
+
 import { createClient } from '@/app/utils/supabase/server';
 import { redirect } from 'next/navigation';
-import { type ItemWithSeller } from '@/types';
+import { type ItemWithSeller, type ItemWithProfile } from '@/types';
 import ItemCard from '@/app/components/ItemCard';
 import ClearLikesButton from './ClearLikesButton';
 
@@ -26,24 +28,29 @@ export default async function LikedItemsPage() {
 
     const itemIds = likedItemIdsData.map(like => like.item_id);
 
-    let items: ItemWithSeller[] = [];
+    let items: ItemWithProfile[] = [];
     
     if (itemIds.length > 0) {
+        // --- THIS IS THE FIX ---
+        // The query is now much simpler and only fetches the seller's profile.
         const { data: itemsData, error: itemsError } = await supabase
             .from('items')
-            .select('*, profiles:profiles!items_seller_id_fkey(*)')
+            .select(`
+                *,
+                profiles:seller_id (*)
+            `)
             .in('id', itemIds);
 
         if (itemsError) {
             console.error("Error fetching liked item details:", itemsError);
             return <p className="text-red-500 text-center p-8">Could not load details for liked items.</p>;
         }
-        items = (itemsData || []) as ItemWithSeller[];
+        
+        items = (itemsData || []) as ItemWithProfile[];
     }
 
     return (
         <div>
-            {/* The redundant PageHeader has been removed from here. */}
             <div className="flex justify-end items-center mb-6 -mt-16">
                  <ClearLikesButton hasLikes={items.length > 0} />
             </div>
@@ -51,7 +58,7 @@ export default async function LikedItemsPage() {
             {items.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {items.map((item) => (
-                        <ItemCard key={item.id} item={item} user={user} />
+                        <ItemCard key={item.id} item={item} user={user} initialHasLiked={true} />
                     ))}
                 </div>
             ) : (
