@@ -11,7 +11,10 @@ import { Providers } from '@/app/providers';
 // Import the Header, Footer, and new BottomNavBar components
 import HeaderLayout from '@/app/components/HeaderLayout';
 import Footer from '@/app/components/Footer';
-import BottomNavBar from './components/BottomNavBar'; // Import the new component
+import BottomNavBar from './components/BottomNavBar';
+
+// --- 1. Import the Vercel Analytics component ---
+import { Analytics } from '@vercel/analytics/react';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -31,22 +34,21 @@ export default function RootLayout({
         <Providers>
           <HeaderLayout />
 
-          {/* MOBILE OPTIMIZATION: Added bottom padding to prevent content from being hidden by the nav bar. */}
           <main className="flex-grow pb-20 md:pb-0">
             {children}
           </main>
           
           <Footer />
 
-          {/* The new bottom navigation bar is added here for mobile */}
           <BottomNavBar />
 
-          {/* This is the target for your confirmation modal portal */}
           <div id="modal-root"></div>
         </Providers>
 
-        {/* This loads the Paystack script, making the payment pop-up available. */}
         <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
+        
+        {/* --- 2. Add the Analytics component here --- */}
+        <Analytics />
       </body>
     </html>
   );
