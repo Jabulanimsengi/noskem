@@ -3,13 +3,14 @@
 import { createClient } from './utils/supabase/server';
 import { Suspense } from 'react';
 import { Category, ItemWithProfile, Like } from '@/types';
-import CategoryFilter from './components/CategoryFilter';
 import CreditPackagesSection from './components/CreditPackagesSection';
 import ItemCarousel from './components/ItemCarousel';
 import { HeroSection } from './components/HeroSection';
-import ItemList from './components/ItemList';
 import HomepageSkeleton from './components/skeletons/HomepageSkeleton';
-import HomepageFilters from './components/HomepageFilters';
+import ItemList from './components/ItemList';
+// REMOVED: No longer need these filter components on the homepage
+// import HomepageFilters from './components/HomepageFilters';
+// import CategoryFilter from './components/CategoryFilter';
 
 export const revalidate = 60; 
 
@@ -34,19 +35,16 @@ async function HomepageContent() {
       }
   }
 
-  // --- THIS IS THE FIX ---
-  // The query now only asks for profile data, avoiding the user_badges table.
   const selectQuery = '*, profiles!seller_id(*)';
 
   const [
-    categoriesRes,
+    // We no longer need to fetch categories for the homepage filters
     featuredItemsRes,
     popularItemsRes,
     recentlyListedRes,
     recentlySoldRes,
     creditPackagesRes,
   ] = await Promise.all([
-    supabase.from('categories').select('*').order('name', { ascending: true }),
     supabase.from('items').select(selectQuery).eq('is_featured', true).in('status', ['available', 'pending_payment']).limit(10),
     supabase.from('items').select(selectQuery).in('status', ['available', 'pending_payment']).order('view_count', { ascending: false, nullsFirst: false }).limit(10),
     supabase.from('items').select(selectQuery).in('status', ['available', 'pending_payment']).order('created_at', { ascending: false }).limit(10),
@@ -54,7 +52,6 @@ async function HomepageContent() {
     supabase.from('credit_packages').select('*').order('price_zar', { ascending: true }),
   ]);
 
-  const categories: Category[] = categoriesRes.data || [];
   const featuredItems: ItemWithProfile[] = (featuredItemsRes.data || []) as ItemWithProfile[];
   const popularItems: ItemWithProfile[] = (popularItemsRes.data || []) as ItemWithProfile[];
   const recentlyListedItems: ItemWithProfile[] = (recentlyListedRes.data || []) as ItemWithProfile[];
@@ -67,40 +64,41 @@ async function HomepageContent() {
       <div id="listings-section" className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         
         {featuredItems.length > 0 && (
-          <div className='pt-8 mt-8'>
+          <div className='pt-4 mt-4 sm:pt-8 sm:mt-8'>
             <ItemCarousel title="⭐ Featured Items" items={featuredItems} user={user} likedItemIds={likedItemIds} />
           </div>
         )}
 
         {popularItems.length > 0 && (
-          <div className='border-t pt-8 mt-8'>
+          <div className='border-t pt-4 mt-4 sm:pt-8 sm:mt-8'>
             <ItemCarousel title="Popular Now" items={popularItems} user={user} likedItemIds={likedItemIds} />
           </div>
         )}
         
         {recentlyListedItems.length > 0 && (
-          <div className='border-t pt-8 mt-8'>
+          <div className='border-t pt-4 mt-4 sm:pt-8 sm:mt-8'>
             <ItemCarousel title="Recently Listed" items={recentlyListedItems} user={user} likedItemIds={likedItemIds} />
           </div>
         )}
         
         {recentlySoldItems.length > 0 && (
-           <div className='border-t pt-8 mt-8'>
+           <div className='border-t pt-4 mt-4 sm:pt-8 sm:mt-8'>
              <ItemCarousel title="Recently Sold" items={recentlySoldItems} user={user} likedItemIds={likedItemIds} />
            </div>
         )}
         
-        <div className="py-16 border-t mt-8">
-          <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-brand-dark">Browse All Items</h2>
-              <p className="text-lg text-text-secondary mt-2">Find exactly what you&apos;re looking for.</p>
+        {/* UPDATED: The "Browse All Items" section now only shows the title and the item grid. */}
+        <div className="py-8 sm:py-12 border-t mt-6 sm:mt-8">
+          <div className="text-center mb-6 sm:mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-brand-dark">Browse All Items</h2>
+              <p className="text-base sm:text-lg text-text-secondary mt-2">Find exactly what you&apos;re looking for.</p>
           </div>
           
-          <CategoryFilter categories={categories} />
-          <HomepageFilters />
+          {/* REMOVED: CategoryFilter and HomepageFilters are no longer displayed here. */}
           
           <ItemList user={user} initialLikedItemIds={likedItemIds} />
         </div>
+
       </div>
       <CreditPackagesSection user={user} packages={creditPackages} />
     </>

@@ -3,14 +3,15 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import Script from 'next/script'; // Import the Script component
+import Script from 'next/script';
 
 // Import your central Providers component
 import { Providers } from '@/app/providers';
 
-// Import the Header and Footer components
+// Import the Header, Footer, and new BottomNavBar components
 import HeaderLayout from '@/app/components/HeaderLayout';
 import Footer from '@/app/components/Footer';
+import BottomNavBar from './components/BottomNavBar'; // Import the new component
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -26,25 +27,25 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full">
-      <body className={`${inter.className} flex flex-col h-full`}>
+      <body className={`${inter.className} flex flex-col h-full bg-background`}>
         <Providers>
-          {/* Add the Header back here */}
           <HeaderLayout />
 
-          <main className="flex-grow">
+          {/* MOBILE OPTIMIZATION: Added bottom padding to prevent content from being hidden by the nav bar. */}
+          <main className="flex-grow pb-20 md:pb-0">
             {children}
           </main>
           
-          {/* Add the Footer back here */}
           <Footer />
+
+          {/* The new bottom navigation bar is added here for mobile */}
+          <BottomNavBar />
 
           {/* This is the target for your confirmation modal portal */}
           <div id="modal-root"></div>
         </Providers>
 
-        {/* ADD THIS SCRIPT TAG
-          This loads the Paystack script, making the payment pop-up available.
-        */}
+        {/* This loads the Paystack script, making the payment pop-up available. */}
         <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
       </body>
     </html>

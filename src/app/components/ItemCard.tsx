@@ -32,7 +32,6 @@ interface ItemCardProps {
     initialHasLiked?: boolean;
 }
 
-// A self-contained component for the "Buy" button form
 function BuyButtonForm({ item }: { item: ItemWithProfile }) {
     const { showToast } = useToast();
     const { pending } = useFormStatus();
@@ -54,7 +53,7 @@ function BuyButtonForm({ item }: { item: ItemWithProfile }) {
         <form action={formAction}>
             <input type="hidden" name="itemId" value={item.id} />
             <input type="hidden" name="itemPrice" value={item.buy_now_price || 0} />
-            <Button size="sm" variant="primary" type="submit" disabled={pending} className="w-full">
+            <Button size="sm" variant="primary" type="submit" disabled={pending} className="w-full text-sm sm:text-base">
                 {pending ? '...' : 'Buy'}
             </Button>
         </form>
@@ -127,13 +126,13 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
     return (
         <>
             <div className="bg-surface rounded-xl shadow-lg overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 h-full">
-                <div className="relative w-full h-48">
+                <div className="relative w-full h-40 sm:h-48">
                     <Link href={`/items/${item.id}`} className="block h-full">
                         <Image
                             src={finalImageUrl}
                             alt={item.title || 'Item Image'}
                             fill={true}
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                             className="object-cover transition-transform duration-300 ease-in-out group-hover:scale-105"
                         />
                     </Link>
@@ -157,16 +156,14 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                         </div>
                     )}
                 </div>
-                <div className="p-4 flex flex-col flex-grow">
-                    <h3 className="text-lg font-bold text-text-primary truncate">{item.title}</h3>
+                <div className="p-3 sm:p-4 flex flex-col flex-grow">
+                    <h3 className="text-base sm:text-lg font-bold text-text-primary truncate">{item.title}</h3>
 
                     {sellerProfile && (
                         <div className="flex items-center justify-between mt-2">
                             <Link href={`/sellers/${sellerUsername}`} className="flex items-center gap-2 group/seller">
                                 <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">by {sellerUsername}</span>
                                 
-                                {/* --- THIS IS THE FIX --- */}
-                                {/* We wrap the icon in a span and apply the title attribute to the span for the tooltip. */}
                                 {sellerProfile.verification_status === 'verified' && (
                                     <span title="Verified Seller">
                                         <ShieldCheck className="h-4 w-4 text-blue-500" />
@@ -181,15 +178,16 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                         </div>
                     )}
 
-                    <div className="flex items-baseline gap-2 mt-3 flex-grow">
-                      <p className="text-2xl font-extrabold text-brand">
-                          {item.buy_now_price ? `R${item.buy_now_price.toFixed(2)}` : 'Make an Offer'}
-                      </p>
-                      {item.new_item_price && item.buy_now_price && item.new_item_price > item.buy_now_price && (
-                          <p className="text-md text-gray-500 line-through">
-                            R{item.new_item_price.toFixed(2)}
-                          </p>
-                      )}
+                    {/* MOBILE OPTIMIZATION: Prices are now stacked vertically and font sizes are adjusted. */}
+                    <div className="flex flex-col mt-3">
+                        <p className="text-xl sm:text-2xl font-extrabold text-brand">
+                            {item.buy_now_price ? `R${item.buy_now_price.toFixed(2)}` : 'Make an Offer'}
+                        </p>
+                        {item.new_item_price && item.buy_now_price && item.new_item_price > item.buy_now_price && (
+                            <p className="text-sm text-gray-500 line-through">
+                                R{item.new_item_price.toFixed(2)}
+                            </p>
+                        )}
                     </div>
 
                     <div className="mt-auto pt-4 border-t border-gray-200">
@@ -200,7 +198,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                                 </Button>
                                 <Button size="sm" variant="secondary" onClick={() => handleAction(() => setIsOfferModalOpen(true))}>
                                     <Tag className="h-4 w-4" />
-                                    <span className="ml-1">Offer</span>
+                                    <span className="ml-1 hidden sm:inline">Offer</span>
                                 </Button>
                                 <BuyButtonForm item={item} />
                             </div>

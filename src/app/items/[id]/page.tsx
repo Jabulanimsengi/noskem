@@ -12,7 +12,7 @@ import BackButton from '@/app/components/BackButton';
 
 export const dynamic = 'force-dynamic';
 
-// This local type now correctly uses ItemWithProfile to include badges
+// This local type now correctly uses ItemWithProfile
 export type ItemDataWithCategory = ItemWithProfile & {
   categories: Category | null;
 };
@@ -39,16 +39,13 @@ async function RelatedItems({ categoryId, currentItemId }: { categoryId: number 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // This query also needs to be updated to fetch badges for related items
+  // FIX: This query has been updated to remove the reference to the deleted 'user_badges' table.
   const { data: relatedItemsData } = await supabase
     .from('items')
     .select(`
         *,
         profiles:seller_id (
-            *,
-            user_badges (
-                badge_type
-            )
+            *
         )
     `)
     .eq('category_id', categoryId)
@@ -87,18 +84,14 @@ export default async function ItemPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // --- THIS IS THE FIX ---
-  // The select query now explicitly fetches user_badges from the related profiles table.
+  // FIX: The select query has been updated to remove the reference to the deleted 'user_badges' table.
   const { data: itemData, error } = await supabase
     .from('items')
     .select(`
         *,
         categories:category_id (*),
         profiles:seller_id (
-            *,
-            user_badges (
-                badge_type
-            )
+            *
         )
     `)
     .eq('id', params.id)
@@ -127,7 +120,6 @@ export default async function ItemPage({ params }: { params: { id: string } }) {
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            {/* The cast now works because itemData includes badges */}
             <ItemDetails item={itemData as ItemDataWithCategory} />
           </div>
           <div className="lg:col-span-1">

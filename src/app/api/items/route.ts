@@ -1,55 +1,72 @@
 // src/app/api/items/route.ts
-
 import { createClient } from '@/utils/supabase/server';
 import { type NextRequest, NextResponse } from 'next/server';
 
-export const revalidate = 0;
-
 export async function GET(request: NextRequest) {
-  const supabase = createClient();
-  const searchParams = request.nextUrl.searchParams;
-  const page = parseInt(searchParams.get('page') || '1', 10);
-  const limit = parseInt(searchParams.get('limit') || '20', 10);
-  const category = searchParams.get('category');
-  const sort = searchParams.get('sort');
+    const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
 
-  const from = (page - 1) * limit;
-  const to = from + limit - 1;
+    const queryParam = searchParams.get('query');
+    const category = searchParams.get('category');
+    const minPrice = searchParams.get('minPrice');
+    const maxPrice = searchParams.get('maxPrice');
+    const condition = searchParams.get('condition');
+    const sortBy = searchParams.get('sort');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = 20;
+    const offset = (page - 1) * limit;
 
-  // --- THIS IS THE FIX ---
-  // The query now only asks for profile data, avoiding the user_badges table.
-  const selectQuery = '*, profiles!seller_id(*)';
+    let query = supabase
+        .from('items')
+        .select(`
+            *,
+            profiles:seller_id (*)
+        `)
+        .eq('status', 'available');
 
-  let query = supabase
-    .from('items')
-    .select(selectQuery, { count: 'exact' })
-    .in('status', ['available', 'pending_payment'])
-    .range(from, to);
-
-  if (category) {
-    query = query.eq('category', category);
-  }
-
-  if (sort) {
-    const [sortBy, sortOrder] = sort.split('-');
-    if (sortBy && sortOrder) {
-      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+    if (queryParam) {
+        // FIX: Changed from a simple 'ilike' on the title to a full-text search ('textSearch')
+        // on the 'fts' column, which is configured to index both title and description.
+        // This provides more accurate and comprehensive search results.
+        const cleanedQuery = queryParam.trim().split(' ').join(' & ');
+        query = query.textSearch('fts', cleanedQuery, {
+            type: 'websearch',
+            config: 'english'
+        });
     }
-  } else {
-    query = query.order('created_at', { ascending: false });
-  }
 
-  const { data, error, count } = await query;
+    if (category) {
+        query = query.eq('category_name', category);
+    }
+    if (minPrice) {
+        query = query.gte('buy_now_price', Number(minPrice));
+    }
+    if (maxPrice) {
+        query = query.lte('buy_now_price', Number(maxPrice));
+    }
+    if (condition) {
+        query = query.eq('condition', condition);
+    }
 
-  if (error) {
-    console.error('Error fetching items:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    if (sortBy) {
+        const [sortField, sortOrder] = sortBy.split('-');
+        if (sortField && sortOrder) {
+            query = query.order(sortField, { ascending: sortOrder === 'asc' });
+        }
+    } else {
+        // Default sort if none is provided
+        query = query.order('created_at', { ascending: false });
+    }
 
-  return NextResponse.json({
-    items: data,
-    total: count,
-    page,
-    limit,
-  });
+    // Apply pagination after all filters
+    query = query.range(offset, offset + limit - 1);
+    
+    const { data, error } = await query;
+
+    if (error) {
+        console.error('Error fetching items:', error);
+        return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 });
+    }
+
+    return NextResponse.json({ items: data });
 }

@@ -21,10 +21,6 @@ export default function ItemList({ user, initialLikedItemIds = [], searchParams 
   const [isLoading, setIsLoading] = useState(false);
   const { ref, inView } = useInView({ threshold: 0.5 });
 
-  // --- FIX: Stabilize the searchParams dependency ---
-  // By stringifying the searchParams object, we create a stable primitive value (a string)
-  // that will only change when the actual filter values change. This prevents the
-  // useEffect hook from re-running unnecessarily on every render.
   const stableSearchParams = useMemo(() => JSON.stringify(searchParams), [searchParams]);
 
   const loadMoreItems = useCallback(async () => {
@@ -32,7 +28,6 @@ export default function ItemList({ user, initialLikedItemIds = [], searchParams 
     setIsLoading(true);
 
     const query = new URLSearchParams();
-    // Use the original searchParams object here for building the query
     Object.entries(searchParams).forEach(([key, value]) => {
       if (value) {
         query.append(key, Array.isArray(value) ? value.join(',') : value);
@@ -65,7 +60,6 @@ export default function ItemList({ user, initialLikedItemIds = [], searchParams 
     }
   }, [inView, hasMore, loadMoreItems]);
   
-  // Effect to reset list when search params change
   useEffect(() => {
     const fetchInitialItems = async () => {
         setIsLoading(true);
@@ -73,7 +67,6 @@ export default function ItemList({ user, initialLikedItemIds = [], searchParams 
         setPage(1);
 
         const query = new URLSearchParams();
-        // Use the original searchParams object here too
         Object.entries(searchParams).forEach(([key, value]) => {
             if (value) {
                 query.append(key, Array.isArray(value) ? value.join(',') : value);
@@ -98,13 +91,13 @@ export default function ItemList({ user, initialLikedItemIds = [], searchParams 
         }
     };
     fetchInitialItems();
-  // --- FIX: Use the stable, stringified search params as the dependency ---
-  }, [stableSearchParams]); // The hook now depends on the stable string
+  }, [stableSearchParams]);
 
   return (
     <div>
       {items.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        // MOBILE OPTIMIZATION: Changed grid to 2 columns on mobile, 3 on medium screens, and 4 on large screens.
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {items.map((item) => (
             <ItemCard
               key={item.id}
@@ -118,11 +111,13 @@ export default function ItemList({ user, initialLikedItemIds = [], searchParams 
         <p className="text-center py-12 text-gray-500">No items found matching your criteria.</p>
       ) : null}
 
-      {isLoading && page === 1 && <GridSkeletonLoader count={6} />}
+      {/* Show initial skeleton loader only on first load */}
+      {isLoading && page === 1 && <GridSkeletonLoader count={8} />}
 
+      {/* This ref triggers loading more items when it becomes visible */}
       {hasMore && !isLoading && (
-        <div ref={ref} className="text-center py-8 text-gray-500">
-          Loading more items...
+        <div ref={ref} className="text-center py-8">
+          <span className="text-gray-500">Loading more items...</span>
         </div>
       )}
     </div>
