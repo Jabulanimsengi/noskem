@@ -21,16 +21,17 @@ import { getGuestLikes, addGuestLike, removeGuestLike } from '@/utils/guestLikes
 
 const OfferModal = dynamic(() => import('./OfferModal'));
 
-const createCanonicalRoomId = (userId1: string, userId2:string): string => {
-    const sortedIds = [userId1, userId2].sort();
-    return `chat_user_${sortedIds[0]}_${sortedIds[1]}`;
-};
-
+// FIX: Added the missing interface definition
 interface ItemCardProps {
     item: ItemWithProfile;
     user: User | null;
     initialHasLiked?: boolean;
 }
+
+const createCanonicalRoomId = (userId1: string, userId2:string): string => {
+    const sortedIds = [userId1, userId2].sort();
+    return `chat_user_${sortedIds[0]}_${sortedIds[1]}`;
+};
 
 function BuyButtonForm({ item }: { item: ItemWithProfile }) {
     const { showToast } = useToast();
@@ -132,7 +133,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                             src={finalImageUrl}
                             alt={item.title || 'Item Image'}
                             fill={true}
-                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                             className="object-cover transition-transform duration-300 ease-in-out group-hover:scale-105"
                         />
                     </Link>
@@ -157,19 +158,20 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                     )}
                 </div>
                 <div className="p-3 sm:p-4 flex flex-col flex-grow">
-                    <h3 className="text-base sm:text-lg font-bold text-text-primary truncate">{item.title}</h3>
-
+                    <h3 className="text-base sm:text-lg font-bold text-text-primary truncate">
+                        <Link href={`/items/${item.id}`} className="hover:underline">{item.title}</Link>
+                    </h3>
+                    
+                    {/* HIDDEN ON MOBILE, VISIBLE ON DESKTOP (sm and up) */}
                     {sellerProfile && (
-                        <div className="flex items-center justify-between mt-2">
+                        <div className="hidden sm:flex items-center justify-between mt-2">
                             <Link href={`/sellers/${sellerUsername}`} className="flex items-center gap-2 group/seller">
                                 <span className="text-sm text-text-secondary group-hover/seller:text-brand group-hover/seller:underline">by {sellerUsername}</span>
-                                
                                 {sellerProfile.verification_status === 'verified' && (
                                     <span title="Verified Seller">
                                         <ShieldCheck className="h-4 w-4 text-blue-500" />
                                     </span>
                                 )}
-
                             </Link>
                             <div className="flex items-center gap-1 text-xs text-text-secondary">
                                 <FaEye />
@@ -178,8 +180,7 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                         </div>
                     )}
 
-                    {/* MOBILE OPTIMIZATION: Prices are now stacked vertically and font sizes are adjusted. */}
-                    <div className="flex flex-col mt-3">
+                    <div className="flex-grow mt-3">
                         <p className="text-xl sm:text-2xl font-extrabold text-brand">
                             {item.buy_now_price ? `R${item.buy_now_price.toFixed(2)}` : 'Make an Offer'}
                         </p>
@@ -190,25 +191,26 @@ export default function ItemCard({ item, user, initialHasLiked = false }: ItemCa
                         )}
                     </div>
 
-                    <div className="mt-auto pt-4 border-t border-gray-200">
+                    {/* HIDDEN ON MOBILE, VISIBLE ON DESKTOP (sm and up) */}
+                    <div className="mt-auto pt-4 border-t border-gray-200 hidden sm:block">
                         {item.status === 'available' ? (
                             <div className="grid grid-cols-3 gap-2">
-                                <Button size="sm" variant="secondary" onClick={handleStartChat}>
+                                <Button size="sm" variant="secondary" onClick={handleStartChat} aria-label="Chat">
                                     <MessageSquare className="h-4 w-4" />
                                 </Button>
                                 <Button size="sm" variant="secondary" onClick={() => handleAction(() => setIsOfferModalOpen(true))}>
                                     <Tag className="h-4 w-4" />
-                                    <span className="ml-1 hidden sm:inline">Offer</span>
+                                    <span className="ml-1 hidden lg:inline">Offer</span>
                                 </Button>
                                 <BuyButtonForm item={item} />
                             </div>
                         ) : item.status === 'pending_payment' ? (
-                            <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-orange-600 bg-orange-100 border-2 border-orange-200 rounded-lg cursor-not-allowed">
+                            <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-orange-600 bg-orange-100 rounded-lg cursor-not-allowed">
                                 <FaHourglassHalf />
                                 <span>Pending Payment</span>
                             </div>
                         ) : (
-                            <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 bg-red-100 border-2 border-red-200 rounded-lg cursor-not-allowed">
+                            <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 bg-red-100 rounded-lg cursor-not-allowed">
                                 <FaCheckCircle />
                                 <span>Sold</span>
                             </div>

@@ -6,7 +6,9 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
 
-    const queryParam = searchParams.get('query');
+    // FIX: Changed from 'query' to 'q' to match what the SearchBar sends.
+    const queryParam = searchParams.get('q');
+    
     const category = searchParams.get('category');
     const minPrice = searchParams.get('minPrice');
     const maxPrice = searchParams.get('maxPrice');
@@ -25,9 +27,6 @@ export async function GET(request: NextRequest) {
         .eq('status', 'available');
 
     if (queryParam) {
-        // FIX: Changed from a simple 'ilike' on the title to a full-text search ('textSearch')
-        // on the 'fts' column, which is configured to index both title and description.
-        // This provides more accurate and comprehensive search results.
         const cleanedQuery = queryParam.trim().split(' ').join(' & ');
         query = query.textSearch('fts', cleanedQuery, {
             type: 'websearch',

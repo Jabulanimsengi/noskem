@@ -9,7 +9,8 @@ import { Dialog, DialogPanel, DialogTitle, Transition } from '@headlessui/react'
 import { X } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { usePathname } from 'next/navigation';
-import { useEffect, Fragment } from 'react';
+// FIX: Import useState and useEffect
+import { useEffect, useState, Fragment } from 'react';
 
 interface MobileMenuProps {
     isOpen: boolean;
@@ -21,7 +22,14 @@ interface MobileMenuProps {
 export default function MobileMenu({ isOpen, onClose, user, profile }: MobileMenuProps) {
     const { openModal } = useAuthModal();
     const pathname = usePathname();
+    // FIX: Add a state to track if the component has mounted on the client
+    const [isClient, setIsClient] = useState(false);
 
+    // FIX: Set the component as mounted
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+    
     useEffect(() => {
         if (isOpen) {
             onClose();
@@ -66,20 +74,26 @@ export default function MobileMenu({ isOpen, onClose, user, profile }: MobileMen
                                     <Link href="/about" className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">About Us</Link>
                                 </div>
                                 <div className="py-6">
-                                    {user ? (
-                                        <Link href="/account/dashboard" className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
-                                            My Dashboard
-                                        </Link>
+                                    {/* FIX: Only render the auth-dependent UI on the client */}
+                                    {isClient ? (
+                                        user ? (
+                                            <Link href="/account/dashboard" className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
+                                                My Dashboard
+                                            </Link>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    onClose();
+                                                    openModal('sign_in');
+                                                }}
+                                                className="-mx-3 block w-full text-left rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                                            >
+                                                Log in
+                                            </button>
+                                        )
                                     ) : (
-                                        <button
-                                            onClick={() => {
-                                                onClose();
-                                                openModal('sign_in');
-                                            }}
-                                            className="-mx-3 block w-full text-left rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
-                                        >
-                                            Log in
-                                        </button>
+                                        // Optional: Show a placeholder while waiting for the client to mount
+                                        <div className="h-[44px] animate-pulse bg-gray-200 rounded-lg"></div>
                                     )}
                                 </div>
                             </div>
