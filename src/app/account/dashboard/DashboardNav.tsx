@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import SignOutButton from '@/app/auth/SignOutButton';
 import { usePathname } from 'next/navigation';
 import { 
   FaBoxOpen, 
@@ -56,6 +57,9 @@ export default function DashboardNav() {
           </Link>
         );
       })}
+      <div className="pt-4 mt-4 border-t border-gray-200">
+                <SignOutButton />
+            </div>
     </nav>
   );
 }

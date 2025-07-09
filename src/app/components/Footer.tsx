@@ -1,11 +1,11 @@
 // src/app/components/Footer.tsx
 
 import Link from 'next/link';
-import { FaShoppingCart } from 'react-icons/fa';
+// FIX: Imported FaShoppingCart and the new FaWhatsapp icon
+import { FaShoppingCart, FaWhatsapp } from 'react-icons/fa';
 
 export default function Footer() {
   return (
-    // FIX: Changed background color to match the header
     <footer className="bg-slate-800 text-white">
       <div className="container mx-auto max-w-7xl py-12 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -40,7 +40,20 @@ export default function Footer() {
           </div>
           <div>
             <h3 className="text-sm font-semibold tracking-wider uppercase">Connect</h3>
-            {/* Add social media links here if you have them */}
+            {/* FIX: Added WhatsApp contact link */}
+            <ul className="mt-4 space-y-2">
+                <li>
+                    <a 
+                        href="https://wa.me/27787770524" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="flex items-center text-base text-gray-300 hover:text-white"
+                    >
+                        <FaWhatsapp className="mr-2 h-5 w-5" />
+                        WhatsApp
+                    </a>
+                </li>
+            </ul>
           </div>
         </div>
         <div className="mt-8 border-t border-gray-700 pt-8 text-center text-sm text-gray-400">

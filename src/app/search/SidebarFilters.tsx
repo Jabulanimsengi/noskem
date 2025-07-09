@@ -1,134 +1,100 @@
+// src/app/search/SidebarFilters.tsx
 'use client';
 
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { FaMapMarkerAlt } from 'react-icons/fa';
-import { useToast } from '@/context/ToastContext';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
+import { type Category } from '@/types';
+import BackButton from '@/app/components/BackButton'; // Import the BackButton
 
 export default function SidebarFilters() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const { showToast } = useToast();
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-  const [minPrice, setMinPrice] = useState(searchParams.get('min_price') || '');
-  const [maxPrice, setMaxPrice] = useState(searchParams.get('max_price') || '');
-  const [conditions, setConditions] = useState<string[]>(searchParams.getAll('condition'));
-  const [onSale, setOnSale] = useState(searchParams.get('on_sale') === 'true');
-  const [isLocating, setIsLocating] = useState(false);
+    // Fetch categories from the database when the component mounts
+    useEffect(() => {
+        const fetchCategories = async () => {
+            const supabase = createClient();
+            const { data, error } = await supabase
+                .from('categories')
+                .select('id, name, slug')
+                .order('name', { ascending: true });
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (minPrice) params.set('min_price', minPrice); else params.delete('min_price');
-      if (maxPrice) params.set('max_price', maxPrice); else params.delete('max_price');
-      
-      params.delete('condition');
-      conditions.forEach(c => params.append('condition', c));
+            if (data) {
+                setCategories(data);
+            }
+            setIsLoading(false);
+        };
 
-      if (onSale) params.set('on_sale', 'true'); else params.delete('on_sale');
+        fetchCategories();
+    }, []);
 
-      router.replace(`${pathname}?${params.toString()}`);
-    }, 500);
+    // This function builds the new URL with the category filter and navigates to it
+    const handleFilterChange = (type: string, value: string) => {
+        const currentParams = new URLSearchParams(Array.from(searchParams.entries()));
 
-    return () => clearTimeout(handler);
-  }, [minPrice, maxPrice, conditions, onSale, pathname, router, searchParams]);
+        if (value) {
+            currentParams.set(type, value);
+        } else {
+            // This removes the category filter when 'Clear' is clicked
+            currentParams.delete(type);
+        }
 
-  const handleConditionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target;
-    setConditions(prev => 
-      checked ? [...prev, value] : prev.filter(c => c !== value)
+        router.push(`${pathname}?${currentParams.toString()}`);
+    };
+
+    const selectedCategory = searchParams.get('category');
+
+    return (
+        <aside className="w-full lg:w-72 space-y-8 p-4 lg:p-6 bg-surface rounded-xl shadow-md">
+            {/* Back button for mobile view */}
+            <div className="lg:hidden">
+                <BackButton />
+            </div>
+
+            <div>
+                <h3 className="text-lg font-semibold mb-3 text-text-primary">Categories</h3>
+                {isLoading ? (
+                    // Show a loading skeleton while fetching categories
+                    <div className="space-y-2">
+                        {[...Array(8)].map((_, i) => (
+                            <div key={i} className="h-8 bg-gray-200 rounded animate-pulse"></div>
+                        ))}
+                    </div>
+                ) : (
+                    <ul className="space-y-1">
+                        {categories.map((category) => (
+                            <li key={category.id}>
+                                <button
+                                    onClick={() => handleFilterChange('category', category.slug)}
+                                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                                        selectedCategory === category.slug
+                                            ? 'bg-brand text-white font-semibold'
+                                            : 'hover:bg-gray-100 text-text-primary'
+                                    }`}
+                                >
+                                    {category.name}
+                                </button>
+                            </li>
+                        ))}
+                        {/* Show a "Clear" button only if a category is selected */}
+                        {selectedCategory && (
+                             <li>
+                                <button
+                                    onClick={() => handleFilterChange('category', '')}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 rounded-md mt-2"
+                                >
+                                    Clear category
+                                </button>
+                            </li>
+                        )}
+                    </ul>
+                )}
+            </div>
+            {/* You can add other filters like "Condition" or "Price Range" here in the future */}
+        </aside>
     );
-  };
-
-  const handleSearchNearby = () => {
-    setIsLocating(true);
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            const params = new URLSearchParams(searchParams.toString());
-            params.set('lat', latitude.toString());
-            params.set('lon', longitude.toString());
-            router.push(`${pathname}?${params.toString()}`);
-            setIsLocating(false);
-        }, (error) => {
-            showToast('Could not get your location.', 'error');
-            setIsLocating(false);
-        });
-    } else {
-        showToast('Geolocation is not supported by your browser.', 'error');
-        setIsLocating(false);
-    }
-  };
-  
-  const conditionOptions = ['new', 'like_new', 'used_good', 'used_fair'];
-
-  return (
-    <aside className="w-full lg:w-72 space-y-8 p-6 bg-surface rounded-xl shadow-md">
-      <div>
-        <h3 className="text-lg font-semibold mb-3 text-text-primary">Price Range</h3>
-        <div className="flex items-center gap-3">
-          <input 
-            type="number" 
-            placeholder="Min" 
-            value={minPrice}
-            onChange={e => setMinPrice(e.target.value)}
-            className="w-full text-base p-2.5 rounded-md border-gray-300 shadow-sm focus:border-brand focus:ring-brand" 
-          />
-          <span className="text-gray-400">-</span>
-          <input 
-            type="number" 
-            placeholder="Max" 
-            value={maxPrice}
-            onChange={e => setMaxPrice(e.target.value)}
-            className="w-full text-base p-2.5 rounded-md border-gray-300 shadow-sm focus:border-brand focus:ring-brand" 
-          />
-        </div>
-      </div>
-      
-      <div>
-        <h3 className="text-lg font-semibold mb-3 text-text-primary">Condition</h3>
-        <div className="space-y-3">
-            {conditionOptions.map(condition => (
-                <label key={condition} className="flex items-center gap-3 cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        value={condition}
-                        checked={conditions.includes(condition)}
-                        onChange={handleConditionChange}
-                        className="h-5 w-5 rounded border-gray-300 text-brand focus:ring-brand"
-                    />
-                    <span className="text-base text-text-primary capitalize">{condition.replace(/_/g, ' ')}</span>
-                </label>
-            ))}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-lg font-semibold mb-3 text-text-primary">Deals</h3>
-         <label className="flex items-center gap-3 cursor-pointer">
-            <input 
-                type="checkbox"
-                checked={onSale}
-                onChange={(e) => setOnSale(e.target.checked)}
-                className="h-5 w-5 rounded border-gray-300 text-brand focus:ring-brand"
-            />
-            <span className="text-base text-text-primary">On Sale</span>
-        </label>
-      </div>
-      
-      <div>
-        <h3 className="text-lg font-semibold mb-3 text-text-primary">Location</h3>
-        <button
-            onClick={handleSearchNearby}
-            disabled={isLocating}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-brand rounded-lg hover:bg-brand-dark disabled:bg-gray-400"
-        >
-            <FaMapMarkerAlt />
-            {isLocating ? 'Locating...' : 'Search Near Me'}
-        </button>
-      </div>
-
-    </aside>
-  );
 }

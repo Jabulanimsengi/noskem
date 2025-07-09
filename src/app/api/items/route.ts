@@ -6,10 +6,8 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
 
-    // FIX: Changed from 'query' to 'q' to match what the SearchBar sends.
     const queryParam = searchParams.get('q');
-    
-    const category = searchParams.get('category');
+    const categorySlug = searchParams.get('category'); // e.g., 'electronics'
     const minPrice = searchParams.get('minPrice');
     const maxPrice = searchParams.get('maxPrice');
     const condition = searchParams.get('condition');
@@ -18,11 +16,13 @@ export async function GET(request: NextRequest) {
     const limit = 20;
     const offset = (page - 1) * limit;
 
+    // The select statement is already correctly joining the categories table.
     let query = supabase
         .from('items')
         .select(`
             *,
-            profiles:seller_id (*)
+            profiles:seller_id (*),
+            categories ( name, slug )
         `)
         .eq('status', 'available');
 
@@ -34,9 +34,14 @@ export async function GET(request: NextRequest) {
         });
     }
 
-    if (category) {
-        query = query.eq('category_name', category);
+    // --- THIS IS THE FIX ---
+    // This now filters the items by looking at the 'slug' column
+    // in the joined 'categories' table.
+    if (categorySlug) {
+        query = query.eq('categories.slug', categorySlug);
     }
+    // --- END OF FIX ---
+
     if (minPrice) {
         query = query.gte('buy_now_price', Number(minPrice));
     }
@@ -53,11 +58,9 @@ export async function GET(request: NextRequest) {
             query = query.order(sortField, { ascending: sortOrder === 'asc' });
         }
     } else {
-        // Default sort if none is provided
         query = query.order('created_at', { ascending: false });
     }
 
-    // Apply pagination after all filters
     query = query.range(offset, offset + limit - 1);
     
     const { data, error } = await query;

@@ -1,30 +1,30 @@
 // src/app/items/[id]/ItemDetails.tsx
 import Image from 'next/image';
 import Link from 'next/link';
-import { type ItemWithProfile } from '@/types';
+import { type Item, type Profile, type Category } from '@/types'; // Import Category type
 import Avatar from '@/app/components/Avatar';
 import { FaMapMarkerAlt, FaTag } from 'react-icons/fa';
 import ImageGallery from '@/app/components/ImageGallery';
 
+// FIX: Update the props interface to include the nested 'categories' object
 interface ItemDetailsProps {
-  item: ItemWithProfile;
+  item: Item & {
+    profiles: Profile | null;
+    categories: Category | null; // This tells TypeScript to expect the categories object
+  };
 }
 
 export default function ItemDetails({ item }: ItemDetailsProps) {
-  // --- FIX: More robust logic to parse the images array ---
   let imageSources: string[] = [];
 
   if (Array.isArray(item.images)) {
-      // Flatten the array in case it's nested (e.g., [['url1', 'url2']])
-      // and filter for valid, non-empty strings.
-      imageSources = item.images
-          .flat()
-          .filter((img): img is string => typeof img === 'string' && img.length > 0);
+    imageSources = item.images
+      .flat()
+      .filter((img): img is string => typeof img === 'string' && img.length > 0);
   }
 
-  // Fallback if no valid images are found after parsing
   if (imageSources.length === 0) {
-      imageSources.push('https://placehold.co/600x400/cccccc/ffffff?text=No+Image');
+    imageSources.push('https://placehold.co/600x400/cccccc/ffffff?text=No+Image');
   }
 
   return (
@@ -35,9 +35,10 @@ export default function ItemDetails({ item }: ItemDetailsProps) {
 
       <h1 className="text-3xl font-bold text-gray-900 mb-3">{item.title}</h1>
 
+      {/* FIX: Correctly display the category name from the nested object */}
       <div className="flex items-center text-sm text-gray-600 mb-4">
         <FaTag className="mr-2 text-brand" />
-        <span>{item.category || 'Uncategorized'}</span>
+        <span>{item.categories?.name || 'Uncategorized'}</span>
       </div>
 
       <div className="flex items-center space-x-4 mb-6">
