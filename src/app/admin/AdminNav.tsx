@@ -4,14 +4,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   FaUsers, FaTachometerAlt, FaBoxOpen, FaGavel, FaCreditCard, 
-  FaStar, FaUserClock, FaClipboardCheck, FaMoneyBillWave, FaIdCard, FaExclamationTriangle
+  FaStar, FaUserClock, FaClipboardCheck, FaMoneyBillWave, FaIdCard, 
+  FaExclamationTriangle, FaConciergeBell // New Icon
 } from 'react-icons/fa';
 
 const navLinks = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: FaTachometerAlt },
   { name: 'User Management', href: '/admin/users', icon: FaUsers },
   { name: 'ID Verifications', href: '/admin/verifications', icon: FaIdCard },
-  { name: 'Disputes', href: '/admin/disputes', icon: FaExclamationTriangle }, // New Link
+  // --- NEW LINK ADDED HERE ---
+  { name: 'Service Applications', href: '/admin/services', icon: FaConciergeBell },
+  { name: 'Disputes', href: '/admin/disputes', icon: FaExclamationTriangle }, 
   { name: 'Transactions', href: '/admin/transactions', icon: FaMoneyBillWave },
   { name: 'All Items', href: '/admin/items', icon: FaBoxOpen },
   { name: 'All Offers', href: '/admin/offers', icon: FaGavel },
@@ -27,7 +30,7 @@ export default function AdminNav() {
   return (
     <nav className="space-y-2">
       {navLinks.map((link) => {
-        const isActive = pathname === link.href;
+        const isActive = pathname.startsWith(link.href);
         return (
           <Link
             key={link.name}

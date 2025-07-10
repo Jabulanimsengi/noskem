@@ -1,9 +1,8 @@
-// src/app/components/Header.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { FaShoppingCart, FaPlusCircle, FaCoins, FaHeart, FaChevronDown } from 'react-icons/fa';
+import { FaShoppingCart, FaPlusCircle, FaCoins, FaHeart, FaChevronDown, FaBullhorn } from 'react-icons/fa'; // Added FaBullhorn
 import { MessageSquare } from 'lucide-react';
 import { type User } from '@supabase/supabase-js';
 import SearchBar from './SearchBar';
@@ -11,7 +10,7 @@ import AuthButton from './AuthButton';
 import NotificationBell from './NotificationBell';
 import { type Profile } from '@/types';
 import { getGuestLikes } from '@/utils/guestLikes';
-import { useAuthModal } from '@/context/AuthModalContext'; // Import the auth modal
+import { useAuthModal } from '@/context/AuthModalContext'; 
 
 interface HeaderProps {
     user: User | null;
@@ -24,7 +23,7 @@ export default function Header({ user, profile, initialLikesCount }: HeaderProps
     const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
     const howItWorksRef = useRef<HTMLDivElement>(null);
     const [isClient, setIsClient] = useState(false);
-    const { openModal } = useAuthModal(); // Get the modal function
+    const { openModal } = useAuthModal(); 
 
     useEffect(() => {
         setIsClient(true);
@@ -57,10 +56,9 @@ export default function Header({ user, profile, initialLikesCount }: HeaderProps
 
     const handleNotificationClick = (e: React.MouseEvent) => {
         if (!user) {
-            e.preventDefault(); // Prevent any default link behavior
+            e.preventDefault(); 
             openModal('sign_in');
         }
-        // If the user is logged in, the NotificationBell's default behavior will proceed
     };
 
     const likesHref = user ? "/account/dashboard/liked" : "/likes";
@@ -85,6 +83,10 @@ export default function Header({ user, profile, initialLikesCount }: HeaderProps
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1 text-sm font-semibold">
                                 <Link href="/about" className={navLinkClasses}>About Us</Link>
+                                
+                                {/* --- NEW LINK ADDED HERE --- */}
+                                <Link href="/advertise-services" className={navLinkClasses}>Advertise</Link>
+
                                 <div ref={howItWorksRef} className="relative group">
                                     <button onClick={() => setIsHowItWorksOpen(prev => !prev)} className={navLinkClasses}>
                                         <span>How It Works</span>
@@ -149,15 +151,25 @@ export default function Header({ user, profile, initialLikesCount }: HeaderProps
                         <span className="text-2xl font-extrabold tracking-tight text-white">NOSKEM</span>
                     </Link>
                     <div className="flex items-center gap-3">
-                        <Link href="/chat" title="Messages" className={iconLinkClasses}>
-                            <MessageSquare size={22} />
-                        </Link>
-                        <div onClick={handleNotificationClick} className="cursor-pointer">
-                            <NotificationBell />
-                        </div>
+                         {isClient && !user && (
+                             <AuthButton user={user} profile={profile} />
+                         )}
+                         {isClient && user && (
+                            <>
+                                <Link href="/chat" title="Messages" className={iconLinkClasses}><MessageSquare size={22} /></Link>
+                                <div onClick={handleNotificationClick} className="cursor-pointer"><NotificationBell /></div>
+                                <AuthButton user={user} profile={profile} />
+                            </>
+                         )}
                     </div>
                 </div>
                 <SearchBar />
+                {/* --- NEW LINKS FOR MOBILE --- */}
+                <div className="flex items-center justify-center gap-4 text-sm font-semibold pt-3">
+                    <Link href="/about" className={navLinkClasses}>About</Link>
+                    <Link href="/advertise-services" className={navLinkClasses}>Advertise</Link>
+                    <Link href="/how-it-works" className={navLinkClasses}>How It Works</Link>
+                </div>
             </div>
         </header>
     );

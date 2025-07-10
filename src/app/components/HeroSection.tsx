@@ -1,49 +1,60 @@
-// src/app/components/HeroSection.tsx
 'use client';
 
 import React from 'react';
 import Link from 'next/link';
-import { Button } from './Button';
-import { ArrowRight, Search } from 'lucide-react';
+import { useAuthModal } from '@/context/AuthModalContext';
+import { useUser } from '@/hooks/useUser';
 
 export const HeroSection: React.FC = () => {
-  return (
-    <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8">
-      <section
-        className="w-full overflow-hidden rounded-2xl shadow-lg bg-gradient-to-r from-cyan-900 to-gray-800 text-white text-center"
-        aria-label="Hero Banner"
-      >
-        {/* MOBILE OPTIMIZATION: Reduced vertical padding on mobile */}
-        <div className="px-4 py-16 sm:py-24">
-            {/* MOBILE OPTIMIZATION: Reduced font size for the main heading on mobile */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 tracking-tight">
-            The Trusted Way to Buy & Sell
-          </h1>
-          {/* MOBILE OPTIMIZATION: Reduced font size for the paragraph on mobile */}
-          <p className="text-base sm:text-lg md:text-xl opacity-90 max-w-3xl mx-auto">
-            Noskem is South Africa's managed marketplace. We verify every item, so you can transact with complete confidence.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/items/new">
-                <Button
-                    size="lg"
-                    className="bg-brand text-white hover:bg-brand-dark font-bold shadow-lg transform hover:scale-105 transition-transform w-full sm:w-auto"
-                >
-                    Start Selling Today <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-            </Link>
-            <Link href="/#listings-section">
-                <Button
-                    size="lg"
-                    variant="secondary"
-                    className="bg-white/90 text-brand hover:bg-white font-bold shadow-lg w-full sm:w-auto"
-                >
-                    <Search className="mr-2 h-5 w-5" /> Explore Listings
-                </Button>
-            </Link>
-          </div>
+    const { openModal } = useAuthModal();
+    const { user } = useUser();
+
+    const handleSellClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        if (!user) {
+            e.preventDefault();
+            openModal('sign_in');
+        }
+    };
+
+    return (
+        // This outer container centers the hero section on the page.
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-8 mb-8">
+            {/* This section has the dark background, rounded corners, and shadow. */}
+            <section
+                className="overflow-hidden rounded-2xl shadow-xl bg-slate-900 text-center"
+                aria-label="Hero Banner"
+            >
+                <div className="px-4 py-16 sm:py-24">
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight">
+                        Buy. Sell. Connect. <span className="text-brand">With Confidence.</span>
+                    </h1>
+                    <p className="mt-6 max-w-3xl mx-auto text-lg sm:text-xl text-slate-300">
+                        Noskem is South Africa’s bold new marketplace for verified second-hand deals and trusted service providers. No scams. No stress. Just serious value.
+                    </p>
+                    
+                    <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <Link 
+                            href="/items/new" 
+                            onClick={handleSellClick}
+                            className="inline-block bg-brand text-white font-bold py-3 px-6 rounded-lg text-base hover:bg-brand-dark transition-transform hover:scale-105"
+                        >
+                            Sell Something Now
+                        </Link>
+                        <Link 
+                            href="/search" 
+                            className="inline-block bg-white text-brand font-bold py-3 px-6 rounded-lg text-base hover:bg-gray-200 transition-transform hover:scale-105"
+                        >
+                            Browse Listings
+                        </Link>
+                         <Link 
+                            href="/advertise-services" 
+                            className="inline-block bg-slate-700 text-white font-bold py-3 px-6 rounded-lg text-base hover:bg-slate-600 transition-transform hover:scale-105"
+                        >
+                            Advertise Your Service
+                        </Link>
+                    </div>
+                </div>
+            </section>
         </div>
-      </section>
-    </div>
-  );
+    );
 };
