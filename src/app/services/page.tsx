@@ -22,8 +22,6 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
   let providers: any[] | null = null;
   let error: any = null;
 
-  // --- THIS IS THE CORRECTED LOGIC ---
-  // If location params are present, we use the RPC function directly.
   if (searchParams.lat && searchParams.lon) {
     const { data: rpcData, error: rpcError } = await supabase.rpc('get_service_providers_nearby', {
         lat: parseFloat(searchParams.lat),
@@ -32,13 +30,11 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
     });
     
     if (rpcData) {
-        // Manually shape the data as the RPC function doesn't join with categories
         providers = rpcData.map((p: any) => ({ ...p, service_categories: null }));
     }
     error = rpcError;
 
   } else {
-    // Otherwise, we build a standard query with filters.
     let query = supabase
       .from('service_providers')
       .select(`
@@ -72,7 +68,7 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
       </div>
 
       <div className="text-center mb-8">
-        <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-black">
+        <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">
           Explore Local Services
         </h1>
         <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-600 dark:text-gray-400">
@@ -93,7 +89,9 @@ export default async function ServicesPage({ searchParams }: ServicesPageProps) 
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-8">
+        // --- THIS IS THE UPDATED GRID LAYOUT ---
+        // It's now 2 columns on mobile, and expands on larger screens.
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mt-8">
           {(providers as ServiceProviderForCard[]).map(provider => (
             <ServiceProviderCard key={provider.id} provider={provider} />
           ))}
